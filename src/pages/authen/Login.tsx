@@ -5,15 +5,39 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
+import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
+import { auth, googleProvider } from "@/firebase";
+
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', { email, password, rememberMe });
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log("User logged in:", result.user);
+      alert("Đăng nhập thành công!");
+    } catch (error) {
+      console.error(error);
+      alert("Sai email hoặc mật khẩu!");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      console.log("Google User:", {
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL,
+      });
+    } catch (error) {
+      console.error("Google Login Error:", error);
+    }
   };
 
   return (
@@ -29,6 +53,7 @@ export default function Login() {
             {/* Google Sign In Button */}
             <Button
               type="button"
+              onClick={handleGoogleLogin}
               variant="outline"
               className="w-full h-12 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-base"
             >

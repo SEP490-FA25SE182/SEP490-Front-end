@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
+import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { auth, googleProvider } from "@/firebase";
+
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -17,12 +20,39 @@ export default function Signup() {
     agreeTerms: false
   });
 
-  const handleSubmit = () => {
-    console.log('Register attempt:', formData);
-  };
-
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const result = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      // Gửi email xác minh
+      await sendEmailVerification(result.user);
+      console.log("User signed up:", result.user);
+      alert("Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.");
+    } catch (error) {
+      console.error(error);
+      alert("Đăng ký thất bại!");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      console.log("Google User:", {
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL,
+      });
+    } catch (error) {
+      console.error("Google Login Error:", error);
+    }
   };
 
   return (
@@ -48,6 +78,7 @@ export default function Signup() {
             {/* Google Sign Up Button */}
             <Button
               type="button"
+              onClick={handleGoogleLogin}
               variant="outline"
               className="w-full h-12 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-base"
             >

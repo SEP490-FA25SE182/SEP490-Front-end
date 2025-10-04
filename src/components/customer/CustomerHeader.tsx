@@ -1,6 +1,7 @@
-import {  Search, Menu } from 'lucide-react';
+import { Search, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 const CustomerHeader = () => {
     return (
@@ -9,10 +10,12 @@ const CustomerHeader = () => {
                 {/* Top Section */}
                 <div className="flex items-center justify-between px-6 py-4">
                     {/* Logo & Brand */}
-                    <div className="flex items-center gap-3">
-                        <img src="./open-book.png" className='w-10' />
-                        <span className="text-xl font-semibold">Rookies</span>
-                    </div>
+                    <Link to="/">
+                        <div className="flex items-center gap-3">
+                            <img src="./rookies-logo.jpg" className='w-10' />
+                            <span className="text-xl font-semibold">Rookies</span>
+                        </div>
+                    </Link>
 
                     {/* Search Bar */}
                     <div className="flex-1 max-w-md mx-8">

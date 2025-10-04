@@ -10,7 +10,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-
+import { Link } from 'react-router-dom';
 
 interface Book {
   book_id: string;
@@ -27,25 +27,27 @@ interface BookCardProps {
 }
 
 const BookCard: React.FC<BookCardProps> = ({ book }) => (
-  <div className="cursor-pointer group">
-    <div className="aspect-[3/4] overflow-hidden rounded-xl mb-3 shadow-xl">
-      <img
-        src={book.cover_url}
-        alt={book.book_name}
-        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
-        }}
-      />
+  <Link to={`/book/${book.book_id}`}>
+    <div className="cursor-pointer group">
+      <div className="aspect-[3/4] overflow-hidden rounded-xl mb-3 shadow-xl">
+        <img
+          src={book.cover_url}
+          alt={book.book_name}
+          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
+          }}
+        />
+      </div>
+      <h3 className="text-white font-medium text-base line-clamp-2 mb-1">
+        {book.book_name}
+      </h3>
+      <p className="text-white/50 text-sm line-clamp-1">
+        {book.decription}
+      </p>
     </div>
-    <h3 className="text-white font-medium text-base line-clamp-2 mb-1">
-      {book.book_name}
-    </h3>
-    <p className="text-white/50 text-sm line-clamp-1">
-      {book.decription}
-    </p>
-  </div>
+  </Link>
 );
 
 interface BookSectionProps {

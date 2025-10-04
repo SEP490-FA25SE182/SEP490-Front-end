@@ -1,4 +1,5 @@
 import { Mail, Facebook, Instagram } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const CustomerFooter = () => {
   return (
@@ -7,10 +8,13 @@ const CustomerFooter = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Left Column - Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-6">
-              <img src="./open-book.png" className='w-10' />
-              <span className="text-2xl font-semibold">Rookies</span>
-            </div>
+            <Link to="/">
+              <div className="flex items-center gap-3 mb-6">
+                <img src="./rookies-logo.jpg" className='w-10' />
+                <span className="text-2xl font-semibold">Rookies</span>
+              </div>
+            </Link>
+
             <p className="text-sm leading-relaxed opacity-90">
               Address: FPT University, District 9, HCMC
             </p>
@@ -23,7 +27,7 @@ const CustomerFooter = () => {
             <p className="text-sm opacity-90">
               © Copyright 2024
             </p>
-            
+
             {/* Social Icons */}
             <div className="flex items-center gap-4 pt-4">
               <a href="#" className="hover:opacity-80 transition-opacity">

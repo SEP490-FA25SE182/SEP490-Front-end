@@ -54,7 +54,7 @@ const CustomerHeader = () => {
                                 Khuyến mãi
                             </li>
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
-                                Danh sách đọc
+                                Giỏ hàng
                             </li>
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
                                 Giới thiệu

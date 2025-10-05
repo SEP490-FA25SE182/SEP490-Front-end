@@ -2,6 +2,7 @@ import { Search, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import CartBadge from './CartBagde';
 
 const CustomerHeader = () => {
     return (
@@ -56,6 +57,7 @@ const CustomerHeader = () => {
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
                                 Khuyến mãi
                             </li>
+                            <CartBadge></CartBadge>
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
                                 Giỏ hàng
                             </li>

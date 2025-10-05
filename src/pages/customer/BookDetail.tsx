@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
 import { Star } from 'lucide-react';
 import { useEffect } from 'react';
+import { useCart } from '@/context/CartContext';
+import { useToast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { useNavigate } from 'react-router-dom';
 
 interface Review {
     id: string;
@@ -90,6 +94,9 @@ const BookCard: React.FC<BookCardProps> = ({ book }) => (
 
 export const BookDetail = () => {
     const { bookId } = useParams();
+    const { add } = useCart();         
+    const { toast } = useToast();           // 👈 hook shadcn/ui
+    const navigate = useNavigate();
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -117,6 +124,23 @@ export const BookDetail = () => {
             day: 'numeric'
         });
     };
+
+    const handleAddToCart = () => {
+    add(book, 1);
+    toast({
+      title: 'Đã thêm vào giỏ hàng',
+      description: `“${book.book_name}” đã được thêm.`,
+      action: (
+        <ToastAction
+          altText="Xem giỏ hàng"
+          onClick={() => navigate('/cart')}
+        >
+          Xem giỏ
+        </ToastAction>
+      ),
+      // duration: 2500, // (tuỳ chọn) thời gian ẩn toast
+    });
+  };
 
     return (
         <div className='min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]'>
@@ -177,6 +201,8 @@ export const BookDetail = () => {
                                         size="lg"
                                         variant="outline"
                                         className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full"
+                                        // onClick={() => add(book, 1)}
+                                        onClick={handleAddToCart}
                                     >
                                         <ShoppingCart className="mr-2 h-5 w-5" />
                                         Thêm vào giỏ

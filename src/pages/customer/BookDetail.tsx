@@ -3,8 +3,7 @@ import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
 import booksData from '@/data/sample_books.json';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart } from 'lucide-react';
-import { Star } from 'lucide-react';
+import { ShoppingCart, Star } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface Review {
@@ -39,21 +38,17 @@ const mockReviews: Review[] = [
     }
 ];
 
-const StarRating: React.FC<{ rating: number }> = ({ rating }) => {
-    return (
-        <div className="flex">
-            {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                    key={star}
-                    className={`w-5 h-5 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                        }`}
-                />
-            ))}
-        </div>
-    );
-};
+const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
+    <div className="flex">
+        {[1, 2, 3, 4, 5].map((star) => (
+            <Star
+                key={star}
+                className={`w-5 h-5 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+            />
+        ))}
+    </div>
+);
 
-// Thêm interface BookCardProps
 interface BookCardProps {
     book: {
         book_id: string;
@@ -63,7 +58,6 @@ interface BookCardProps {
     };
 }
 
-// Thêm component BookCard (tương tự Homepage)
 const BookCard: React.FC<BookCardProps> = ({ book }) => (
     <Link to={`/book/${book.book_id}`}>
         <div className="cursor-pointer group">
@@ -74,16 +68,13 @@ const BookCard: React.FC<BookCardProps> = ({ book }) => (
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
+                        target.src =
+                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
                     }}
                 />
             </div>
-            <h3 className="text-white font-medium text-base line-clamp-2 mb-1">
-                {book.book_name}
-            </h3>
-            <p className="text-white/50 text-sm line-clamp-1">
-                {book.decription}
-            </p>
+            <h3 className="text-white font-medium text-base line-clamp-2 mb-1">{book.book_name}</h3>
+            <p className="text-white/50 text-sm line-clamp-1">{book.decription}</p>
         </div>
     </Link>
 );
@@ -94,32 +85,40 @@ export const BookDetail = () => {
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [bookId]);
-    
-    const book = booksData.find((b) => b.book_id === bookId);
 
-    // Thêm logic để lấy sách liên quan
-    const relatedBooks = booksData
-        .filter(b =>
-            // Lọc sách cùng bookshelve_id và không phải sách hiện tại
-            b.book_id !== bookId &&
-            b.bookshelve_id === book?.bookshelve_id
-        )
-        .slice(0, 4); // Lấy 4 sách
+    // ✅ Lấy sách từ schema mới
+    const books = booksData.Books;
+    const bookGenres = booksData.BookGenres;
+
+    const book = books.find((b) => b.book_id === bookId);
 
     if (!book) {
         return <div>Book not found</div>;
     }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN', {
+    // ✅ Lấy danh sách genre_id của sách hiện tại
+    const currentBookGenres = bookGenres
+        .filter((bg) => bg.book_id === book.book_id)
+        .map((bg) => bg.genre_id);
+
+    // ✅ Lấy sách liên quan theo thể loại (có ít nhất 1 genre trùng)
+    const relatedBooks = books
+        .filter((b) => {
+            if (b.book_id === book.book_id) return false;
+            const otherGenres = bookGenres.filter((bg) => bg.book_id === b.book_id).map((bg) => bg.genre_id);
+            return otherGenres.some((g) => currentBookGenres.includes(g));
+        })
+        .slice(0, 4);
+
+    const formatDate = (dateString: string) =>
+        new Date(dateString).toLocaleDateString('vi-VN', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
         });
-    };
 
     return (
-        <div className='min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]'>
+        <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
             <CustomerHeader />
 
             <main className="container mx-auto px-4 md:px-20 py-12">
@@ -133,7 +132,8 @@ export const BookDetail = () => {
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                    target.src =
+                                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect width="200" height="300" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
                                 }}
                             />
                         </div>
@@ -141,9 +141,7 @@ export const BookDetail = () => {
 
                     {/* Right side - Book Details */}
                     <div className="md:w-2/3">
-                        <h1 className="text-3xl font-bold text-white mb-4">
-                            {book.book_name}
-                        </h1>
+                        <h1 className="text-3xl font-bold text-white mb-4">{book.book_name}</h1>
 
                         <div className="space-y-4 text-white/80">
                             <p className="text-lg">
@@ -161,9 +159,7 @@ export const BookDetail = () => {
                             </p>
 
                             <div className="pt-6">
-                                <h3 className="text-xl font-bold text-white mb-4">
-                                    Giá: 150.000 VND
-                                </h3>
+                                <h3 className="text-xl font-bold text-white mb-4">Giá: 150.000 VND</h3>
 
                                 <div className="flex gap-4">
                                     <Button
@@ -187,7 +183,7 @@ export const BookDetail = () => {
                     </div>
                 </div>
 
-                {/* Thêm phần Reviews */}
+                {/* Reviews */}
                 <div className="mt-12">
                     <div className="border-t border-white/20 pt-8">
                         <h2 className="text-2xl font-bold text-white mb-6">
@@ -215,7 +211,7 @@ export const BookDetail = () => {
                     </div>
                 </div>
 
-                {/* Thêm phần Có thể bạn cũng thích */}
+                {/* Related Books */}
                 <div className="mt-16">
                     <div className="border-t border-white/20 pt-8">
                         <h2 className="text-2xl font-bold text-white mb-6 text-center uppercase tracking-wide">

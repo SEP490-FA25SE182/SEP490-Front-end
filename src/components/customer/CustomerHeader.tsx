@@ -2,10 +2,15 @@ import { Search, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import booksData from '@/data/sample_books.json';
 
 const CustomerHeader = () => {
+    const [isGenreOpen, setIsGenreOpen] = useState(false);
+    const genres = (booksData as any).Genres || [];
+
     return (
-        <header className="text-white">
+        <header className="text-white relative">
             <div className="max-w-7xl mx-auto">
                 {/* Top Section */}
                 <div className="flex items-center justify-between px-6 py-4">
@@ -46,11 +51,35 @@ const CustomerHeader = () => {
                 {/* Navigation */}
                 <nav className="px-6 py-3">
                     <ul className="flex items-center justify-between text-sm">
-                        {/* Left: Chọn sách */}
-                        <li className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors">
-                            <Menu className="w-4 h-4" />
-                            <span>Chọn sách</span>
+                        {/* Left: Chọn sách with dropdown */}
+                        <li 
+                            className="relative"
+                            onMouseEnter={() => setIsGenreOpen(true)}
+                            onMouseLeave={() => setIsGenreOpen(false)}
+                        >
+                            <div className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors">
+                                <Menu className="w-4 h-4" />
+                                <span>Chọn sách</span>
+                            </div>
+                            
+                            {/* Dropdown Menu */}
+                            {isGenreOpen && (
+                                <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
+                                    <div className="grid grid-cols-1 gap-1 p-3">
+                                        {genres.map((genre: any) => (
+                                            <Link 
+                                                key={genre.genre_id} 
+                                                to={`/genre/${genre.genre_id}`}
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                {genre.genre_name}
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </li>
+
                         {/* Right: Other items */}
                         <div className="flex items-center gap-8">
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">

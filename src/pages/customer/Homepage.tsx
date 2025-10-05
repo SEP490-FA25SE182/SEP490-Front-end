@@ -1,4 +1,3 @@
-
 import CustomerHeader from '@/components/customer/CustomerHeader'
 import CustomerFooter from '@/components/customer/CustomerFooter'
 import React from 'react';
@@ -20,6 +19,8 @@ interface Book {
   created_date: string;
   updated_date: string;
   publication_status: number;
+  bookshelve_id: string;
+  published_date: string;
 }
 
 interface BookCardProps {
@@ -68,7 +69,7 @@ const BookSection: React.FC<BookSectionProps> = ({ title, books }) => (
   </section>
 );
 
-// Thêm mảng ảnh quảng cáo
+// Danh sách ảnh quảng cáo
 const advertisementImages = [
   "https://static.vecteezy.com/system/resources/previews/067/724/087/non_2x/book-festival-or-fair-horizontal-banner-for-advertising-and-promotion-piles-of-various-books-template-for-social-media-posts-web-design-world-book-day-or-back-to-school-concepts-vector.jpg",
   "https://static.vecteezy.com/system/resources/previews/027/450/989/non_2x/book-sale-horizontal-banners-web-header-template-book-sale-poster-banner-template-for-promotion-with-stack-of-books-cocktail-glasses-tropical-leaves-summer-seasonal-sale-vector.jpg",
@@ -79,19 +80,22 @@ const advertisementImages = [
 ];
 
 export default function Homepage() {
-  // Sắp xếp theo updated_date mới nhất
-  const newestBooks = [...booksData]
+  // ✅ Lấy đúng mảng "Books" trong JSON
+  const allBooks = (booksData as any).Books || [];
+
+  // Mới nhất
+  const newestBooks = [...allBooks]
     .sort((a, b) => new Date(b.updated_date).getTime() - new Date(a.updated_date).getTime())
     .slice(0, 4);
 
-  // Sách được đề xuất: publication_status = 1 và sắp xếp theo published_date
-  const recommendedBooks = [...booksData]
+  // Được đề xuất (publication_status = 1)
+  const recommendedBooks = [...allBooks]
     .filter(book => book.publication_status === 1)
     .sort((a, b) => new Date(b.published_date).getTime() - new Date(a.published_date).getTime())
     .slice(0, 4);
 
-  // Sách theo thể loại: group theo bookshelve_id, lấy shelf_1
-  const categoryBooks = [...booksData]
+  // Theo thể loại (ví dụ bookshelve_id = 'shelf_1')
+  const categoryBooks = [...allBooks]
     .filter(book => book.bookshelve_id === 'shelf_1')
     .slice(0, 4);
 
@@ -100,15 +104,9 @@ export default function Homepage() {
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
-        {/* Add Carousel Section */}
+        {/* Carousel quảng cáo */}
         <section className="mb-12 max-w-5xl mx-auto">
-          <Carousel
-            opts={{
-              align: "start",
-              loop: true,
-            }}
-            className="w-full"
-          >
+          <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-2 md:-ml-4">
               {advertisementImages.map((image, index) => (
                 <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">
@@ -118,10 +116,6 @@ export default function Homepage() {
                         src={image}
                         alt={`Advertisement ${index + 1}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="225"%3E%3Crect width="400" height="225" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="white"%3EAdvertisement%3C/text%3E%3C/svg%3E';
-                        }}
                       />
                     </div>
                   </div>
@@ -132,6 +126,7 @@ export default function Homepage() {
             <CarouselNext />
           </Carousel>
         </section>
+
         <BookSection title="Mới Nhất" books={newestBooks} />
         <BookSection title="Sách Được Đề Xuất" books={recommendedBooks} />
         <BookSection title="Sách Theo Thể Loại" books={categoryBooks} />

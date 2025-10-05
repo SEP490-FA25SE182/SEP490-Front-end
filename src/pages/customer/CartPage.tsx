@@ -4,9 +4,11 @@ import { Link } from "react-router-dom";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Trash2, Minus, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function CartPage() {
   const { state, subtotal, setQty, remove, clear } = useCart();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
@@ -125,9 +127,14 @@ export default function CartPage() {
                 <span className="font-bold">{formatVND(subtotal)}</span>
               </div>
 
-              <button className="w-full rounded-lg bg-white text-[#16213E] py-2 font-semibold hover:opacity-90 transition">
-                Thanh toán
-              </button>
+              <button
+  className="w-full rounded-lg bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white py-2 font-semibold 
+             hover:bg-white hover:text-[#16213E] cursor-pointer transition-all duration-300"
+  onClick={() => navigate('/checkout')}
+>
+  Thanh toán
+</button>
+
               <button
                 className="w-full mt-2 rounded-lg border border-white/20 text-white py-2 hover:bg-white/10 transition"
                 onClick={clear}

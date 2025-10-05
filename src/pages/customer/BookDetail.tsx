@@ -141,6 +141,16 @@ export const BookDetail = () => {
     });
   };
 
+  const handleBuyNow = () => {
+  // Không đụng giỏ: chỉ chuyển sang checkout với 1 dòng hàng
+  navigate("/checkout", {
+    state: {
+      buyNowLine: { book, qty: 1 }, // giống shape CartLine
+    },
+  });
+};
+
+
     return (
         <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
             <CustomerHeader />
@@ -188,7 +198,8 @@ export const BookDetail = () => {
                                 <div className="flex gap-4">
                                     <Button
                                         size="lg"
-                                        className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white rounded-full px-6 py-3"
+                                        className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white rounded-full px-6 py-3 cursor-pointer"
+                                        onClick={handleBuyNow}
                                     >
                                         Mua ngay
                                     </Button>
@@ -196,7 +207,7 @@ export const BookDetail = () => {
                                     <Button
                                         size="lg"
                                         variant="outline"
-                                        className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full"
+                                        className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full cursor-pointer"
                                         // onClick={() => add(book, 1)}
                                         onClick={handleAddToCart}
                                     >

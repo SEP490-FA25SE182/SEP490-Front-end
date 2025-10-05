@@ -38,10 +38,14 @@ const CustomerHeader = () => {
                     {/* Login/Register */}
                     <div className="flex items-center gap-4">
                         <Button variant="ghost" className="text-white">
-                            Đăng nhập
+                            <Link to="/login">
+                                Đăng nhập
+                            </Link>
                         </Button>
                         <Button className="bg-purple-500 hover:bg-purple-600">
-                            Đăng ký
+                            <Link to="/signup">
+                                Đăng ký
+                            </Link>
                         </Button>
                     </div>
                 </div>
@@ -53,7 +57,7 @@ const CustomerHeader = () => {
                 <nav className="px-6 py-3">
                     <ul className="flex items-center justify-between text-sm">
                         {/* Left: Chọn sách with dropdown */}
-                        <li 
+                        <li
                             className="relative"
                             onMouseEnter={() => setIsGenreOpen(true)}
                             onMouseLeave={() => setIsGenreOpen(false)}
@@ -62,14 +66,14 @@ const CustomerHeader = () => {
                                 <Menu className="w-4 h-4" />
                                 <span>Chọn sách</span>
                             </div>
-                            
+
                             {/* Dropdown Menu */}
                             {isGenreOpen && (
                                 <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
                                     <div className="grid grid-cols-1 gap-1 p-3">
                                         {genres.map((genre: any) => (
-                                            <Link 
-                                                key={genre.genre_id} 
+                                            <Link
+                                                key={genre.genre_id}
                                                 to={`/genre/${genre.genre_id}`}
                                                 className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
                                             >
@@ -83,16 +87,7 @@ const CustomerHeader = () => {
 
                         {/* Right: Other items */}
                         <div className="flex items-center gap-8">
-                            <li className="cursor-pointer hover:text-purple-400 transition-colors">
-                                Khuyến mãi
-                            </li>
                             <CartBadge></CartBadge>
-                            <li className="cursor-pointer hover:text-purple-400 transition-colors">
-                                Giỏ hàng
-                            </li>
-                            <li className="cursor-pointer hover:text-purple-400 transition-colors">
-                                Giới thiệu
-                            </li>
                         </div>
                     </ul>
                 </nav>

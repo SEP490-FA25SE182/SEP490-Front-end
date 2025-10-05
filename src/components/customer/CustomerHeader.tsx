@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import booksData from '@/data/sample_books.json';
+import CartBadge from './CartBagde';
 
 const CustomerHeader = () => {
     const [isGenreOpen, setIsGenreOpen] = useState(false);
@@ -85,6 +86,7 @@ const CustomerHeader = () => {
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
                                 Khuyến mãi
                             </li>
+                            <CartBadge></CartBadge>
                             <li className="cursor-pointer hover:text-purple-400 transition-colors">
                                 Giỏ hàng
                             </li>

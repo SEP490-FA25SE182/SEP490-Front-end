@@ -68,19 +68,19 @@ export default function Signup() {
       </div>
 
       {/* Right side - Register Form */}
-      <div className="flex flex-col justify-center w-full lg:w-1/2 px-8 sm:px-12 md:px-16 lg:px-20 xl:px-24 bg-white overflow-y-auto">
-        <div className="w-full max-w-md mx-auto py-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8 text-center">
+      <div className="flex flex-col justify-center w-full lg:w-1/2 px-4 sm:px-8 md:px-12 lg:px-16 bg-white overflow-y-auto"> {/* Giảm padding */}
+        <div className="w-full max-w-md mx-auto py-6"> {/* Giảm padding */}
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 text-center"> {/* Giảm font size và margin */}
             Rất vui vì gặp bạn!
           </h1>
 
-          <div className="space-y-5">
+          <div className="space-y-4"> {/* Giảm khoảng cách giữa các phần tử */}
             {/* Google Sign Up Button */}
             <Button
               type="button"
               onClick={handleGoogleLogin}
               variant="outline"
-              className="w-full h-12 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-base"
+              className="w-full h-10 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-sm"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path
@@ -103,13 +103,13 @@ export default function Signup() {
               Google
             </Button>
 
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-xs text-gray-600"> {/* Giảm font size */}
               Hoặc tiếp tục với
             </div>
 
             {/* Name Input */}
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-normal text-gray-700">
+            <div className="space-y-1"> {/* Giảm khoảng cách */}
+              <Label htmlFor="name" className="text-xs font-normal text-gray-700"> {/* Giảm font size */}
                 Tên của bạn
               </Label>
               <Input
@@ -118,14 +118,14 @@ export default function Signup() {
                 placeholder="john@example.com"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
+                className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
               />
             </div>
 
             {/* Gender and Birth Date */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="gender" className="text-sm font-normal text-gray-700">
+            <div className="grid grid-cols-2 gap-3"> {/* Giảm gap */}
+              <div className="space-y-1">
+                <Label htmlFor="gender" className="text-xs font-normal text-gray-700">
                   Giới tính
                 </Label>
                 <Input
@@ -133,11 +133,11 @@ export default function Signup() {
                   type="text"
                   value={formData.gender}
                   onChange={(e) => handleChange('gender', e.target.value)}
-                  className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
+                  className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="birthDate" className="text-sm font-normal text-gray-700">
+              <div className="space-y-1">
+                <Label htmlFor="birthDate" className="text-xs font-normal text-gray-700">
                   Ngày sinh
                 </Label>
                 <Input
@@ -145,7 +145,7 @@ export default function Signup() {
                   type="text"
                   value={formData.birthDate}
                   onChange={(e) => handleChange('birthDate', e.target.value)}
-                  className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
+                  className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
                 />
               </div>
             </div>
@@ -213,11 +213,11 @@ export default function Signup() {
                 id="terms"
                 checked={formData.agreeTerms}
                 onCheckedChange={(checked) => handleChange('agreeTerms', checked as boolean)}
-                className="mt-1"
+                className="mt-0.5"
               />
               <label
                 htmlFor="terms"
-                className="text-sm text-gray-700 cursor-pointer leading-tight"
+                className="text-xs text-gray-700 cursor-pointer leading-tight"
               >
                 Bạn muốn thử làm người vẽ truyện không?
               </label>
@@ -226,13 +226,13 @@ export default function Signup() {
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-medium"
+              className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium"
             >
               Đăng ký
             </Button>
 
             {/* Sign In Link */}
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-xs text-gray-600"> {/* Giảm font size */}
               Bạn đã có tài khoản?{' '}
               <a href="/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
                 Vậy quay lại đăng nhập đi!

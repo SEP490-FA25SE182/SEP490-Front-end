@@ -43,19 +43,19 @@ export default function Login() {
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       {/* Right side - Login Form */}
-      <div className="flex flex-col justify-center w-full lg:w-1/2 px-8 sm:px-12 md:px-16 lg:px-24 xl:px-32 bg-white">
-        <div className="w-full max-w-md mx-auto">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8 text-center">
+      <div className="flex flex-col justify-center w-full lg:w-1/2 px-4 sm:px-8 md:px-12 lg:px-16 bg-white"> {/* Reduced padding */}
+        <div className="w-full max-w-md mx-auto py-6"> {/* Added padding-y */}
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 text-center"> {/* Reduced size and margin */}
             Mừng bạn quay lại!
           </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4"> {/* Reduced space between elements */}
             {/* Google Sign In Button */}
             <Button
               type="button"
               onClick={handleGoogleLogin}
               variant="outline"
-              className="w-full h-12 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-base"
+              className="w-full h-10 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-sm"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path
@@ -78,13 +78,13 @@ export default function Login() {
               Google
             </Button>
 
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-xs text-gray-600"> {/* Reduced font size */}
               Hoặc tiếp tục với
             </div>
 
             {/* Email Input */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-normal text-gray-700">
+            <div className="space-y-1"> {/* Reduced space */}
+              <Label htmlFor="email" className="text-xs font-normal text-gray-700"> {/* Reduced font size */}
                 Địa chỉ Email
               </Label>
               <Input
@@ -93,13 +93,13 @@ export default function Login() {
                 placeholder="john@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
+                className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
               />
             </div>
 
             {/* Password Input */}
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-normal text-gray-700">
+            <div className="space-y-1"> {/* Reduced space */}
+              <Label htmlFor="password" className="text-xs font-normal text-gray-700"> {/* Reduced font size */}
                 Mật khẩu
               </Label>
               <div className="relative">
@@ -109,7 +109,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400 pr-12"
+                  className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 pr-12 text-sm"
                 />
                 <button
                   type="button"
@@ -117,9 +117,9 @@ export default function Login() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
@@ -132,15 +132,16 @@ export default function Login() {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  className="h-4 w-4"
                 />
                 <label
                   htmlFor="remember"
-                  className="text-sm text-gray-700 cursor-pointer"
+                  className="text-xs text-gray-700 cursor-pointer"
                 >
                   Lưu thông tin của tôi
                 </label>
               </div>
-              <a href="#" className="text-sm text-indigo-600 hover:text-indigo-700">
+              <a href="#" className="text-xs text-indigo-600 hover:text-indigo-700"> {/* Reduced font size */}
                 Bạn quên mật khẩu?
               </a>
             </div>
@@ -148,13 +149,13 @@ export default function Login() {
             {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-medium"
+              className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium" 
             >
               Đăng nhập
             </Button>
 
             {/* Sign Up Link */}
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-xs text-gray-600"> {/* Reduced font size */}
               Bạn không có tài khoản?{' '}
               <a href="/signup" className="text-indigo-600 hover:text-indigo-700 font-medium">
                 Vào đây để đăng ký mới
@@ -163,11 +164,12 @@ export default function Login() {
           </form>
 
           {/* Footer Text */}
-          <p className="mt-8 text-sm text-gray-600 text-center">
+          <p className="mt-6 text-xs text-gray-600 text-center"> {/* Reduced margin and font size */}
             Trải nghiệm sách theo cách chưa từng có với công nghệ AR, tưởng thuật AI và kể chuyện nhập vai.
           </p>
         </div>
       </div>
+
       {/* Left side - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <img

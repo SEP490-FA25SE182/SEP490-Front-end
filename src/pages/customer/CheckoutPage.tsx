@@ -123,29 +123,29 @@ export default function CheckoutPage() {
   );
 
   async function onSubmit(data: FormValues) {
-    const payload = {
-      customer: {
-        fullName: data.fullName,
-        phone: data.phone,
-        email: data.email || undefined,
-      },
-      shipping: {
-        province: data.province,
-        district: data.district,
-        ward: data.ward,
-        address: data.address,
-        note: data.note,
-        method: data.shippingMethod,
-        fee: shippingFee,
-      },
-      payment: { method: data.paymentMethod },
-      items: linesToPay.map((l) => ({
-        productId: (l.book as any).book_id,
-        unitPrice: getUnit(l.book),
-        qty: l.qty,
-      })),
-      amounts: { subtotal: effectiveSubtotal, shippingFee, total },
-    };
+    // const payload = {
+    //   customer: {
+    //     fullName: data.fullName,
+    //     phone: data.phone,
+    //     email: data.email || undefined,
+    //   },
+    //   shipping: {
+    //     province: data.province,
+    //     district: data.district,
+    //     ward: data.ward,
+    //     address: data.address,
+    //     note: data.note,
+    //     method: data.shippingMethod,
+    //     fee: shippingFee,
+    //   },
+    //   payment: { method: data.paymentMethod },
+    //   items: linesToPay.map((l) => ({
+    //     productId: (l.book as any).book_id,
+    //     unitPrice: getUnit(l.book),
+    //     qty: l.qty,
+    //   })),
+    //   amounts: { subtotal: effectiveSubtotal, shippingFee, total },
+    // };
 
     try {
       // const res = await axios.post("/api/orders", payload);

@@ -9,7 +9,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 interface Book {
   book_id: string;
@@ -80,8 +80,26 @@ const advertisementImages = [
 ];
 
 export default function Homepage() {
+  const { gerneId } = useParams<{ gerneId?: string }>();
   // ✅ Lấy đúng mảng "Books" trong JSON
   const allBooks = (booksData as any).Books || [];
+  const bookGernes = (booksData as any).BookGenres || [];
+  const gernes = (booksData as any).Genres || [];
+
+  let displayedBooks = allBooks;
+
+  if (gerneId) {
+    const filteredBookIds = bookGernes
+      .filter((bg: any) => bg.genre_id === gerneId)
+      .map((bg: any) => bg.book_id);
+
+    displayedBooks = allBooks.filter((book: any) =>
+      filteredBookIds.includes(book.book_id)
+    );
+  }
+
+  const gerneName =
+    gernes.find((g: any) => g.genre_id === gerneId)?.genre_name || "";
 
   // Mới nhất
   const newestBooks = [...allBooks]
@@ -104,32 +122,41 @@ export default function Homepage() {
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
-        {/* Carousel quảng cáo */}
-        <section className="mb-12 max-w-5xl mx-auto">
-          <Carousel opts={{ align: "start", loop: true }} className="w-full">
-            <CarouselContent className="-ml-2 md:-ml-4">
-              {advertisementImages.map((image, index) => (
-                <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">
-                  <div className="overflow-hidden rounded-lg">
-                    <div className="aspect-[16/9] relative">
-                      <img
-                        src={image}
-                        alt={`Advertisement ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </section>
+        {!gerneId ? (
+          <>
+            {/* Carousel quảng cáo */}
+            <section className="mb-12 max-w-5xl mx-auto">
+              <Carousel opts={{ align: "start", loop: true }} className="w-full">
+                <CarouselContent className="-ml-2 md:-ml-4">
+                  {advertisementImages.map((image, index) => (
+                    <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">
+                      <div className="overflow-hidden rounded-lg">
+                        <div className="aspect-[16/9] relative">
+                          <img
+                            src={image}
+                            alt={`Advertisement ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+            </section>
 
-        <BookSection title="Mới Nhất" books={newestBooks} />
-        <BookSection title="Sách Được Đề Xuất" books={recommendedBooks} />
-        <BookSection title="Sách Theo Thể Loại" books={categoryBooks} />
+            <BookSection title="Mới Nhất" books={newestBooks} />
+            <BookSection title="Sách Được Đề Xuất" books={recommendedBooks} />
+            <BookSection title="Sách Theo Thể Loại" books={categoryBooks} />
+          </>
+        ) : (
+          <BookSection
+            title={`Thể loại: ${gerneName}`}
+            books={displayedBooks}
+          />
+        )}
       </main>
 
       <CustomerFooter />

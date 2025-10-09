@@ -1,4 +1,4 @@
-import { Search, Menu } from 'lucide-react';
+import { Search, Menu, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -8,6 +8,7 @@ import CartBadge from './CartBagde';
 
 const CustomerHeader = () => {
     const [isGenreOpen, setIsGenreOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // Thêm state mới
     const genres = (booksData as any).Genres || [];
 
     return (
@@ -88,6 +89,51 @@ const CustomerHeader = () => {
                         {/* Right: Other items */}
                         <div className="flex items-center gap-8">
                             <CartBadge></CartBadge>
+                            <div 
+                                className="relative"
+                                onMouseEnter={() => setIsUserMenuOpen(true)}
+                                onMouseLeave={() => setIsUserMenuOpen(false)}
+                            >
+                                <User className="w-5 h-5 cursor-pointer hover:text-purple-400 transition-colors" />
+                                
+                                {/* User Dropdown Menu */}
+                                {isUserMenuOpen && (
+                                    <div className="absolute top-2 right-0 w-48 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50 mt-2">
+                                        <div className="grid grid-cols-1 gap-1 p-3">
+                                            <Link
+                                                to="/profile"
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                Thông tin cá nhân
+                                            </Link>
+                                            <Link
+                                                to="/transactions"
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                Lịch sử giao dịch
+                                            </Link>
+                                            <Link
+                                                to="/bookshelf"
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                Tủ sách của tôi
+                                            </Link>
+                                            <Link
+                                                to="/wallet"
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                Ví của tôi
+                                            </Link>
+                                            <Link
+                                                to="/login"
+                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                                            >
+                                                Đăng xuất
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </ul>
                 </nav>

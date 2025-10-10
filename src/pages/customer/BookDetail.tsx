@@ -3,12 +3,13 @@ import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
 import booksData from '@/data/sample_books.json';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Star } from 'lucide-react';
+import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useNavigate } from 'react-router-dom';
+import { useFavorites } from '@/context/FavoriteContext';
 
 interface Review {
     id: string;
@@ -85,9 +86,10 @@ const BookCard: React.FC<BookCardProps> = ({ book }) => (
 
 export const BookDetail = () => {
     const { bookId } = useParams();
-    const { add } = useCart();         
+    const { add } = useCart();
     const { toast } = useToast();           // 👈 hook shadcn/ui
     const navigate = useNavigate();
+    const { toggleFavorite, isFavorite } = useFavorites();
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -125,31 +127,48 @@ export const BookDetail = () => {
         });
 
     const handleAddToCart = () => {
-    add(book, 1);
-    toast({
-      title: 'Đã thêm vào giỏ hàng',
-      description: `“${book.book_name}” đã được thêm.`,
-      action: (
-        <ToastAction
-          altText="Xem giỏ hàng"
-          onClick={() => navigate('/cart')}
-        >
-          Xem giỏ
-        </ToastAction>
-      ),
-      // duration: 2500, // (tuỳ chọn) thời gian ẩn toast
-    });
-  };
+        add(book, 1);
+        toast({
+            title: 'Đã thêm vào giỏ hàng',
+            description: `“${book.book_name}” đã được thêm.`,
+            action: (
+                <ToastAction
+                    altText="Xem giỏ hàng"
+                    onClick={() => navigate('/cart')}
+                >
+                    Xem giỏ
+                </ToastAction>
+            ),
+            // duration: 2500, // (tuỳ chọn) thời gian ẩn toast
+        });
+    };
 
-  const handleBuyNow = () => {
-  // Không đụng giỏ: chỉ chuyển sang checkout với 1 dòng hàng
-  navigate("/checkout", {
-    state: {
-      buyNowLine: { book, qty: 1 }, // giống shape CartLine
-    },
-  });
-};
+    const handleBuyNow = () => {
+        // Không đụng giỏ: chỉ chuyển sang checkout với 1 dòng hàng
+        navigate("/checkout", {
+            state: {
+                buyNowLine: { book, qty: 1 }, // giống shape CartLine
+            },
+        });
+    };
 
+    const handleToggleFavorite = () => {
+        toggleFavorite(book);
+        toast({
+            title: isFavorite(book.book_id)
+                ? 'Đã xóa khỏi thư viện'
+                : 'Đã thêm vào thư viện',
+            description: `"${book.book_name}" ${isFavorite(book.book_id) ? 'đã được xóa khỏi' : 'đã được thêm vào'} thư viện của bạn.`,
+            action: isFavorite(book.book_id) ? undefined : (
+                <ToastAction
+                    altText="Xem thư viện"
+                    onClick={() => navigate('/bookshelf')}
+                >
+                    Xem thư viện
+                </ToastAction>
+            ),
+        });
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
@@ -175,7 +194,20 @@ export const BookDetail = () => {
 
                     {/* Right side - Book Details */}
                     <div className="md:w-2/3">
-                        <h1 className="text-3xl font-bold text-white mb-4">{book.book_name}</h1>
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-3xl font-bold text-white">{book.book_name}</h1>
+                            <button
+                                onClick={handleToggleFavorite}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <Heart
+                                    className={`w-6 h-6 ${isFavorite(book.book_id)
+                                            ? 'fill-red-500 text-red-500'
+                                            : 'text-white'
+                                        }`}
+                                />
+                            </button>
+                        </div>
 
                         <div className="space-y-4 text-white/80">
                             <p className="text-lg">

@@ -287,7 +287,6 @@ export default function CheckoutPage() {
                     </RadioGroup>
                   </div>
 
-                  {/* ✅ Chỉ còn MoMo + Bank */}
                   <div>
                     <h3 className="text-lg font-semibold mb-2 text-white">Thanh toán</h3>
                     <RadioGroup

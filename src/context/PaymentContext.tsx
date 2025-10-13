@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, type ReactNode } from "reac
 export interface PaymentRecord {
   id: string; // UUID duy nhất
   title: string; // mô tả (VD: "Thanh toán 2 sản phẩm" hoặc "Mua ngay: Truyện A")
-  method: "COD" | "MoMo" | "Chuyển khoản"; // phương thức thanh toán
+  method: string; // phương thức thanh toán
   status: "success" | "pending" | "failed"; // trạng thái thanh toán
   amount: number;
   date: string; // ngày giờ ghi nhận giao dịch

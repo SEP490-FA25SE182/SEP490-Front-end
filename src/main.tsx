@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { CartProvider } from "./context/CartContext";
 import { FavoritesProvider } from '@/context/FavoriteContext';
-import { PaymentProvider } from "./context/PaymentContext";
+import { PaymentProvider } from "@/context/PaymentContext";
 
 const queryClient = new QueryClient();
 

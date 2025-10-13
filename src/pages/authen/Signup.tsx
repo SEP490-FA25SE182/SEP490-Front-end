@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
-import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
+import { useRegisterUser } from '@/services/AuthService';
 
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,25 +21,31 @@ export default function Signup() {
     agreeTerms: false
   });
 
+  const { mutate: register, isPending } = useRegisterUser();
+
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async () => {
-    try {
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-      // Gửi email xác minh
-      await sendEmailVerification(result.user);
-      console.log("User signed up:", result.user);
-      alert("Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.");
-    } catch (error) {
-      console.error(error);
-      alert("Đăng ký thất bại!");
-    }
+  const handleSubmit = () => {
+    register(
+      {
+        fullName: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phoneNumber: formData.phone,
+      },
+      {
+        onSuccess: (res) => {
+          console.log("Register success:", res);
+          alert("Đăng ký thành công!");
+        },
+        onError: (err) => {
+          console.error("Register error:", err);
+          alert("Đăng ký thất bại!");
+        },
+      }
+    );
   };
 
   const handleGoogleLogin = async () => {
@@ -108,89 +115,50 @@ export default function Signup() {
             </div>
 
             {/* Name Input */}
-            <div className="space-y-1"> {/* Giảm khoảng cách */}
-              <Label htmlFor="name" className="text-xs font-normal text-gray-700"> {/* Giảm font size */}
-                Tên của bạn
-              </Label>
+            <div className="space-y-2">
+              <Label htmlFor="name">Tên của bạn</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="john@example.com"
                 value={formData.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
+                onChange={(e) => handleChange("name", e.target.value)}
+                className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
               />
-            </div>
-
-            {/* Gender and Birth Date */}
-            <div className="grid grid-cols-2 gap-3"> {/* Giảm gap */}
-              <div className="space-y-1">
-                <Label htmlFor="gender" className="text-xs font-normal text-gray-700">
-                  Giới tính
-                </Label>
-                <Input
-                  id="gender"
-                  type="text"
-                  value={formData.gender}
-                  onChange={(e) => handleChange('gender', e.target.value)}
-                  className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="birthDate" className="text-xs font-normal text-gray-700">
-                  Ngày sinh
-                </Label>
-                <Input
-                  id="birthDate"
-                  type="text"
-                  value={formData.birthDate}
-                  onChange={(e) => handleChange('birthDate', e.target.value)}
-                  className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
-                />
-              </div>
             </div>
 
             {/* Email Input */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-normal text-gray-700">
-                Địa chỉ Mail của bạn
-              </Label>
+              <Label htmlFor="email">Địa chỉ Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="john@example.com"
                 value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
+                onChange={(e) => handleChange("email", e.target.value)}
                 className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
               />
             </div>
 
             {/* Phone Input */}
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-normal text-gray-700">
-                Cho xin cái số phone
-              </Label>
+              <Label htmlFor="phone">Số điện thoại</Label>
               <Input
                 id="phone"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
+                onChange={(e) => handleChange("phone", e.target.value)}
                 className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
               />
             </div>
 
             {/* Password Input */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-normal text-gray-700">
-                Nhập mật khẩu dỏ
-              </Label>
+              <Label htmlFor="password">Mật khẩu</Label>
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Nhập mật khẩu của bạn"
+                  type={showPassword ? "text" : "password"}
                   value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
+                  onChange={(e) => handleChange("password", e.target.value)}
                   className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400 pr-12"
                 />
                 <button
@@ -198,11 +166,7 @@ export default function Signup() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -226,9 +190,10 @@ export default function Signup() {
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
+              disabled={isPending}
               className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium"
             >
-              Đăng ký
+              {isPending ? "Đang đăng ký..." : "Đăng ký"}
             </Button>
 
             {/* Sign In Link */}

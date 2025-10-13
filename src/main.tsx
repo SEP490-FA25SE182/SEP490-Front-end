@@ -3,17 +3,22 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 import { Toaster } from "@/components/ui/toaster";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { CartProvider } from "./context/CartContext";
 import { FavoritesProvider } from '@/context/FavoriteContext';
 
+const queryClient = new QueryClient();
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
-    <FavoritesProvider>
-      <CartProvider>
-        <App />
-        <Toaster />
-      </CartProvider>
-    </FavoritesProvider>
+    <QueryClientProvider client={queryClient}>
+      <FavoritesProvider>
+        <CartProvider>
+          <App />
+          <Toaster />
+        </CartProvider>
+      </FavoritesProvider>
+    </QueryClientProvider>
   </BrowserRouter>
 );

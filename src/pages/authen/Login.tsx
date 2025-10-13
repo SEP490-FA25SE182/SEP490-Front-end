@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
-import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
+import { useLoginUser } from "@/services/AuthService";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,16 +15,37 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  const { mutate: loginUser, isPending } = useLoginUser();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("User logged in:", result.user);
-      alert("Đăng nhập thành công!");
-    } catch (error) {
-      console.error(error);
-      alert("Sai email hoặc mật khẩu!");
-    }
+
+    // Gọi API login
+    loginUser(
+      { email, password },
+      {
+        onSuccess: (res) => {
+          if (res.success) {
+            alert("Đăng nhập thành công!");
+            console.log("User:", res.data);
+            if (res.token) {
+              // Lưu token
+              localStorage.setItem("token", res.token);
+              if (rememberMe) {
+                localStorage.setItem("rememberEmail", email);
+              }
+            }
+            window.location.href = "/"; // chuyển về trang chính
+          } else {
+            alert(res.message || "Sai email hoặc mật khẩu!");
+          }
+        },
+        onError: (error: any) => {
+          console.error("Login Error:", error);
+          alert("Đăng nhập thất bại. Vui lòng thử lại!");
+        },
+      }
+    );
   };
 
   const handleGoogleLogin = async () => {
@@ -83,8 +105,11 @@ export default function Login() {
             </div>
 
             {/* Email Input */}
-            <div className="space-y-1"> {/* Reduced space */}
-              <Label htmlFor="email" className="text-xs font-normal text-gray-700"> {/* Reduced font size */}
+            <div className="space-y-1">
+              <Label
+                htmlFor="email"
+                className="text-xs font-normal text-gray-700"
+              >
                 Địa chỉ Email
               </Label>
               <Input
@@ -94,22 +119,27 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
+                required
               />
             </div>
 
             {/* Password Input */}
-            <div className="space-y-1"> {/* Reduced space */}
-              <Label htmlFor="password" className="text-xs font-normal text-gray-700"> {/* Reduced font size */}
+            <div className="space-y-1">
+              <Label
+                htmlFor="password"
+                className="text-xs font-normal text-gray-700"
+              >
                 Mật khẩu
               </Label>
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 pr-12 text-sm"
+                  required
                 />
                 <button
                   type="button"
@@ -131,7 +161,9 @@ export default function Login() {
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    setRememberMe(checked as boolean)
+                  }
                   className="h-4 w-4"
                 />
                 <label
@@ -141,7 +173,10 @@ export default function Login() {
                   Lưu thông tin của tôi
                 </label>
               </div>
-              <a href="#" className="text-xs text-indigo-600 hover:text-indigo-700"> {/* Reduced font size */}
+              <a
+                href="#"
+                className="text-xs text-indigo-600 hover:text-indigo-700"
+              >
                 Bạn quên mật khẩu?
               </a>
             </div>
@@ -149,9 +184,10 @@ export default function Login() {
             {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium" 
+              className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium"
+              disabled={isPending}
             >
-              Đăng nhập
+              {isPending ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
 
             {/* Sign Up Link */}

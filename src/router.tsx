@@ -6,7 +6,13 @@ import Homepage from "./pages/customer/Homepage";
 import { BookDetail } from "./pages/customer/BookDetail";
 import CartPage from "./pages/customer/CartPage";
 import CheckoutPage from "./pages/customer/CheckoutPage";
-import { Bookshelf } from "./pages/customer/Bookshelf";
+import BookshelfPage from "./pages/customer/BookshelfPage";
+import CustomerLayout from "./layouts/CustomerLayout";
+import ProfilePage from "./pages/customer/ProfilePage";
+import WalletPage from "./pages/customer/WalletPage";
+import TransactionPage from "./pages/customer/TransactionPage";
+import PaymentStatusPage from "./pages/customer/PaymentStatusPage";
+import BlogPage from "./pages/customer/BlogPage";
 
 export default function AppRouter() {
   return (
@@ -18,7 +24,12 @@ export default function AppRouter() {
       <Route path="/book/:bookId" element={<BookDetail />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
-      <Route path="/bookshelf" element={<Bookshelf />} />
+      <Route path="/profile" element={<CustomerLayout><ProfilePage /></CustomerLayout>} />
+      <Route path="/bookshelf" element={<CustomerLayout><BookshelfPage /></CustomerLayout>} />
+      <Route path="/wallet" element={<CustomerLayout><WalletPage /></CustomerLayout>} />
+      <Route path="/transactions" element={<CustomerLayout><TransactionPage /></CustomerLayout>} />
+      <Route path="/payment-status" element={<PaymentStatusPage />} />
+      <Route path="/blog" element={<BlogPage />} />
     </Routes>
   );
 }

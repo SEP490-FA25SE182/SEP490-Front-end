@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useMutation } from "@tanstack/react-query";
 
+
 const BASE_URL = 'http://localhost:8085/api/rookie/users/auth';
 
 export interface RegisterRequest {
@@ -16,10 +17,28 @@ export interface LoginRequest {
 }
 
 export interface AuthResponse {
-  success: boolean;
-  message: string;
-  data?: any;
+  user?: {
+    userId: string;
+    fullName: string;
+    email: string;
+    roleId?: string;
+    isActived?: string;
+  };
   token?: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
+export interface GoogleAuthRequest {
+  // Có thể mở rộng nếu backend yêu cầu thêm dữ liệu
+  [key: string]: string;
 }
 
 /**
@@ -60,6 +79,22 @@ export const logoutUser = async (token: string): Promise<AuthResponse> => {
   return response.data;
 };
 
+/** Đăng nhập bằng Google */
+export const googleAuth = async (data: GoogleAuthRequest): Promise<AuthResponse> => {
+  const response = await axios.post<AuthResponse>(`${BASE_URL}/google`, data);
+  return response.data;
+};
+
+/** Quên mật khẩu */
+export const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
+  await axios.post(`${BASE_URL}/password/forgot`, data);
+};
+
+/** Đặt lại mật khẩu */
+export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
+  await axios.post(`${BASE_URL}/password/reset`, data);
+};
+
 export const useRegisterUser = () => {
   return useMutation({
     mutationFn: (data: RegisterRequest) => registerUser(data),
@@ -75,5 +110,24 @@ export const useLoginUser = () => {
 export const useLogoutUser = () => {
   return useMutation({
     mutationFn: (token: string) => logoutUser(token),
+  });
+};
+
+
+export const useGoogleAuth = () => {
+  return useMutation({
+    mutationFn: (data: GoogleAuthRequest) => googleAuth(data),
+  });
+};
+
+export const useForgotPassword = () => {
+  return useMutation({
+    mutationFn: (data: ForgotPasswordRequest) => forgotPassword(data),
+  });
+};
+
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: (data: ResetPasswordRequest) => resetPassword(data),
   });
 };

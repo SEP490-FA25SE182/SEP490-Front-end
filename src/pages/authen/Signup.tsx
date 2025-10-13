@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from "sonner";
 
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
-import { useRegisterUser } from '@/services/AuthService';
+import { useRegisterUser, useGoogleAuth } from '@/services/AuthService';
 
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,11 +23,13 @@ export default function Signup() {
   });
 
   const { mutate: register, isPending } = useRegisterUser();
+  const { mutate: googleAuth, isPending: googlePending } = useGoogleAuth();
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  /** Xử lý đăng ký thường */
   const handleSubmit = () => {
     register(
       {
@@ -38,29 +41,61 @@ export default function Signup() {
       {
         onSuccess: (res) => {
           console.log("Register success:", res);
-          alert("Đăng ký thành công!");
+          toast.success("Đăng ký thành công!", {
+            description: "Vui lòng đăng nhập để tiếp tục.",
+          });
+          window.location.href = "/login";
         },
         onError: (err) => {
           console.error("Register error:", err);
-          alert("Đăng ký thất bại!");
+          toast.error("Đăng ký thất bại!", {
+            description: "Vui lòng thử lại sau.",
+          });
         },
       }
     );
   };
 
+  /** Xử lý đăng nhập qua Google */
   const handleGoogleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+
       console.log("Google User:", {
         name: user.displayName,
         email: user.email,
-        photo: user.photoURL,
+        photoURL: user.photoURL,
+        uid: user.uid,
+      });
+
+      // Payload gửi lên backend
+      const payload = {
+        fullName: user.displayName || "",
+        email: user.email || "",
+        avatarUrl: user.photoURL || "",
+        googleUid: user.uid || "",
+      };
+
+      // Gọi API
+      googleAuth(payload, {
+        onSuccess: (res) => {
+          console.log("Google Auth success:", res);
+          localStorage.setItem("token", res.token || "");
+          alert("Đăng nhập Google thành công!");
+          window.location.href = "/";
+        },
+        onError: (err) => {
+          console.error("Google Auth error:", err);
+          alert("Đăng nhập Google thất bại!");
+        },
       });
     } catch (error) {
-      console.error("Google Login Error:", error);
+      console.error("Google login error:", error);
+      alert("Đăng nhập Google thất bại!");
     }
   };
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -75,19 +110,20 @@ export default function Signup() {
       </div>
 
       {/* Right side - Register Form */}
-      <div className="flex flex-col justify-center w-full lg:w-1/2 px-4 sm:px-8 md:px-12 lg:px-16 bg-white overflow-y-auto"> {/* Giảm padding */}
-        <div className="w-full max-w-md mx-auto py-6"> {/* Giảm padding */}
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 text-center"> {/* Giảm font size và margin */}
+      <div className="flex flex-col justify-center w-full lg:w-1/2 px-4 sm:px-8 md:px-12 lg:px-16 bg-white overflow-y-auto">
+        <div className="w-full max-w-md mx-auto py-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 text-center">
             Rất vui vì gặp bạn!
           </h1>
 
-          <div className="space-y-4"> {/* Giảm khoảng cách giữa các phần tử */}
+          <div className="space-y-4">
             {/* Google Sign Up Button */}
             <Button
               type="button"
               onClick={handleGoogleLogin}
               variant="outline"
               className="w-full h-10 text-white bg-slate-700 hover:bg-slate-800 hover:text-white border-0 text-sm"
+              disabled={googlePending}
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path
@@ -107,10 +143,10 @@ export default function Signup() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Google
+              {googlePending ? "Đang xử lý..." : "Google"}
             </Button>
 
-            <div className="text-center text-xs text-gray-600"> {/* Giảm font size */}
+            <div className="text-center text-xs text-gray-600">
               Hoặc tiếp tục với
             </div>
 
@@ -179,10 +215,7 @@ export default function Signup() {
                 onCheckedChange={(checked) => handleChange('agreeTerms', checked as boolean)}
                 className="mt-0.5"
               />
-              <label
-                htmlFor="terms"
-                className="text-xs text-gray-700 cursor-pointer leading-tight"
-              >
+              <label htmlFor="terms" className="text-xs text-gray-700 cursor-pointer leading-tight">
                 Bạn muốn thử làm người vẽ truyện không?
               </label>
             </div>
@@ -197,7 +230,7 @@ export default function Signup() {
             </Button>
 
             {/* Sign In Link */}
-            <div className="text-center text-xs text-gray-600"> {/* Giảm font size */}
+            <div className="text-center text-xs text-gray-600">
               Bạn đã có tài khoản?{' '}
               <a href="/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
                 Vậy quay lại đăng nhập đi!

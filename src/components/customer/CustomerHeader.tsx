@@ -2,144 +2,159 @@ import { Search, Menu, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import booksData from '@/data/sample_books.json';
 import CartBadge from './CartBagde';
 
 const CustomerHeader = () => {
-    const [isGenreOpen, setIsGenreOpen] = useState(false);
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // Thêm state mới
-    const genres = (booksData as any).Genres || [];
+  const [isGenreOpen, setIsGenreOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const genres = (booksData as any).Genres || [];
 
-    return (
-        <header className="text-white relative">
-            <div className="max-w-7xl mx-auto">
-                {/* Top Section */}
-                <div className="flex items-center justify-between px-6 py-4">
-                    {/* Logo & Brand */}
-                    <Link to="/">
-                        <div className="flex items-center gap-3">
-                            <img src="./rookies-logo.jpg" className='w-10' />
-                            <span className="text-xl font-semibold">Rookies</span>
-                        </div>
-                    </Link>
+  useEffect(() => {
+    // Kiểm tra trạng thái đăng nhập
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(!!token);
+  }, []);
 
-                    {/* Search Bar */}
-                    <div className="flex-1 max-w-md mx-8">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm sách"
-                                className="w-full pl-10 pr-4 py-2 bg-white text-gray-900 rounded-full border-0 focus-visible:ring-2 focus-visible:ring-purple-500"
-                            />
-                        </div>
-                    </div>
+  const handleLogout = () => {
+    // Xóa dữ liệu đăng nhập
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('rememberEmail');
+    // Chuyển hướng về trang login
+    window.location.href = '/login';
+  };
 
-                    {/* Login/Register */}
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" className="text-white">
-                            <Link to="/login">
-                                Đăng nhập
-                            </Link>
-                        </Button>
-                        <Button className="bg-purple-500 hover:bg-purple-600">
-                            <Link to="/signup">
-                                Đăng ký
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Divider */}
-                <div className="h-[1px] bg-[#2a3857]"></div>
-
-                {/* Navigation */}
-                <nav className="px-6 py-3">
-                    <ul className="flex items-center justify-between text-sm">
-                        {/* Left: Chọn sách with dropdown */}
-                        <li
-                            className="relative"
-                            onMouseEnter={() => setIsGenreOpen(true)}
-                            onMouseLeave={() => setIsGenreOpen(false)}
-                        >
-                            <div className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors">
-                                <Menu className="w-4 h-4" />
-                                <span>Chọn sách</span>
-                            </div>
-
-                            {/* Dropdown Menu */}
-                            {isGenreOpen && (
-                                <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
-                                    <div className="grid grid-cols-1 gap-1 p-3">
-                                        {genres.map((genre: any) => (
-                                            <Link
-                                                key={genre.genre_id}
-                                                to={`/genre/${genre.genre_id}`}
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                {genre.genre_name}
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </li>
-
-                        {/* Right: Other items */}
-                        <div className="flex items-center gap-8">
-                            <CartBadge></CartBadge>
-                            <div 
-                                className="relative"
-                                onMouseEnter={() => setIsUserMenuOpen(true)}
-                                onMouseLeave={() => setIsUserMenuOpen(false)}
-                            >
-                                <User className="w-5 h-5 cursor-pointer hover:text-purple-400 transition-colors" />
-                                
-                                {/* User Dropdown Menu */}
-                                {isUserMenuOpen && (
-                                    <div className="absolute top-2 right-0 w-48 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50 mt-2">
-                                        <div className="grid grid-cols-1 gap-1 p-3">
-                                            <Link
-                                                to="/profile"
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                Thông tin cá nhân
-                                            </Link>
-                                            <Link
-                                                to="/transactions"
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                Lịch sử giao dịch
-                                            </Link>
-                                            <Link
-                                                to="/bookshelf"
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                Tủ sách của tôi
-                                            </Link>
-                                            <Link
-                                                to="/wallet"
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                Ví của tôi
-                                            </Link>
-                                            <Link
-                                                to="/login"
-                                                className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                                            >
-                                                Đăng xuất
-                                            </Link>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </ul>
-                </nav>
+  return (
+    <header className="text-white relative">
+      <div className="max-w-7xl mx-auto">
+        {/* Top Section */}
+        <div className="flex items-center justify-between px-6 py-4">
+          {/* Logo & Brand */}
+          <Link to="/">
+            <div className="flex items-center gap-3">
+              <img src="./rookies-logo.jpg" className="w-10" />
+              <span className="text-xl font-semibold">Rookies</span>
             </div>
-        </header>
-    );
+          </Link>
+
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md mx-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Tìm kiếm sách"
+                className="w-full pl-10 pr-4 py-2 bg-white text-gray-900 rounded-full border-0 focus-visible:ring-2 focus-visible:ring-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* Login/Register or User Menu */}
+          <div className="flex items-center gap-4">
+            {isLoggedIn ? (
+              <div className="flex items-center gap-4">
+                <CartBadge />
+                <div
+                  className="relative"
+                  onMouseEnter={() => setIsUserMenuOpen(true)}
+                  onMouseLeave={() => setIsUserMenuOpen(false)}
+                >
+                  <User className="w-5 h-5 cursor-pointer hover:text-purple-400 transition-colors" />
+
+                  {/* User Dropdown Menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute top-2 right-0 w-48 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50 mt-2">
+                      <div className="grid grid-cols-1 gap-1 p-3">
+                        <Link
+                          to="/profile"
+                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          Thông tin cá nhân
+                        </Link>
+                        <Link
+                          to="/transactions"
+                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          Lịch sử giao dịch
+                        </Link>
+                        <Link
+                          to="/bookshelf"
+                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          Tủ sách của tôi
+                        </Link>
+                        <Link
+                          to="/wallet"
+                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          Ví của tôi
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button variant="ghost" className="text-white">
+                  <Link to="/login">Đăng nhập</Link>
+                </Button>
+                <Button className="bg-purple-500 hover:bg-purple-600">
+                  <Link to="/signup">Đăng ký</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="h-[1px] bg-[#2a3857]"></div>
+
+        {/* Navigation */}
+        <nav className="px-6 py-3">
+          <ul className="flex items-center justify-between text-sm">
+            {/* Left: Chọn sách with dropdown */}
+            <li
+              className="relative"
+              onMouseEnter={() => setIsGenreOpen(true)}
+              onMouseLeave={() => setIsGenreOpen(false)}
+            >
+              <div className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors">
+                <Menu className="w-4 h-4" />
+                <span>Chọn sách</span>
+              </div>
+
+              {/* Dropdown Menu */}
+              {isGenreOpen && (
+                <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
+                  <div className="grid grid-cols-1 gap-1 p-3">
+                    {genres.map((genre: any) => (
+                      <Link
+                        key={genre.genre_id}
+                        to={`/genre/${genre.genre_id}`}
+                        className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                      >
+                        {genre.genre_name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+  );
 };
 
 export default CustomerHeader;

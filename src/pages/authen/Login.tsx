@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from "sonner";
 
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
@@ -20,29 +21,39 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Gọi API login
     loginUser(
       { email, password },
       {
         onSuccess: (res) => {
-          if (res.success) {
-            alert("Đăng nhập thành công!");
-            console.log("User:", res.data);
-            if (res.token) {
-              // Lưu token
-              localStorage.setItem("token", res.token);
-              if (rememberMe) {
-                localStorage.setItem("rememberEmail", email);
-              }
+          console.log("Login response:", res);
+
+          if (res.token && res.user) {
+            localStorage.setItem("token", res.token);
+
+            if (rememberMe) {
+              localStorage.setItem("rememberEmail", email);
             }
-            window.location.href = "/"; // chuyển về trang chính
+
+            if (res.user.roleId) {
+              localStorage.setItem("userRole", res.user.roleId);
+            }
+
+            toast.success("Đăng nhập thành công!", {
+              description: "Chào mừng bạn quay trở lại.",
+            });
+
+            window.location.href = "/";
           } else {
-            alert(res.message || "Sai email hoặc mật khẩu!");
+            toast.error("Đăng nhập thất bại!", {
+              description: "Sai email hoặc mật khẩu.",
+            });
           }
         },
         onError: (error: any) => {
           console.error("Login Error:", error);
-          alert("Đăng nhập thất bại. Vui lòng thử lại!");
+          toast.error("Đăng nhập thất bại!", {
+            description: "Vui lòng thử lại sau.",
+          });
         },
       }
     );

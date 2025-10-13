@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useCart } from "@/context/CartContext";
 import type { Book } from "@/types/books";
 
+
 const schema = z.object({
   fullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
   phone: z.string().min(9, "SĐT không hợp lệ"),
@@ -29,7 +30,7 @@ const schema = z.object({
   ward: z.string().min(1, "Chọn Phường/Xã"),
   address: z.string().min(5, "Địa chỉ chi tiết tối thiểu 5 ký tự"),
   note: z.string().optional(),
-  paymentMethod: z.enum(["cod", "momo", "bank"]),
+  paymentMethod: z.enum(["momo", "bank"]),
   shippingMethod: z.enum(["standard", "express"]),
 });
 type FormValues = z.infer<typeof schema>;
@@ -57,7 +58,6 @@ function getBookName(b: Book): string {
   return `Sách #${(b as any)?.book_id ?? "?"}`;
 }
 
-/** Lấy ảnh bìa nếu có (không bắt buộc) */
 function getBookImage(b: Book): string | undefined {
   const anyB = b as any;
   const candidates = ["cover_url", "image_url", "thumbnail", "cover", "image"];
@@ -68,7 +68,6 @@ function getBookImage(b: Book): string | undefined {
   return undefined;
 }
 
-/** Lấy đơn giá (đồng bộ với logic trong CartContext) */
 function getUnit(b: Book): number {
   const anyB = b as any;
   return (anyB?.sale_price ?? anyB?.price ?? 150000) as number;
@@ -78,14 +77,13 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation() as { state?: { buyNowLine?: { book: Book; qty: number } } };
   const { toast } = useToast();
-  const { state, clear, subtotal } = useCart();
+  const { state, subtotal } = useCart();
   const lines = state.lines;
+  
 
-  // Xác định chế độ Buy-Now
   const isBuyNow = !!location.state?.buyNowLine;
   const linesToPay = isBuyNow ? [location.state!.buyNowLine!] : lines;
 
-  // Subtotal cục bộ khi Buy-Now (hoặc dùng subtotal giỏ khi cart-mode)
   const subtotalLocal = useMemo(
     () => linesToPay.reduce((s, l) => s + getUnit(l.book) * l.qty, 0),
     [linesToPay]
@@ -109,7 +107,7 @@ export default function CheckoutPage() {
       ward: "",
       address: "",
       note: "",
-      paymentMethod: "cod",
+      paymentMethod: "momo",
       shippingMethod: "standard",
     },
     mode: "onTouched",
@@ -123,48 +121,30 @@ export default function CheckoutPage() {
   );
 
   async function onSubmit(data: FormValues) {
-    // const payload = {
-    //   customer: {
-    //     fullName: data.fullName,
-    //     phone: data.phone,
-    //     email: data.email || undefined,
-    //   },
-    //   shipping: {
-    //     province: data.province,
-    //     district: data.district,
-    //     ward: data.ward,
-    //     address: data.address,
-    //     note: data.note,
-    //     method: data.shippingMethod,
-    //     fee: shippingFee,
-    //   },
-    //   payment: { method: data.paymentMethod },
-    //   items: linesToPay.map((l) => ({
-    //     productId: (l.book as any).book_id,
-    //     unitPrice: getUnit(l.book),
-    //     qty: l.qty,
-    //   })),
-    //   amounts: { subtotal: effectiveSubtotal, shippingFee, total },
-    // };
-
     try {
-      // const res = await axios.post("/api/orders", payload);
-      // const order = res.data;
+      //  Ghi nhận đơn thanh toán
+      const record = {
+        id: crypto.randomUUID(),
+        title: isBuyNow
+          ? `Mua ngay: ${getBookName(linesToPay[0].book)}`
+          : `Thanh toán ${linesToPay.length} sản phẩm`,
+        method: data.paymentMethod === "momo" ? "MoMo" : "Chuyển khoản",
+        date: new Date().toLocaleString("vi-VN"),
+        amount: total,
+        status: "pending" as const,
+      };
 
-      if (data.paymentMethod === "momo") {
-        toast({ title: "Chuyển tới MoMo", description: "Giả lập redirect..." });
-      } else if (data.paymentMethod === "bank") {
-        toast({ title: "Chuyển tới trang chuyển khoản", description: "Giả lập redirect..." });
-      } else {
-        toast({
-          title: "Đặt hàng thành công",
-          description: isBuyNow
-            ? "Đã tạo đơn cho sản phẩm bạn chọn."
-            : "Đơn hàng COD đã được tạo.",
-        });
-        if (!isBuyNow) clear(); // chỉ clear giỏ khi checkout từ giỏ
-        navigate("/");
-      }
+      //  Hiển thị toast mô phỏng luồng thanh toán
+      toast({
+        title: "Đang chuyển tới cổng thanh toán...",
+        description:
+          data.paymentMethod === "momo"
+            ? "Vui lòng mở ứng dụng MoMo để hoàn tất thanh toán."
+            : "Đang chuyển hướng tới trang chuyển khoản ngân hàng.",
+      });
+
+      //  Điều hướng sang trang trạng thái thanh toán
+      navigate("/payment-status", { state: { record } });
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -179,14 +159,12 @@ export default function CheckoutPage() {
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
-        {/* Tiêu đề trang đồng bộ kiểu homepage */}
         <h2 className="text-2xl font-bold text-white mb-6 text-center uppercase tracking-wide">
           Thanh Toán
         </h2>
 
-        {/* Lưới nội dung giống bố cục homepage (lưới 3 cột) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form thông tin: span 2 cột */}
+          {/* ✅ Form thông tin */}
           <Card className="lg:col-span-2 bg-white/5 border-white/10 backdrop-blur">
             <CardHeader>
               <CardTitle className="text-white">Thông tin Checkout</CardTitle>
@@ -308,6 +286,7 @@ export default function CheckoutPage() {
                       </div>
                     </RadioGroup>
                   </div>
+
                   <div>
                     <h3 className="text-lg font-semibold mb-2 text-white">Thanh toán</h3>
                     <RadioGroup
@@ -316,15 +295,11 @@ export default function CheckoutPage() {
                       className="text-white"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="cod" id="pay-cod" />
-                        <Label htmlFor="pay-cod" className="text-white">Thanh toán khi nhận hàng (COD)</Label>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <RadioGroupItem value="momo" id="pay-momo" />
+                        <RadioGroupItem value="momo" id="pay-momo" className="peer border-gray-400 data-[state=checked]:bg-white data-[state=checked]:border-white" />
                         <Label htmlFor="pay-momo" className="text-white">Ví MoMo</Label>
                       </div>
                       <div className="flex items-center space-x-2 mt-2">
-                        <RadioGroupItem value="bank" id="pay-bank" />
+                        <RadioGroupItem value="bank" id="pay-bank" className="peer border-gray-400 data-[state=checked]:bg-white data-[state=checked]:border-white" />
                         <Label htmlFor="pay-bank" className="text-white">Chuyển khoản ngân hàng</Label>
                       </div>
                     </RadioGroup>
@@ -340,7 +315,7 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
-          {/* Tóm tắt đơn hàng: style đồng bộ với homepage */}
+          {/* Tóm tắt đơn hàng */}
           <Card className="bg-white/5 border-white/10 backdrop-blur">
             <CardHeader>
               <CardTitle className="text-white">Đơn hàng của bạn</CardTitle>

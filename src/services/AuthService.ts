@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { useMutation } from "@tanstack/react-query";
 
-const BASE_URL = 'http://localhost:8081/api/rookie/users/auth';
+
+const BASE_URL = 'http://localhost:8085/api/rookie/users/auth';
 
 export interface RegisterRequest {
   fullName: string;

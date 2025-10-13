@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { CartProvider } from "./context/CartContext";
 import { FavoritesProvider } from '@/context/FavoriteContext';
+import { PaymentProvider } from "@/context/PaymentContext";
 
 const queryClient = new QueryClient();
 
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <QueryClientProvider client={queryClient}>
       <FavoritesProvider>
         <CartProvider>
+          <PaymentProvider>
           <App />
+          </PaymentProvider>
           <Toaster />
         </CartProvider>
       </FavoritesProvider>

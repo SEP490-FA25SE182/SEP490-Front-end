@@ -127,6 +127,15 @@ export default function Homepage() {
             {/* Carousel quảng cáo */}
             <section className="mb-12 max-w-5xl mx-auto">
               <Carousel opts={{ align: "start", loop: true }} className="w-full">
+                <div className="flex justify-center mb-12">
+  <Link to="/blog">
+    <button
+      className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 cursor-pointer"
+    >
+      ✨ Cộng đồng chia sẻ & Review
+    </button>
+  </Link>
+</div>
                 <CarouselContent className="-ml-2 md:-ml-4">
                   {advertisementImages.map((image, index) => (
                     <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">

@@ -10,6 +10,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useNavigate } from 'react-router-dom';
 import { useFavorites } from '@/context/FavoriteContext';
+import { useState } from "react";
+import { PlayCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 interface Review {
     id: string;
@@ -90,6 +94,8 @@ export const BookDetail = () => {
     const { toast } = useToast();           // 👈 hook shadcn/ui
     const navigate = useNavigate();
     const { toggleFavorite, isFavorite } = useFavorites();
+    const [showPreview, setShowPreview] = useState(false);
+
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -235,6 +241,16 @@ export const BookDetail = () => {
                                     >
                                         Mua ngay
                                     </Button>
+                                    <Button
+  size="lg"
+  variant="secondary"
+  className="bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-full cursor-pointer"
+  onClick={() => setShowPreview(true)}
+>
+  <PlayCircle className="mr-2 h-5 w-5" />
+  Đọc thử
+</Button>
+
 
                                     <Button
                                         size="lg"
@@ -295,8 +311,41 @@ export const BookDetail = () => {
                     </div>
                 </div>
             </main>
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+  <DialogContent className="bg-[#1a1a2e] text-white border-white/20 rounded-xl max-w-lg">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-bold">Đọc thử: {book.book_name}</DialogTitle>
+    </DialogHeader>
+
+    <div className="mt-4 space-y-4">
+      <p className="text-white/80 text-base leading-relaxed">
+        Đây là phần tóm tắt ngắn gọn của cuốn sách. Nội dung xoay quanh hành trình của nhân vật chính 
+        khám phá thế giới và những bài học sâu sắc về cuộc sống, tình bạn và lòng dũng cảm.
+      </p>
+
+      {/* Phát thử audio */}
+      <div className="bg-white/5 p-4 rounded-lg">
+        <audio
+          controls
+          className="w-full"
+          src="https://www2.cs.uic.edu/~i101/SoundFiles/PinkPanther30.wav" // 👈 file audio hard-code
+        >
+          Trình duyệt của bạn không hỗ trợ phát audio.
+        </audio>
+      </div>
+    </div>
+
+    <div className="mt-6 flex justify-end">
+      <Button variant="outline" onClick={() => setShowPreview(false)}>
+        Đóng
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
 
             <CustomerFooter />
         </div>
     );
+    
 };

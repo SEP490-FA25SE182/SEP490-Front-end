@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from "sonner";
 
+import axios from 'axios';
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useLoginUser } from "@/services/AuthService";
@@ -24,7 +25,7 @@ export default function Login() {
     loginUser(
       { email, password },
       {
-        onSuccess: (res) => {
+        onSuccess: async (res) => {
           console.log("Login response:", res);
 
           if (res.token && res.user) {
@@ -41,6 +42,22 @@ export default function Login() {
             toast.success("Đăng nhập thành công!", {
               description: "Chào mừng bạn quay trở lại.",
             });
+
+            // điều hướng theo roleName (fetch role info)
+            try {
+              const roleId = res.user.roleId;
+              if (roleId) {
+                const roleResp = await axios.get(`http://localhost:8081/api/rookie/users/roles/${roleId}`);
+                const role = roleResp.data;
+                const roleName = (role?.roleName || '').toLowerCase();
+                if (roleName.includes('author')) {
+                  window.location.href = "/author/income";
+                  return;
+                }
+              }
+            } catch (err) {
+              console.warn('Không lấy được role info, chuyển về trang chính', err);
+            }
 
             window.location.href = "/";
           } else {

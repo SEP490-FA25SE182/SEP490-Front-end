@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useRegisterUser, useGoogleAuth } from '@/services/AuthService';
+import { useGetAllRoles } from '@/services/RoleService';
 
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,21 +23,64 @@ export default function Signup() {
     agreeTerms: false
   });
 
+  const [errors, setErrors] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+
+  const { data: rolesData } = useGetAllRoles();
+  const [customerRoleId, setCustomerRoleId] = useState<string>('');
+  const [authorRoleId, setAuthorRoleId] = useState<string>('');
+
+  useEffect(() => {
+    if (rolesData && rolesData.length) {
+      const lower = (s?: string) => (s || '').toLowerCase();
+      const foundAuthor = rolesData.find(r => lower(r.roleName).includes('author') || lower(r.roleName) === 'author');
+      const foundCustomer = rolesData.find(r => lower(r.roleName).includes('customer') || lower(r.roleName) === 'customer');
+      setAuthorRoleId(foundAuthor?.roleId || '');
+      setCustomerRoleId(foundCustomer?.roleId || '');
+    }
+  }, [rolesData]);
+
+  useEffect(() => {
+    console.log("Roles data:", rolesData);
+    console.log("Author ID:", authorRoleId);
+    console.log("Customer ID:", customerRoleId);
+  }, [rolesData, authorRoleId, customerRoleId]);
+
   const { mutate: register, isPending } = useRegisterUser();
   const { mutate: googleAuth, isPending: googlePending } = useGoogleAuth();
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field === 'name' ? 'name' : field === 'email' ? 'email' : field === 'phone' ? 'phone' : field === 'password' ? 'password' : '']: '' }));
+  };
+
+  const validate = () => {
+    const newErr = { name: '', email: '', phone: '', password: '' };
+    if (!formData.name.trim()) newErr.name = 'Vui lòng nhập tên.';
+    if (!formData.email.trim()) newErr.email = 'Vui lòng nhập email.';
+    if (!formData.phone.trim()) newErr.phone = 'Vui lòng nhập số điện thoại.';
+    if (!formData.password.trim()) newErr.password = 'Vui lòng nhập mật khẩu.';
+    setErrors(newErr);
+    return !(newErr.name || newErr.email || newErr.phone || newErr.password);
   };
 
   /** Xử lý đăng ký thường */
   const handleSubmit = () => {
+    if (!validate()) return;
+
+    const roleId = formData.agreeTerms ? authorRoleId : (customerRoleId || '');
+
     register(
       {
         fullName: formData.name,
         email: formData.email,
         password: formData.password,
         phoneNumber: formData.phone,
+        roleId,
       },
       {
         onSuccess: (res) => {
@@ -62,19 +106,13 @@ export default function Signup() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      console.log("Google User:", {
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        uid: user.uid,
-      });
-
       // Payload gửi lên backend
-      const payload = {
+      const payload: any = {
         fullName: user.displayName || "",
         email: user.email || "",
         avatarUrl: user.photoURL || "",
         googleUid: user.uid || "",
+        roleId: formData.agreeTerms ? authorRoleId : customerRoleId,
       };
 
       // Gọi API
@@ -83,6 +121,7 @@ export default function Signup() {
           console.log("Google Auth success:", res);
           localStorage.setItem("token", res.token || "");
           alert("Đăng nhập Google thành công!");
+          // nếu backend trả user với roleId thì điều hướng có thể dựa vào đó; tạm mặc định về '/'
           window.location.href = "/";
         },
         onError: (err) => {
@@ -160,6 +199,7 @@ export default function Signup() {
                 onChange={(e) => handleChange("name", e.target.value)}
                 className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
               />
+              {errors.name && <div className="text-red-600 text-xs mt-1">{errors.name}</div>}
             </div>
 
             {/* Email Input */}
@@ -172,6 +212,7 @@ export default function Signup() {
                 onChange={(e) => handleChange("email", e.target.value)}
                 className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
               />
+              {errors.email && <div className="text-red-600 text-xs mt-1">{errors.email}</div>}
             </div>
 
             {/* Phone Input */}
@@ -184,6 +225,7 @@ export default function Signup() {
                 onChange={(e) => handleChange("phone", e.target.value)}
                 className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400"
               />
+              {errors.phone && <div className="text-red-600 text-xs mt-1">{errors.phone}</div>}
             </div>
 
             {/* Password Input */}
@@ -205,6 +247,7 @@ export default function Signup() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {errors.password && <div className="text-red-600 text-xs mt-1">{errors.password}</div>}
             </div>
 
             {/* Terms Agreement */}

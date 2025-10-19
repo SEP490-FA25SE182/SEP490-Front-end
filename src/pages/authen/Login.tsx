@@ -10,6 +10,7 @@ import axios from 'axios';
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useLoginUser } from "@/services/AuthService";
+import { getRoleById } from "@/services/RoleService";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -80,15 +81,62 @@ export default function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      const idToken = await user.getIdToken(); // ✅ Lấy idToken thật từ Firebase
+
       console.log("Google User:", {
         name: user.displayName,
         email: user.email,
         photo: user.photoURL,
+        idToken, // log thử
       });
+
+      // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
+      const response = await axios.post("http://localhost:8081/api/rookie/users/auth/google", {
+        idToken: idToken,
+      });
+
+      const res = response.data;
+      console.log("Google Login Backend Response:", res);
+
+      if (res.token && res.user) {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("userRole", res.user.roleId || "");
+
+        toast.success("Đăng nhập Google thành công!", {
+          description: `Chào mừng ${res.user.fullName || "bạn"}!`,
+        });
+
+        try {
+          const roleId = res.user.roleId;
+          if (roleId) {
+            const role = await getRoleById(roleId); // ✅ dùng service chuẩn
+            const roleName = (role?.roleName || "").toLowerCase();
+
+            if (roleName.includes("author")) {
+              window.location.href = "/author/authorincome";
+              return;
+            } else if (roleName.includes("admin")) {
+              window.location.href = "/admin/dashboard";
+              return;
+            } else if (roleName.includes("user") || roleName.includes("customer")) {
+              window.location.href = "/";
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Không lấy được role info, chuyển về trang chính", err);
+          window.location.href = "/";
+        }
+      }
+
     } catch (error) {
       console.error("Google Login Error:", error);
+      toast.error("Đăng nhập Google thất bại!", {
+        description: "Vui lòng thử lại sau.",
+      });
     }
   };
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">

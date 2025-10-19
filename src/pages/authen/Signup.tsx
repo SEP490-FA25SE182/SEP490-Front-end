@@ -102,38 +102,34 @@ export default function Signup() {
 
   /** Xử lý đăng nhập qua Google */
   const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    const idToken = await user.getIdToken(); // 🔥 Lấy idToken chuẩn từ Firebase
 
-      // Payload gửi lên backend
-      const payload: any = {
-        fullName: user.displayName || "",
-        email: user.email || "",
-        avatarUrl: user.photoURL || "",
-        googleUid: user.uid || "",
-        roleId: formData.agreeTerms ? authorRoleId : customerRoleId,
-      };
+    console.log("Firebase ID Token:", idToken);
 
-      // Gọi API
-      googleAuth(payload, {
+    googleAuth(
+      { idToken }, 
+      {
         onSuccess: (res) => {
           console.log("Google Auth success:", res);
           localStorage.setItem("token", res.token || "");
-          alert("Đăng nhập Google thành công!");
-          // nếu backend trả user với roleId thì điều hướng có thể dựa vào đó; tạm mặc định về '/'
+          toast.success("Đăng nhập Google thành công!");
           window.location.href = "/";
         },
         onError: (err) => {
           console.error("Google Auth error:", err);
-          alert("Đăng nhập Google thất bại!");
+          toast.error("Đăng nhập Google thất bại!");
         },
-      });
-    } catch (error) {
-      console.error("Google login error:", error);
-      alert("Đăng nhập Google thất bại!");
-    }
-  };
+      }
+    );
+  } catch (error) {
+    console.error("Google login error:", error);
+    toast.error("Đăng nhập Google thất bại!");
+  }
+};
+
 
 
   return (

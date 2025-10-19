@@ -12,8 +12,8 @@ import TransactionPage from "./pages/customer/TransactionPage";
 import PaymentStatusPage from "./pages/customer/PaymentStatusPage";
 import BlogPage from "./pages/customer/BlogPage";
 
-import { AuthorIncome } from "./pages/author/AuthorIncome";
-import { AuthorBookList } from "./pages/author/AuthorBookList";
+import AuthorIncome from "./pages/author/AuthorIncome";
+import AuthorBookList from "./pages/author/AuthorBookList";
 
 import CustomerLayout from "./layouts/CustomerLayout";
 

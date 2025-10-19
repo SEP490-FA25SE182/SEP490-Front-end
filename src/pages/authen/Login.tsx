@@ -51,7 +51,7 @@ export default function Login() {
                 const role = roleResp.data;
                 const roleName = (role?.roleName || '').toLowerCase();
                 if (roleName.includes('author')) {
-                  window.location.href = "/author/income";
+                  window.location.href = "/author/authorincome";
                   return;
                 }
               }

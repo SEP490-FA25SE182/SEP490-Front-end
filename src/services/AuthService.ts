@@ -53,18 +53,15 @@ export interface GoogleAuthRequest {
  * @returns AuthResponse
  */
 export const registerUser = async (userData: RegisterRequest): Promise<AuthResponse> => {
-  const payload = [
-    {
-      fullName: userData.fullName,
-      email: userData.email,
-      password: userData.password,
-      phoneNumber: userData.phoneNumber,
-      roleId: userData.roleId || "",
-      isActived: userData.isActived || "ACTIVE",
-    },
-  ];
+  const payload = {
+    fullName: userData.fullName,
+    email: userData.email,
+    password: userData.password,
+    phoneNumber: userData.phoneNumber,
+    roleId: userData.roleId || ""
+  };
 
-  const response = await axios.post<AuthResponse>(`${BASE_URL}`, payload);
+  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/register`, payload);
   return response.data;
 };
 

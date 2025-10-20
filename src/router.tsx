@@ -1,6 +1,9 @@
 import { Routes, Route } from "react-router-dom";
+
 import Login from "./pages/authen/Login";
 import Signup from "./pages/authen/Signup";
+import ForgotPassword from "./pages/authen/ForgotPassword";
+
 import Homepage from "./pages/customer/Homepage";
 import { BookDetail } from "./pages/customer/BookDetail";
 import CartPage from "./pages/customer/CartPage";
@@ -20,10 +23,12 @@ import CustomerLayout from "./layouts/CustomerLayout";
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Homepage/>} />
-      <Route path="/genre/:gerneId" element={<Homepage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgotpassword" element={<ForgotPassword />} />
+
+      <Route path="/" element={<Homepage />} />
+      <Route path="/genre/:gerneId" element={<Homepage />} />
       <Route path="/book/:bookId" element={<BookDetail />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />

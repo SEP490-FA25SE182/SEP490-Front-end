@@ -46,6 +46,12 @@ export interface GoogleAuthRequest {
   [key: string]: string;
 }
 
+export interface ChangePasswordRequest {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
 /**
  * Đăng ký người dùng mới
  * Gửi theo mẫu backend yêu cầu: mảng chứa object user
@@ -109,6 +115,21 @@ export const resetPassword = async (data: ResetPasswordRequest): Promise<void> =
   await axios.post(`${BASE_URL}/auth/password/reset`, data);
 };
 
+/** Thay đổi mật khẩu */
+export const changePassword = async (data: ChangePasswordRequest, token?: string): Promise<void> => {
+  await axios.post(
+    `${BASE_URL}/auth/password/change`,
+    data,
+    token
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined
+  );
+};
+
 export const useRegisterUser = () => {
   return useMutation({
     mutationFn: (data: RegisterRequest) => registerUser(data),
@@ -143,5 +164,12 @@ export const useForgotPassword = () => {
 export const useResetPassword = () => {
   return useMutation({
     mutationFn: (data: ResetPasswordRequest) => resetPassword(data),
+  });
+};
+
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: (payload: { data: ChangePasswordRequest; token?: string }) =>
+      changePassword(payload.data, payload.token),
   });
 };

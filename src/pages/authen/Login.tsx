@@ -3,7 +3,6 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from "sonner";
 
 import axios from 'axios';
@@ -16,7 +15,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe] = useState(false);
 
   const { mutate: loginUser, isPending } = useLoginUser();
 
@@ -232,25 +231,9 @@ export default function Login() {
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) =>
-                    setRememberMe(checked as boolean)
-                  }
-                  className="h-4 w-4"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-xs text-gray-700 cursor-pointer"
-                >
-                  Lưu thông tin của tôi
-                </label>
-              </div>
+            <div className="flex items-center justify-end">           
               <a
-                href="#"
+                href="/forgotpassword"
                 className="text-xs text-indigo-600 hover:text-indigo-700"
               >
                 Bạn quên mật khẩu?

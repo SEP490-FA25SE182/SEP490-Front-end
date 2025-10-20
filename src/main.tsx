@@ -8,12 +8,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CartProvider } from "./context/CartContext";
 import { FavoritesProvider } from '@/context/FavoriteContext';
 import { PaymentProvider } from "@/context/PaymentContext";
+import { AuthProvider } from "./context/AuthContext";
 
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
+      <AuthProvider>
       <FavoritesProvider>
         <CartProvider>
           <PaymentProvider>
@@ -22,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           <Toaster />
         </CartProvider>
       </FavoritesProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </BrowserRouter>
 );

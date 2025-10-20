@@ -3,18 +3,19 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from "sonner";
 
+import axios from 'axios';
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useLoginUser } from "@/services/AuthService";
+import { getRoleById } from "@/services/RoleService";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe] = useState(false);
 
   const { mutate: loginUser, isPending } = useLoginUser();
 
@@ -24,7 +25,7 @@ export default function Login() {
     loginUser(
       { email, password },
       {
-        onSuccess: (res) => {
+        onSuccess: async (res) => {
           console.log("Login response:", res);
 
           if (res.token && res.user) {
@@ -41,6 +42,22 @@ export default function Login() {
             toast.success("Đăng nhập thành công!", {
               description: "Chào mừng bạn quay trở lại.",
             });
+
+            // điều hướng theo roleName (fetch role info)
+            try {
+              const roleId = res.user.roleId;
+              if (roleId) {
+                const roleResp = await axios.get(`http://localhost:8081/api/rookie/users/roles/${roleId}`);
+                const role = roleResp.data;
+                const roleName = (role?.roleName || '').toLowerCase();
+                if (roleName.includes('author')) {
+                  window.location.href = "/author/authorincome";
+                  return;
+                }
+              }
+            } catch (err) {
+              console.warn('Không lấy được role info, chuyển về trang chính', err);
+            }
 
             window.location.href = "/";
           } else {
@@ -63,15 +80,62 @@ export default function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      const idToken = await user.getIdToken(); // ✅ Lấy idToken thật từ Firebase
+
       console.log("Google User:", {
         name: user.displayName,
         email: user.email,
         photo: user.photoURL,
+        idToken, // log thử
       });
+
+      // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
+      const response = await axios.post("http://localhost:8081/api/rookie/users/auth/google", {
+        idToken: idToken,
+      });
+
+      const res = response.data;
+      console.log("Google Login Backend Response:", res);
+
+      if (res.token && res.user) {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("userRole", res.user.roleId || "");
+
+        toast.success("Đăng nhập Google thành công!", {
+          description: `Chào mừng ${res.user.fullName || "bạn"}!`,
+        });
+
+        try {
+          const roleId = res.user.roleId;
+          if (roleId) {
+            const role = await getRoleById(roleId); // ✅ dùng service chuẩn
+            const roleName = (role?.roleName || "").toLowerCase();
+
+            if (roleName.includes("author")) {
+              window.location.href = "/author/authorincome";
+              return;
+            } else if (roleName.includes("admin")) {
+              window.location.href = "/admin/dashboard";
+              return;
+            } else if (roleName.includes("user") || roleName.includes("customer")) {
+              window.location.href = "/";
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Không lấy được role info, chuyển về trang chính", err);
+          window.location.href = "/";
+        }
+      }
+
     } catch (error) {
       console.error("Google Login Error:", error);
+      toast.error("Đăng nhập Google thất bại!", {
+        description: "Vui lòng thử lại sau.",
+      });
     }
   };
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -167,25 +231,9 @@ export default function Login() {
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) =>
-                    setRememberMe(checked as boolean)
-                  }
-                  className="h-4 w-4"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-xs text-gray-700 cursor-pointer"
-                >
-                  Lưu thông tin của tôi
-                </label>
-              </div>
+            <div className="flex items-center justify-end">           
               <a
-                href="#"
+                href="/forgotpassword"
                 className="text-xs text-indigo-600 hover:text-indigo-700"
               >
                 Bạn quên mật khẩu?

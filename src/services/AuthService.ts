@@ -2,13 +2,18 @@ import axios from 'axios';
 import { useMutation } from "@tanstack/react-query";
 
 
-const BASE_URL = 'http://localhost:8085/api/rookie/users/auth';
+const BASE_URL = 'http://localhost:8081/api/rookie/users';
 
 export interface RegisterRequest {
   fullName: string;
   email: string;
   password: string;
   phoneNumber: string;
+  roleId?: string;
+  avatarUrl?: string;
+  birthDate?: string;
+  gender?: string;
+  isActived?: string;
 }
 
 export interface LoginRequest {
@@ -41,13 +46,28 @@ export interface GoogleAuthRequest {
   [key: string]: string;
 }
 
+export interface ChangePasswordRequest {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
 /**
  * Đăng ký người dùng mới
+ * Gửi theo mẫu backend yêu cầu: mảng chứa object user
  * @param userData Thông tin người dùng
  * @returns AuthResponse
  */
 export const registerUser = async (userData: RegisterRequest): Promise<AuthResponse> => {
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/register`, userData);
+  const payload = {
+    fullName: userData.fullName,
+    email: userData.email,
+    password: userData.password,
+    phoneNumber: userData.phoneNumber,
+    roleId: userData.roleId || ""
+  };
+
+  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/register`, payload);
   return response.data;
 };
 
@@ -57,7 +77,7 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
  * @returns AuthResponse
  */
 export const loginUser = async (credentials: LoginRequest): Promise<AuthResponse> => {
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/login`, credentials);
+  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/login`, credentials);
   return response.data;
 };
 
@@ -68,7 +88,7 @@ export const loginUser = async (credentials: LoginRequest): Promise<AuthResponse
  */
 export const logoutUser = async (token: string): Promise<AuthResponse> => {
   const response = await axios.post<AuthResponse>(
-    `${BASE_URL}/logout`,
+    `${BASE_URL}/auth/logout`,
     {},
     {
       headers: {
@@ -81,18 +101,33 @@ export const logoutUser = async (token: string): Promise<AuthResponse> => {
 
 /** Đăng nhập bằng Google */
 export const googleAuth = async (data: GoogleAuthRequest): Promise<AuthResponse> => {
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/google`, data);
+  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/google`, data);
   return response.data;
 };
 
 /** Quên mật khẩu */
 export const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
-  await axios.post(`${BASE_URL}/password/forgot`, data);
+  await axios.post(`${BASE_URL}/auth/password/forgot`, data);
 };
 
 /** Đặt lại mật khẩu */
 export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
-  await axios.post(`${BASE_URL}/password/reset`, data);
+  await axios.post(`${BASE_URL}/auth/password/reset`, data);
+};
+
+/** Thay đổi mật khẩu */
+export const changePassword = async (data: ChangePasswordRequest, token?: string): Promise<void> => {
+  await axios.post(
+    `${BASE_URL}/auth/password/change`,
+    data,
+    token
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined
+  );
 };
 
 export const useRegisterUser = () => {
@@ -129,5 +164,12 @@ export const useForgotPassword = () => {
 export const useResetPassword = () => {
   return useMutation({
     mutationFn: (data: ResetPasswordRequest) => resetPassword(data),
+  });
+};
+
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: (payload: { data: ChangePasswordRequest; token?: string }) =>
+      changePassword(payload.data, payload.token),
   });
 };

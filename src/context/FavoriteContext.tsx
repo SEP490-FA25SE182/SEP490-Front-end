@@ -1,50 +1,63 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { type Book } from "@/services/BookService";
+import { toast } from "sonner";
 
-interface Book {
-    book_id: string;
-    book_name: string;
-    cover_url: string;
-    decription: string;
-    published_date: string;
-}
+/* =====================================================
+   ❤️ Favorite Context
+===================================================== */
 
-interface FavoritesContextType {
-    favorites: Book[];
-    toggleFavorite: (book: Book) => void;
-    isFavorite: (bookId: string) => boolean;
-}
+type FavoriteContextType = {
+  favorites: Book[];
+  toggleFavorite: (book: Book) => void;
+  isFavorite: (bookId: string) => boolean;
+};
 
-const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
+const FavoriteContext = createContext<FavoriteContextType | undefined>(
+  undefined
+);
 
-export function FavoritesProvider({ children }: { children: ReactNode }) {
-    const [favorites, setFavorites] = useState<Book[]>([]);
+export const FavoriteProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [favorites, setFavorites] = useState<Book[]>(() => {
+    // 🧠 Load từ localStorage khi khởi động
+    const saved = localStorage.getItem("favorites");
+    return saved ? JSON.parse(saved) : [];
+  });
 
-    const toggleFavorite = (book: Book) => {
-        setFavorites(prev => {
-            const exists = prev.find(b => b.book_id === book.book_id);
-            if (exists) {
-                return prev.filter(b => b.book_id !== book.book_id);
-            } else {
-                return [...prev, book];
-            }
-        });
-    };
+  // 💾 Lưu favorites mỗi khi thay đổi
+  useEffect(() => {
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+  }, [favorites]);
 
-    const isFavorite = (bookId: string) => {
-        return favorites.some(book => book.book_id === bookId);
-    };
+  // ❤️ Thêm / Xóa yêu thích
+  const toggleFavorite = (book: Book) => {
+    setFavorites((prev) => {
+      const exists = prev.some((b) => b.bookId === book.bookId);
+      if (exists) {
+        toast.info(`Đã xóa “${book.bookName}” khỏi thư viện`);
+        return prev.filter((b) => b.bookId !== book.bookId);
+      } else {
+        toast.success(`Đã thêm “${book.bookName}” vào thư viện`);
+        return [...prev, book];
+      }
+    });
+  };
 
-    return (
-        <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
-            {children}
-        </FavoritesContext.Provider>
-    );
-}
+  // 🔍 Kiểm tra sách đã yêu thích chưa
+  const isFavorite = (bookId: string) =>
+    favorites.some((b) => b.bookId === bookId);
+
+  return (
+    <FavoriteContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
+      {children}
+    </FavoriteContext.Provider>
+  );
+};
 
 export const useFavorites = () => {
-    const context = useContext(FavoritesContext);
-    if (!context) {
-        throw new Error('useFavorites must be used within a FavoritesProvider');
-    }
-    return context;
+  const ctx = useContext(FavoriteContext);
+  if (!ctx)
+    throw new Error("useFavorites must be used within a FavoriteProvider");
+  return ctx;
 };

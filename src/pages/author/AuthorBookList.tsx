@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Menu, X, Search, Plus } from 'lucide-react';
-import sampleData from '@/data/sample_books.json';
+import { getAllBooks } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,22 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-const books = sampleData.Books;
+const [books, setBooks] = useState<any[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+    async function fetchBooks() {
+      try {
+        const res = await getAllBooks(); // Gọi API
+        setBooks(res || []); // Giả sử res là mảng
+      } catch (err) {
+        console.error("Lỗi khi tải sách:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBooks();
+  }, []);
 
 const statusLabels = {
   0: { text: 'Nháp', color: 'bg-gray-500' },

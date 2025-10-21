@@ -2,10 +2,12 @@ import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
 import { BookOpen, Clock, CreditCard, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const navigationItems = [
     { path: '/profile', icon: User, label: 'Thông tin khách hàng' },
@@ -22,9 +24,15 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         <div className="w-80 flex-shrink-0">
           <div className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] rounded-3xl p-6 shadow-2xl border border-white/10">
             <div className="flex items-center gap-3 mb-8 pb-6 border-b border-white/10">
-              <img src="https://avatar.iran.liara.run/public/boy?username=Ash" className="w-10" />
+              <img
+  src={user?.avatarUrl || "https://avatar.iran.liara.run/public/boy?username=default"}
+  alt="Avatar"
+  className="w-10 h-10 rounded-full object-cover"
+/>
               <div>
-                <h3 className="text-white font-semibold">Nguyễn Minh Hoàng</h3>
+                <h3 className="text-white font-semibold">
+  {user?.fullName || "Người dùng"}
+</h3>
                 <p className="text-white/60 text-sm">Thay đổi ảnh đại diện</p>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useLoginUser } from "@/services/AuthService";
 import { getRoleById } from "@/services/RoleService";
+import { useAuth } from '@/context/AuthContext';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +19,8 @@ export default function Login() {
   const [rememberMe] = useState(false);
 
   const { mutate: loginUser, isPending } = useLoginUser();
+
+  const { setUser, setToken } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +91,13 @@ export default function Login() {
         photo: user.photoURL,
         idToken, // log thử
       });
+
+       setUser({
+      fullName: user.displayName || "",
+      email: user.email || "",
+      avatarUrl: user.photoURL || "",
+    });
+    setToken(idToken);
 
       // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
       const response = await axios.post("http://localhost:8081/api/rookie/users/auth/google", {

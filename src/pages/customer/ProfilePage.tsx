@@ -255,7 +255,7 @@ export default function ProfilePage() {
 
         <AddAddressForm
           userId={user.userId}
-          onSuccess={async (newAddr) => {
+          onSuccess={async () => {
             // ✅ Cập nhật danh sách từ BE
             const updated = await getAddressesByUserId(user.userId);
             setAddresses(updated);
@@ -395,6 +395,7 @@ function AddAddressForm({
       // ✅ Gửi đúng request body theo chuẩn backend
       const newAddress = await createAddress({
         addressInfor: fullAddress,
+        userId: userId,
         isActived: "ACTIVE",
       });
 

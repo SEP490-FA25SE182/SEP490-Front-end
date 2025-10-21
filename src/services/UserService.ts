@@ -94,6 +94,7 @@ export interface Address {
  */
 export interface CreateAddressRequest {
   addressInfor: string;
+  userId: string;
   isActived: string; // Thường là "ACTIVE"
 }
 

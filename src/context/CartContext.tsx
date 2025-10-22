@@ -216,7 +216,7 @@ useEffect(() => {
         cartId,
         book.bookId,
         qty,
-        150000
+        2000
       );
 
       dispatch({
@@ -224,7 +224,7 @@ useEffect(() => {
         line: {
           book,
           qty,
-          price: newItem.price ?? 150000,
+          price: newItem.price ?? 2000,
           cartItemId: newItem.cartItemId,
         },
       });

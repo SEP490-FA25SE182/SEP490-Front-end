@@ -1,7 +1,6 @@
 import axios from "axios";
 import { useMutation, useQuery } from "@tanstack/react-query";
-
-const BASE_URL = "http://localhost:8081/api/rookie/users/roles";
+import { API_BASE_URL } from "@/config";
 
 export interface Role {
   roleId: string;
@@ -20,7 +19,7 @@ export interface UpdateRoleRequest {
  * @returns Danh sách Role[]
  */
 export const getAllRoles = async (): Promise<Role[]> => {
-  const response = await axios.get<Role[]>(`${BASE_URL}`);
+  const response = await axios.get<Role[]>(`${API_BASE_URL}/users/roles`);
   return response.data;
 };
 
@@ -30,7 +29,7 @@ export const getAllRoles = async (): Promise<Role[]> => {
  * @returns Role
  */
 export const getRoleById = async (id: string): Promise<Role> => {
-  const response = await axios.get<Role>(`${BASE_URL}/${id}`);
+  const response = await axios.get<Role>(`${API_BASE_URL}/users/roles/${id}`);
   return response.data;
 };
 
@@ -44,7 +43,7 @@ export const updateRoleById = async (
   id: string,
   data: UpdateRoleRequest
 ): Promise<Role> => {
-  const response = await axios.put<Role>(`${BASE_URL}/${id}`, data);
+  const response = await axios.put<Role>(`${API_BASE_URL}/users/roles/${id}`, data);
   return response.data;
 };
 

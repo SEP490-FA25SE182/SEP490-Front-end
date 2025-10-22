@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/users/books";
+import { API_BASE_URL } from "@/config";
 
 export interface Book {
   bookId: string;
@@ -18,7 +17,7 @@ export interface Book {
 
 // 🟩 Lấy danh sách tất cả sách (paged)
 export const getAllBooks = async (): Promise<Book[]> => {
-  const res = await axios.get(`${API_BASE_URL}`, {
+  const res = await axios.get(`${API_BASE_URL}/users/books`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -35,7 +34,7 @@ export const getAllBooks = async (): Promise<Book[]> => {
 
 // 🟩 Lấy chi tiết sách theo ID
 export const getBookById = async (id: string): Promise<Book> => {
-  const res = await axios.get(`${API_BASE_URL}/${id}`, {
+  const res = await axios.get(`${API_BASE_URL}/users/books/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },

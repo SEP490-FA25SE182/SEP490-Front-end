@@ -4,17 +4,92 @@ import { Link, useNavigate } from "react-router-dom";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Trash2, Minus, Plus } from "lucide-react";
-
-
+import { toast } from "sonner";
+import { OrderService } from "@/services/OrderService";
+import { getWalletByUserId } from "@/services/WalletService";
+import { getUserByEmail } from "@/services/UserService";
+import { useAuth } from "@/context/AuthContext";
 
 export default function CartPage() {
-  const { state, subtotal, setQty, remove, clear, } = useCart();
+  const { state, subtotal, setQty, remove, clear} = useCart();
   const navigate = useNavigate();
-  
-  const handleCheckout = () => {
-    navigate("/checkout");
-  };
-   
+  const { user } = useAuth();
+
+ const handleCheckout = async () => {
+  console.log("🟢 handleCheckout bắt đầu");
+  try {
+    // 🔹 1. Kiểm tra giỏ hàng
+    if (!state?.cartId) {
+      toast.error("Không tìm thấy giỏ hàng hiện tại.");
+      return;
+    }
+
+    // 🔹 2. Lấy thông tin người dùng từ AuthContext
+    if (!user?.email) {
+      toast.error("Không tìm thấy thông tin người dùng.");
+      return;
+    }
+
+    // 🧩 Lấy userId từ email
+    const userRes = await getUserByEmail(user.email);
+    const userId = userRes?.userId;
+    if (!userId) {
+      toast.error("Không tìm thấy userId hợp lệ.");
+      return;
+    }
+
+    // 🪙 3. Lấy ví người dùng theo userId
+    const walletRes = await getWalletByUserId(userId);
+    const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
+
+    if (!wallet?.walletId) {
+      toast.error("Không tìm thấy ví người dùng.");
+      return;
+    }
+
+    // 💰 4. Tính toán tổng tiền
+    const totalPrice = state.lines.reduce(
+      (sum, line) => sum + (line.price || 0) * line.qty,
+      0
+    );
+
+    // 🧾 5. Chuẩn bị payload
+    const orderPayload = {
+      amount: state.lines.length,
+      totalPrice,
+      status: 1, // PENDING
+      cartId: state.cartId,
+      walletId: wallet.walletId,
+    };
+
+    console.log("📦 Payload tạo order:", orderPayload);
+
+    // 🚀 6. Gọi API tạo order
+    const order = await OrderService.createOrder(orderPayload);
+    const orderId = order?.orderId;
+
+    if (!orderId) {
+      throw new Error("Không nhận được orderId từ backend.");
+    }
+
+    console.log("✅ Order tạo thành công:", order);
+
+    toast.success("Đơn hàng đã được tạo thành công!");
+
+    // 🔁 7. Điều hướng sang trang Checkout
+    navigate("/checkout", {
+      state: {
+        orderId: order.orderId,
+        cartId: order.cartId,
+        totalPrice: order.totalPrice,
+        walletId: wallet.walletId,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Lỗi khi tạo order:", error);
+    toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
+  }
+};
 
 
   return (
@@ -41,7 +116,7 @@ export default function CartPage() {
             {/* Danh sách item */}
             <div className="lg:col-span-2 space-y-4">
               {state.lines.map((line) => {
-                const unit = line.price ?? 150000;
+                const unit = line.price ?? 2000;
                 return (
                   <div
                     key={line.cartItemId || line.book.bookId}
@@ -83,7 +158,6 @@ export default function CartPage() {
                             onClick={() =>
                               setQty(line.book.bookId, Math.max(1, line.qty - 1))
                             }
-                            aria-label="decrease"
                           >
                             <Minus className="w-4 h-4" />
                           </button>
@@ -102,7 +176,6 @@ export default function CartPage() {
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() => setQty(line.book.bookId, line.qty + 1)}
-                            aria-label="increase"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -110,7 +183,6 @@ export default function CartPage() {
                           <button
                             className="ml-2 w-8 h-8 grid place-items-center rounded-lg bg-red-500/20 text-red-200 hover:bg-red-500/30"
                             onClick={() => remove(line.book.bookId)}
-                            aria-label="remove"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

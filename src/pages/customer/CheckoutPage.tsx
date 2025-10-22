@@ -6,8 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type SubmitHandler } from "react-hook-form";
-
+import { useForm } from "react-hook-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,14 +28,10 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail, getAddressesByUserId } from "@/services/UserService";
 import { type Book } from "@/services/BookService";
-import { PaymentService } from "@/services/PaymentService";
-import { OrderService } from "@/services/OrderService";
-import { OrderDetailService } from "@/services/OrderDetailService";
-import { getWalletByUserId } from "@/services/WalletService";
-
-
-
-
+import {
+  PaymentService,
+  type PaymentCheckoutResponse,
+} from "@/services/PaymentService";
 
 /* ============================ 🧾 VALIDATION ============================ */
 const schema = z.object({
@@ -48,7 +43,6 @@ const schema = z.object({
   ward: z.string().min(1, "Chọn Phường/Xã"),
   address: z.string().min(5, "Địa chỉ chi tiết tối thiểu 5 ký tự"),
   note: z.string().optional(),
-  paymentMethod: z.enum(["payos", "cod"]),
   shippingMethod: z.enum(["standard", "express"]),
 });
 type FormValues = z.infer<typeof schema>;
@@ -59,7 +53,13 @@ function formatVND(n: number) {
 }
 function getBookName(b: Book): string {
   const anyB = b as any;
-  return anyB.book_name || anyB.bookName || anyB.title || anyB.name || "Sách không tên";
+  return (
+    anyB.book_name ||
+    anyB.bookName ||
+    anyB.title ||
+    anyB.name ||
+    "Sách không tên"
+  );
 }
 function getBookImage(b: Book): string | undefined {
   const anyB = b as any;
@@ -67,38 +67,46 @@ function getBookImage(b: Book): string | undefined {
 }
 function getUnit(b: Book): number {
   const anyB = b as any;
-  return (anyB?.sale_price ?? anyB?.price ?? 150000) as number;
+  return (anyB?.sale_price ?? anyB?.price ?? 2000) as number;
 }
 
 /* ============================ 🏁 MAIN COMPONENT ============================ */
 export default function CheckoutPage() {
-  
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { buyNowLine?: { book: Book; qty: number } } };
+  const location = useLocation() as {
+    state?: { 
+      orderId?: string;
+      buyNowLine?: { book: Book; qty: number; } };
+  };
   const { toast } = useToast();
-  const { state: cartState, clear } = useCart();
+  const { state: cartState } = useCart();
   const { user } = useAuth();
-  
-  
 
   const lines = cartState.lines;
   const isBuyNow = !!location.state?.buyNowLine;
-const linesToPay = isBuyNow
-  ? [location.state!.buyNowLine!]
-  : cartState.lines.map((l) => ({ book: l.book as Book, qty: l.qty }));
+  const linesToPay = isBuyNow
+    ? [location.state!.buyNowLine!]
+    : cartState.lines.map((l) => ({ book: l.book as Book, qty: l.qty }));
 
-const subtotalLocal = useMemo(
-  () => linesToPay.reduce((s, l) => s + getUnit(l.book) * l.qty, 0),
-  [linesToPay]
-);
+  const subtotalLocal = useMemo(
+    () => linesToPay.reduce((s, l) => s + getUnit(l.book) * l.qty, 0),
+    [linesToPay]
+  );
 
-const effectiveSubtotal = subtotalLocal;
-
-  useEffect(() => {
-    if (!isBuyNow && (!lines || lines.length === 0)) navigate("/cart");
-  }, [isBuyNow, lines, navigate]);
-
+  const effectiveSubtotal = subtotalLocal;
   const shippingFeeMap = { standard: 20000, express: 40000 };
+
+  const orderId = location.state?.orderId;
+
+useEffect(() => {
+  if (!orderId) {
+    toast({
+      variant: "destructive",
+      title: "Không tìm thấy mã đơn hàng",
+      description: "Vui lòng quay lại giỏ hàng và thử lại.",
+    });
+  }
+}, [orderId]);
 
   
 
@@ -114,14 +122,15 @@ const effectiveSubtotal = subtotalLocal;
       ward: "",
       address: "",
       note: "",
-      paymentMethod: "payos",
       shippingMethod: "standard",
     },
-    mode: "onTouched",
   });
 
   const shippingFee = shippingFeeMap[form.watch("shippingMethod")] ?? 20000;
-  const total = useMemo(() => effectiveSubtotal + shippingFee, [effectiveSubtotal, shippingFee]);
+  const total = useMemo(
+    () => effectiveSubtotal + shippingFee,
+    [effectiveSubtotal, shippingFee]
+  );
 
   /* ============================ 🗺️ LOAD ADDRESS ============================ */
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -174,9 +183,12 @@ const effectiveSubtotal = subtotalLocal;
           const addresses = await getAddressesByUserId(res.userId);
           if (addresses?.length) {
             const addr =
-              addresses.find((a: any) => a.isActived === "ACTIVE") || addresses[0];
+              addresses.find((a: any) => a.isActived === "ACTIVE") ||
+              addresses[0];
             if (addr?.addressInfor) {
-              const parts = addr.addressInfor.split(",").map((s: string) => s.trim());
+              const parts = addr.addressInfor
+                .split(",")
+                .map((s: string) => s.trim());
               const province = parts.at(-1) || "";
               const district = parts.at(-2) || "";
               const ward = parts.at(-3) || "";
@@ -196,117 +208,44 @@ const effectiveSubtotal = subtotalLocal;
   }, [user, form]);
 
   /* ============================ 💰 PAYOS HANDLER ============================ */
-  async function handlePayOS(orderId: string, order: any, paymentMethod: string) {
-  try {
-    const response = await PaymentService.createPaymentCheckout(orderId);
-    if (response?.success && response?.data?.checkoutUrl) {
-      window.location.href = response.data.checkoutUrl;
-    } else {
-      throw new Error(response?.desc || "Không có checkoutUrl từ PayOS");
+  async function handlePayOS(orderId: string) {
+    try {
+      toast({
+        title: "Đang kết nối PayOS...",
+        description: "Vui lòng chờ trong giây lát.",
+      });
+
+      const response: PaymentCheckoutResponse =
+      await PaymentService.createPaymentCheckout(orderId);
+      localStorage.setItem("lastOrder", JSON.stringify(orderId));
+      const checkoutUrl = response?.checkoutUrl;
+
+      if (checkoutUrl && checkoutUrl.startsWith("https")) {
+        window.location.href = checkoutUrl;
+      } else {
+        throw new Error("Không có checkoutUrl hợp lệ từ PayOS");
+      }
+    } catch (error: any) {
+      console.error("❌ Lỗi khi tạo thanh toán PayOS:", error);
+      toast({
+        variant: "destructive",
+        title: "Không thể khởi tạo thanh toán PayOS",
+        description: error?.message || "Vui lòng thử lại sau.",
+      });
     }
-  } catch (error: any) {
-    toast({
-      variant: "destructive",
-      title: "Không thể khởi tạo thanh toán PayOS",
-      description: error?.message || "Vui lòng thử lại sau.",
-    });
-
-    // ✅ Chuyển sang PaymentStatusPage với trạng thái pending
-    navigate("/payment-status", {
-      state: {
-        order,
-        paymentMethod,
-        fallback: true,
-      },
-    });
   }
-}
-
-
-  /* ============================ 💳 SUBMIT ============================ */
-  const onSubmit: SubmitHandler<FormValues> = async (data) => {
-  try {
-    // 🪪 Lấy userId từ email
-    const userRes = await getUserByEmail(user!.email);
-    const userId = userRes?.userId;
-
-    // 🪙 Lấy ví người dùng theo userId
-    const walletRes = await getWalletByUserId(userId);
-    const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
-
-    if (!cartState.cartId) throw new Error("Không tìm thấy giỏ hàng hiện tại");
-    if (!wallet?.walletId) throw new Error("Không tìm thấy ví người dùng");
-
-    // 1️⃣ Tạo Order
-    const orderPayload = {
-      amount: linesToPay.length,
-      totalPrice: linesToPay.reduce((sum, l) => sum + getUnit(l.book) * l.qty, 0),
-      status: 1, // PENDING
-      cartId: cartState.cartId,
-      walletId: wallet.walletId,
-    };
-
-    const order = await OrderService.createOrder(orderPayload);
-    const orderId = order?.orderId;
-    if (!orderId) throw new Error("Không nhận được orderId từ backend");
-
-    // 2️⃣ Tạo Order Details
-    const orderDetails = linesToPay.map((l) => ({
-      quantity: l.qty,
-      price: getUnit(l.book),
-      orderId,
-      bookId: l.book.bookId,
-    }));
-    await OrderDetailService.createOrderDetail(orderDetails);
-
-    // ✅ 3️⃣ Xóa giỏ hàng NGAY SAU KHI tạo order & order detail thành công
-    clear();
-
-    // 4️⃣ Thanh toán (PayOS / COD)
-    if (data.paymentMethod === "payos") {
-      toast({ title: "Đang kết nối PayOS...", description: "Vui lòng chờ..." });
-      await handlePayOS(orderId, order, data.paymentMethod);
-      return;
-    }
-
-    // Nếu COD thì chuyển sang PaymentStatusPage
-    toast({
-      title: "Đặt hàng thành công!",
-      description: "Thanh toán khi nhận hàng.",
-    });
-    navigate("/payment-status", {
-      state: {
-        order,
-        paymentMethod: data.paymentMethod,
-      },
-    });
-  } catch (err) {
-    console.error("❌ Lỗi khi tạo đơn hàng:", err);
-    toast({
-      variant: "destructive",
-      title: "Không thể tạo đơn hàng",
-      description: "Vui lòng thử lại sau.",
-    });
-  }
-};
-
-
-
-
-
 
   /* ============================ 🧾 RENDER ============================ */
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
-
       <main className="container mx-auto px-20 py-12">
         <h2 className="text-2xl font-bold text-white mb-6 text-center uppercase tracking-wide">
           Thanh Toán
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ===== Form thông tin ===== */}
+          {/* ===== FORM THÔNG TIN ===== */}
           <Card className="lg:col-span-2 bg-white/5 border-white/10 backdrop-blur">
             <CardHeader>
               <CardTitle className="text-white">Thông tin Checkout</CardTitle>
@@ -317,61 +256,42 @@ const effectiveSubtotal = subtotalLocal;
             </CardHeader>
 
             <CardContent>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-6"
-                noValidate
-              >
+              <form className="space-y-6" noValidate>
                 {/* =================== LIÊN HỆ =================== */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold text-white">
                     Thông tin liên hệ
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Họ tên */}
                     <div className="space-y-3">
                       <Label htmlFor="fullName" className="text-white">
                         Họ và tên
                       </Label>
                       <Input
-                        id="fullName"
                         {...form.register("fullName")}
-                        className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
+                        className="bg-white/5 border-white/20 text-white"
                       />
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.fullName?.message}
-                      </p>
                     </div>
 
-                    {/* SĐT */}
                     <div className="space-y-3">
                       <Label htmlFor="phone" className="text-white">
                         Số điện thoại
                       </Label>
                       <Input
-                        id="phone"
                         {...form.register("phone")}
-                        className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
+                        className="bg-white/5 border-white/20 text-white"
                       />
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.phone?.message}
-                      </p>
                     </div>
 
-                    {/* Email */}
                     <div className="md:col-span-2 space-y-3">
                       <Label htmlFor="email" className="text-white">
                         Email
                       </Label>
                       <Input
-                        id="email"
-                        type="email"
                         {...form.register("email")}
-                        className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
+                        type="email"
+                        className="bg-white/5 border-white/20 text-white"
                       />
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.email?.message}
-                      </p>
                     </div>
                   </div>
                 </section>
@@ -384,8 +304,7 @@ const effectiveSubtotal = subtotalLocal;
                     Địa chỉ giao hàng
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Province */}
-                    <div className="space-y-3">
+                    <div>
                       <Label className="text-white">Tỉnh/TP</Label>
                       <Select
                         onValueChange={handleProvinceChange}
@@ -402,13 +321,9 @@ const effectiveSubtotal = subtotalLocal;
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.province?.message}
-                      </p>
                     </div>
 
-                    {/* District */}
-                    <div className="space-y-3">
+                    <div>
                       <Label className="text-white">Quận/Huyện</Label>
                       <Select
                         onValueChange={handleDistrictChange}
@@ -425,13 +340,9 @@ const effectiveSubtotal = subtotalLocal;
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.district?.message}
-                      </p>
                     </div>
 
-                    {/* Ward */}
-                    <div className="space-y-3">
+                    <div>
                       <Label className="text-white">Phường/Xã</Label>
                       <Select
                         onValueChange={(v) => form.setValue("ward", v)}
@@ -448,33 +359,25 @@ const effectiveSubtotal = subtotalLocal;
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-sm text-red-400">
-                        {form.formState.errors.ward?.message}
-                      </p>
                     </div>
                   </div>
 
-                  {/* Địa chỉ chi tiết */}
-                  <div className="md:col-span-3 space-y-3">
+                  <div className="space-y-3">
                     <Label className="text-white">Địa chỉ chi tiết</Label>
                     <Input
-                      placeholder="Số nhà, tên đường..."
                       {...form.register("address")}
-                      className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
+                      placeholder="Số nhà, tên đường..."
+                      className="bg-white/5 border-white/20 text-white"
                     />
-                    <p className="text-sm text-red-400">
-                      {form.formState.errors.address?.message}
-                    </p>
                   </div>
 
-                  {/* Ghi chú */}
-                  <div className="md:col-span-3 space-y-3">
+                  <div className="space-y-3">
                     <Label className="text-white">Ghi chú</Label>
                     <Textarea
+                      {...form.register("note")}
                       rows={3}
                       placeholder="Ghi chú cho shipper…"
-                      {...form.register("note")}
-                      className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
+                      className="bg-white/5 border-white/20 text-white"
                     />
                   </div>
                 </section>
@@ -508,42 +411,39 @@ const effectiveSubtotal = subtotalLocal;
                     </RadioGroup>
                   </div>
 
+                  {/* ✅ Hai nút thanh toán */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-2 text-white">Thanh toán</h3>
-<RadioGroup
-  value={form.watch("paymentMethod")}
-  onValueChange={(v) => form.setValue("paymentMethod", v as any)}
->
-  <div className="flex items-center space-x-2">
-    <RadioGroupItem
-      value="payos"
-      id="pay-payos"
-      className="peer border-gray-400 data-[state=checked]:bg-white data-[state=checked]:border-white"
-    />
-    <Label htmlFor="pay-payos" className="text-white">
-      Chuyển khoản qua PayOS
-    </Label>
-  </div>
-  <div className="flex items-center space-x-2 mt-2">
-    <RadioGroupItem
-      value="cod"
-      id="pay-cod"
-      className="peer border-gray-400 data-[state=checked]:bg-white data-[state=checked]:border-white"
-    />
-    <Label htmlFor="pay-cod" className="text-white">
-      Thanh toán tiền mặt (COD)
-    </Label>
-  </div>
-</RadioGroup>
+                    <h3 className="text-lg font-semibold mb-2 text-white">
+                      Thanh toán
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+                      <Button
+                        type="button"
+                        onClick={() => handlePayOS(orderId!)}
+                        className="bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-2 rounded-lg hover:opacity-90"
+                      >
+                        💳 Thanh toán qua PayOS
+                      </Button>
 
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          toast({
+                            title: "Đặt hàng thành công!",
+                            description:
+                              "Bạn sẽ thanh toán khi nhận hàng (COD).",
+                          });
+                          navigate("/payment-status", {
+                            state: { paymentMethod: "COD" },
+                          });
+                        }}
+                        className="bg-white text-[#16213E] font-semibold py-2 rounded-lg hover:bg-gray-100"
+                      >
+                        🧾 Thanh toán tiền mặt (COD)
+                      </Button>
+                    </div>
                   </div>
                 </section>
-
-                <div className="pt-2">
-                  <Button type="submit" className="w-full md:w-auto">
-                    Đặt hàng / Thanh toán
-                  </Button>
-                </div>
               </form>
             </CardContent>
           </Card>
@@ -570,11 +470,6 @@ const effectiveSubtotal = subtotalLocal;
                             src={img}
                             alt={name}
                             className="h-10 w-8 object-cover rounded"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src =
-                                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="110"%3E%3Crect width="80" height="110" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="10" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
-                            }}
                           />
                         )}
                         <div className="min-w-0">

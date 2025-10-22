@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { CartProvider } from "./context/CartContext";
-import { FavoritesProvider } from '@/context/FavoriteContext';
+import { FavoriteProvider } from '@/context/FavoriteContext';
 import { PaymentProvider } from "@/context/PaymentContext";
 import { AuthProvider } from "./context/AuthContext";
 
@@ -16,14 +16,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-      <FavoritesProvider>
+      <FavoriteProvider>
         <CartProvider>
           <PaymentProvider>
           <App />
           </PaymentProvider>
           <Toaster />
         </CartProvider>
-      </FavoritesProvider>
+      </FavoriteProvider>
       </AuthProvider>
     </QueryClientProvider>
   </BrowserRouter>

@@ -1,30 +1,43 @@
-import { Search, Menu, User } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import booksData from '@/data/sample_books.json';
-import CartBadge from './CartBagde';
+import { Search, Menu, User } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import CartBadge from "./CartBagde";
+import { getAllGenres, type Genre } from "@/services/GenreService";
 
 const CustomerHeader = () => {
   const [isGenreOpen, setIsGenreOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const genres = (booksData as any).Genres || [];
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [loadingGenres, setLoadingGenres] = useState(true);
 
   useEffect(() => {
-    // Kiểm tra trạng thái đăng nhập
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     setIsLoggedIn(!!token);
   }, []);
 
+  // 🧠 Lấy danh sách thể loại thật từ API
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const data = await getAllGenres();
+        setGenres(data);
+      } catch (error) {
+        console.error("❌ Lỗi khi lấy danh sách thể loại:", error);
+      } finally {
+        setLoadingGenres(false);
+      }
+    };
+    fetchGenres();
+  }, []);
+
   const handleLogout = () => {
-    // Xóa dữ liệu đăng nhập
-    localStorage.removeItem('token');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('rememberEmail');
-    // Chuyển hướng về trang login
-    window.location.href = '/login';
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("rememberEmail");
+    window.location.href = "/login";
   };
 
   return (
@@ -52,7 +65,7 @@ const CustomerHeader = () => {
             </div>
           </div>
 
-          {/* Login/Register or User Menu */}
+          {/* Login / User */}
           <div className="flex items-center gap-4">
             {isLoggedIn ? (
               <div className="flex items-center gap-4">
@@ -63,8 +76,6 @@ const CustomerHeader = () => {
                   onMouseLeave={() => setIsUserMenuOpen(false)}
                 >
                   <User className="w-5 h-5 cursor-pointer hover:text-purple-400 transition-colors" />
-
-                  {/* User Dropdown Menu */}
                   {isUserMenuOpen && (
                     <div className="absolute top-2 right-0 w-48 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50 mt-2">
                       <div className="grid grid-cols-1 gap-1 p-3">
@@ -122,7 +133,7 @@ const CustomerHeader = () => {
         {/* Navigation */}
         <nav className="px-6 py-3">
           <ul className="flex items-center justify-between text-sm">
-            {/* Left: Chọn sách with dropdown */}
+            {/* Dropdown Thể loại */}
             <li
               className="relative"
               onMouseEnter={() => setIsGenreOpen(true)}
@@ -132,20 +143,26 @@ const CustomerHeader = () => {
                 <Menu className="w-4 h-4" />
                 <span>Chọn sách</span>
               </div>
-
-              {/* Dropdown Menu */}
               {isGenreOpen && (
                 <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
                   <div className="grid grid-cols-1 gap-1 p-3">
-                    {genres.map((genre: any) => (
-                      <Link
-                        key={genre.genre_id}
-                        to={`/genre/${genre.genre_id}`}
-                        className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                      >
-                        {genre.genre_name}
-                      </Link>
-                    ))}
+                    {loadingGenres ? (
+                      <p className="text-white/60 text-sm px-4">Đang tải...</p>
+                    ) : genres.length > 0 ? (
+                      genres.map((genre) => (
+                        <Link
+                          key={genre.genreId}
+                          to={`/genre/${genre.genreId}`}
+                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                        >
+                          {genre.genreName}
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="text-white/60 text-sm px-4">
+                        Không có thể loại nào
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

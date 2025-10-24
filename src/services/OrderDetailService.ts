@@ -1,7 +1,6 @@
 // src/services/OrderDetailService.ts
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/users/order/order-details";
+import { API_BASE_URL } from "@/config";
 
 export interface CreateOrderDetailRequest {
   quantity: number;
@@ -23,7 +22,7 @@ export interface OrderDetailResponse {
 export const OrderDetailService = {
   // 🆕 Tạo mới Order Detail
   async createOrderDetail(details: CreateOrderDetailRequest[]): Promise<any> {
-    const res = await axios.post(API_BASE_URL, details, {
+    const res = await axios.post(`${API_BASE_URL}/users/order/order-details`, details, {
       headers: { "Content-Type": "application/json" },
     });
     return res.data;
@@ -31,30 +30,30 @@ export const OrderDetailService = {
 
   // 🔍 Lấy toàn bộ order detail
   async getAllOrderDetails(): Promise<OrderDetailResponse[]> {
-    const res = await axios.get(API_BASE_URL);
+    const res = await axios.get(`${API_BASE_URL}/users/order/order-details`);
     return res.data;
   },
 
   // 🔍 Lấy order detail theo ID
   async getOrderDetailById(id: string): Promise<OrderDetailResponse> {
-    const res = await axios.get(`${API_BASE_URL}/${id}`);
+    const res = await axios.get(`${API_BASE_URL}/users/order/order-details/${id}`);
     return res.data;
   },
 
   // 🔍 Lấy danh sách order detail theo orderId
   async getOrderDetailsByOrderId(orderId: string): Promise<OrderDetailResponse[]> {
-    const res = await axios.get(`${API_BASE_URL}/order/${orderId}`);
+    const res = await axios.get(`${API_BASE_URL}/users/order/order-details/order/${orderId}`);
     return res.data;
   },
 
   // ✏️ Cập nhật order detail
   async updateOrderDetail(id: string, data: Partial<CreateOrderDetailRequest>): Promise<OrderDetailResponse> {
-    const res = await axios.put(`${API_BASE_URL}/${id}`, data);
+    const res = await axios.put(`${API_BASE_URL}/users/order/order-details/${id}`, data);
     return res.data;
   },
 
   // ❌ Xóa order detail
   async deleteOrderDetail(id: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/${id}`);
+    await axios.delete(`${API_BASE_URL}/users/order/order-details/${id}`);
   },
 };

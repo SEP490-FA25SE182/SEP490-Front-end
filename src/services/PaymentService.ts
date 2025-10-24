@@ -1,23 +1,16 @@
 // src/services/PaymentService.ts
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/payments";
+import { API_BASE_URL } from "@/config";
 
 /* =====================================================
    🧾 TYPE DEFINITIONS
 ===================================================== */
 export interface PaymentCheckoutResponse {
-  code: string;
-  desc: string;
-  success: boolean;
-  data: {
-    checkoutUrl?: string; // URL redirect PayOS
-    orderId?: string;
-    amount?: number;
-    status?: string;
-    [key: string]: any; // phòng khi backend có thêm field mới
-  };
-  signature?: string;
+  amount: number;
+  checkoutUrl: string;
+  orderCode: number;
+  paymentLinkId: string;
+  qrCode: string;
 }
 
 export interface PaymentWebhookRequest {
@@ -45,12 +38,12 @@ export const PaymentService = {
   async createPaymentCheckout(orderId: string): Promise<PaymentCheckoutResponse> {
     console.log("📦 Gửi request tạo thanh toán PayOS cho order:", orderId);
 
-    const res = await axios.post(`${API_BASE_URL}/${orderId}/checkout`, null, {
+    const res = await axios.post(`${API_BASE_URL}/payments/${orderId}/checkout`, null, {
       headers: { "Content-Type": "application/json" },
     });
 
     console.log("✅ Kết quả tạo thanh toán:", res.data);
-    return res.data;
+    return res.data as PaymentCheckoutResponse;
   },
 
   /**
@@ -60,11 +53,11 @@ export const PaymentService = {
   async webhookCallback(payload: PaymentWebhookRequest): Promise<PaymentWebhookResponse> {
     console.log("📨 Gửi dữ liệu webhook:", payload);
 
-    const res = await axios.post(`${API_BASE_URL}/webhook`, payload, {
+    const res = await axios.post(`${API_BASE_URL}/payments/webhook`, payload, {
       headers: { "Content-Type": "application/json" },
     });
 
     console.log("✅ Phản hồi webhook:", res.data);
-    return res.data;
+    return res.data as PaymentWebhookResponse;
   },
 };

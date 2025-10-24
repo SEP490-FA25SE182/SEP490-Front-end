@@ -16,7 +16,7 @@ import PaymentStatusPage from "./pages/customer/PaymentStatusPage";
 import BlogPage from "./pages/customer/BlogPage";
 
 import AuthorIncome from "./pages/author/AuthorIncome";
-import AuthorBookList from "./pages/author/AuthorBookList";
+// import AuthorBookList from "./pages/author/AuthorBookList";
 
 import CustomerLayout from "./layouts/CustomerLayout";
 
@@ -40,7 +40,7 @@ export default function AppRouter() {
       <Route path="/blog" element={<BlogPage />} />
 
       <Route path="/author/authorincome" element={<AuthorIncome />} />
-      <Route path="/author/authorbooklist" element={<AuthorBookList />} />
+      {/* <Route path="/author/authorbooklist" element={<AuthorBookList />} /> */}
     </Routes>
   );
 }

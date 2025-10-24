@@ -1,7 +1,6 @@
 // src/services/OrderService.ts
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/users/orders";
+import { API_BASE_URL } from "@/config";
 
 export interface CreateOrderRequest {
   amount: number;
@@ -28,7 +27,7 @@ export const OrderService = {
   async createOrder(data: CreateOrderRequest): Promise<OrderResponse> {
     console.log("📦 Gửi request tạo order:", data);
 
-    const res = await axios.post(API_BASE_URL, [data], {
+    const res = await axios.post(`${API_BASE_URL}/users/orders`, [data], {
       headers: {
         "Content-Type": "application/json",
       },
@@ -38,32 +37,53 @@ export const OrderService = {
     return Array.isArray(res.data) ? res.data[0] : res.data;
   },
 
+  // ✨ TẠO MỚI: Tạo Order từ Cart và Wallet ✨
+ async createOrderFromCart(cartId: string, walletId: string): Promise<OrderResponse> {
+    const url = `${API_BASE_URL}/users/orders/from-cart/${cartId}/wallet/${walletId}`;
+    console.log(`🛒 Gửi request tạo order từ cart: ${cartId} & wallet: ${walletId}`);
+
+    try {
+      // 🟢 Gọi API (không cần body)
+      const res = await axios.post(url, null, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      console.log("✅ Tạo order từ cart thành công:", res.data);
+      return res.data as OrderResponse;
+    } catch (error: any) {
+      console.error("❌ Lỗi khi tạo order từ cart:", error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || "Không thể tạo order từ cart.");
+    }
+  },
+
   // 🔍 Lấy tất cả orders
   async getAllOrders(): Promise<OrderResponse[]> {
-    const res = await axios.get(API_BASE_URL);
+    const res = await await axios.get(`${API_BASE_URL}/users/orders`);
     return res.data;
   },
 
   // 🔍 Lấy order theo ID
   async getOrderById(orderId: string): Promise<OrderResponse> {
-    const res = await axios.get(`${API_BASE_URL}/${orderId}`);
+    const res = await axios.get(`${API_BASE_URL}/users/orders/${orderId}`);
     return res.data;
   },
 
   // ✏️ Cập nhật order
   async updateOrder(orderId: string, data: Partial<CreateOrderRequest>): Promise<OrderResponse> {
-    const res = await axios.put(`${API_BASE_URL}/${orderId}`, data);
+    const res = await axios.put(`${API_BASE_URL}/users/orders/${orderId}`, data);
     return res.data;
   },
 
   // ❌ Xóa order
   async deleteOrder(orderId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/${orderId}`);
+    await axios.delete(`${API_BASE_URL}/users/orders/${orderId}`);
   },
 
   // 🔍 Lấy order theo cartId
   async getOrderByCartId(cartId: string): Promise<OrderResponse> {
-    const res = await axios.get(`${API_BASE_URL}/cart/${cartId}`);
+    const res = await axios.get(`${API_BASE_URL}/users/orders/cart/${cartId}`);
     return res.data;
   },
 };

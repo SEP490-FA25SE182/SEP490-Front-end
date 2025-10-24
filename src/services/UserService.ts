@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/users";
+import { API_BASE_URL } from "@/config";
 
 export interface User {
   userId: string;
@@ -28,36 +27,36 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest extends Partial<CreateUserRequest> {}
 
 export const getAllUsers = async (): Promise<User[]> => {
-  const response = await axios.get(API_BASE_URL);
+  const response = await axios.get(`${API_BASE_URL}/users`);
   return response.data;
 };
 
 export const getUserById = async (id: string): Promise<User> => {
-  const response = await axios.get(`${API_BASE_URL}/${id}`);
+  const response = await axios.get(`${API_BASE_URL}/users/${id}`);
   return response.data;
 };
 
 export const getUserByEmail = async (email: string): Promise<User> => {
   const response = await axios.get(
-    `${API_BASE_URL}/email/${encodeURIComponent(email)}`
+    `${API_BASE_URL}/users/email/${encodeURIComponent(email)}`
   );
   return response.data;
 };
 
 export const searchUsers = async (keyword: string): Promise<User[]> => {
-  const response = await axios.get(`${API_BASE_URL}/search`, {
+  const response = await axios.get(`${API_BASE_URL}/users/search`, {
     params: { keyword },
   });
   return response.data;
 };
 
 export const createUser = async (data: CreateUserRequest): Promise<User> => {
-  const response = await axios.post(API_BASE_URL, data);
+  const response = await axios.post(`${API_BASE_URL}/users`, data);
   return response.data;
 };
 
 export const updateUser = async (id: string, data: any): Promise<User> => {
-  const response = await axios.put(`${API_BASE_URL}/${id}`, data, {
+  const response = await axios.put(`${API_BASE_URL}/users/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -67,11 +66,11 @@ export const updateUser = async (id: string, data: any): Promise<User> => {
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/${id}`);
+  await axios.delete(`${API_BASE_URL}/users/${id}`);
 };
 
 export const getUserAnalytics = async (): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/analytics`);
+  const response = await axios.get(`${API_BASE_URL}/users/analytics`);
   return response.data;
 };
 
@@ -118,7 +117,7 @@ export const getAddressesByUserId = async (
   userId: string
 ): Promise<Address[]> => {
   try {
-    const res = await axios.get(`${API_BASE_URL}/addresses/user/${userId}`, {
+    const res = await axios.get(`${API_BASE_URL}/users/addresses/user/${userId}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -147,7 +146,7 @@ export const createAddress = async (
   try {
     console.log("📦 Gửi request tạo địa chỉ:", JSON.stringify([data], null, 2));
 
-    const res = await axios.post(`${API_BASE_URL}/addresses`, [data], {
+    const res = await axios.post(`${API_BASE_URL}/users/addresses`, [data], {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -179,7 +178,7 @@ export const updateAddress = async (
     );
 
     const res = await axios.put(
-      `${API_BASE_URL}/addresses/${addressId}`,
+      `${API_BASE_URL}/users/addresses/${addressId}`,
       data,
       {
         headers: {
@@ -204,7 +203,7 @@ export const updateAddress = async (
 export const deleteAddress = async (addressId: string): Promise<void> => {
   try {
     console.log(`🗑️ Xóa địa chỉ ID: ${addressId}`);
-    await axios.delete(`${API_BASE_URL}/addresses/${addressId}`, {
+    await axios.delete(`${API_BASE_URL}/users/addresses/${addressId}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },

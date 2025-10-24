@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie/users/genres";
+import { API_BASE_URL } from "@/config";
 
 export interface Genre {
   genreId: string;
@@ -13,7 +12,7 @@ export interface Genre {
 
 // 🟢 Lấy tất cả thể loại
 export const getAllGenres = async (): Promise<Genre[]> => {
-  const res = await axios.get(API_BASE_URL, {
+  const res = await axios.get(`${API_BASE_URL}/users/genres`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -28,7 +27,7 @@ export const getAllGenres = async (): Promise<Genre[]> => {
 
 // 🟢 Lấy chi tiết 1 thể loại
 export const getGenreById = async (id: string): Promise<Genre> => {
-  const res = await axios.get(`${API_BASE_URL}/${id}`, {
+  const res = await axios.get(`${API_BASE_URL}/users/genres/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -38,7 +37,7 @@ export const getGenreById = async (id: string): Promise<Genre> => {
 
 // 🟡 Tạo thể loại
 export const createGenre = async (data: Partial<Genre>): Promise<Genre> => {
-  const res = await axios.post(API_BASE_URL, data, {
+  const res = await axios.post(`${API_BASE_URL}/users/genres`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -49,7 +48,7 @@ export const createGenre = async (data: Partial<Genre>): Promise<Genre> => {
 
 // 🟡 Cập nhật thể loại
 export const updateGenre = async (id: string, data: Partial<Genre>): Promise<Genre> => {
-  const res = await axios.put(`${API_BASE_URL}/${id}`, data, {
+  const res = await axios.put(`${API_BASE_URL}/users/genres/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -60,7 +59,7 @@ export const updateGenre = async (id: string, data: Partial<Genre>): Promise<Gen
 
 // 🔴 Xóa thể loại
 export const deleteGenre = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/${id}`, {
+  await axios.delete(`${API_BASE_URL}/users/genres/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },

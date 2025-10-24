@@ -1,5 +1,5 @@
 import axios from "axios";
-const API_BASE_URL = "http://localhost:8081/api/rookie";
+import { API_BASE_URL } from "@/config";
 
 export interface Bookshelf {
   bookshelveId: string;

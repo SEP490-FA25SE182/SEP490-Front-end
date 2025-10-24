@@ -174,7 +174,7 @@ export const BookDetail = () => {
   //   try {
   //     const order = await OrderService.createOrder("PENDING");
   //     const orderId = Array.isArray(order) ? order[0].orderId : order.orderId;
-  //     await OrderService.addOrderDetail(orderId, book.bookId, 1, 150000);
+  //     await OrderService.addOrderDetail(orderId, book.bookId, 1, 15);
   //     toast({
   //       title: "Đơn hàng đang được xử lý",
   //       description: `“${book.bookName}” đã được tạo đơn hàng.`,
@@ -283,7 +283,7 @@ export const BookDetail = () => {
 
               <div className="pt-6">
                 <h3 className="text-xl font-bold text-white mb-4">
-                  Giá: 150.000 VND
+                  Giá: 2.000 VND
                 </h3>
 
                 <div className="flex gap-4">

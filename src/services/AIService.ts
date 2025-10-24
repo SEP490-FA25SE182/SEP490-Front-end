@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
 
-const BASE_URL = "http://localhost:8082/api/rookie";
+const API_BASE_URL = "http://localhost:8082/api/rookie";
 
 /* ====================== INTERFACES ====================== */
 
@@ -74,7 +74,7 @@ export const generateIllustration = async (
   meta: GenerateIllustrationMeta
 ) => {
   const response = await axios.post(
-    `${BASE_URL}/illustrations/generate/generate`,
+    `${API_BASE_URL}/illustrations/generate/generate`,
     { meta },
     { headers: { "X-User-Id": userId } }
   );
@@ -87,7 +87,7 @@ export const generateIllustration = async (
 export const createIllustration = async (
   data: Illustration[]
 ): Promise<Illustration[]> => {
-  const response = await axios.post(`${BASE_URL}/illustrations`, data);
+  const response = await axios.post(`${API_BASE_URL}/illustrations`, data);
   return response.data;
 };
 
@@ -97,7 +97,7 @@ export const createIllustration = async (
 export const createAIGeneration = async (
   data: AIGeneration[]
 ): Promise<AIGeneration[]> => {
-  const response = await axios.post(`${BASE_URL}/ai-generations`, data);
+  const response = await axios.post(`${API_BASE_URL}/ai-generations`, data);
   return response.data;
 };
 
@@ -107,7 +107,7 @@ export const createAIGeneration = async (
 export const createAIGenerationTarget = async (
   data: AIGenerationTarget[]
 ): Promise<AIGenerationTarget[]> => {
-  const response = await axios.post(`${BASE_URL}/ai-generation-targets`, data);
+  const response = await axios.post(`${API_BASE_URL}/ai-generation-targets`, data);
   return response.data;
 };
 

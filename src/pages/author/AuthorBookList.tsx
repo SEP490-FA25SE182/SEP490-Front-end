@@ -27,10 +27,18 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-const [books, setBooks] = useState<any[]>([]);
-const [loading, setLoading] = useState(true);
+export default function AuthorBookList() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedPublication, setSelectedPublication] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const booksPerPage = 10;
 
-useEffect(() => {
+  const [books, setBooks] = useState<any[]>([]);
+  const [, setLoading] = useState(true);
+
+  useEffect(() => {
     async function fetchBooks() {
       try {
         const res = await getAllBooks(); // Gọi API
@@ -44,24 +52,16 @@ useEffect(() => {
     fetchBooks();
   }, []);
 
-const statusLabels = {
-  0: { text: 'Nháp', color: 'bg-gray-500' },
-  1: { text: 'Chờ duyệt', color: 'bg-yellow-500' },
-  2: { text: 'Đã xuất bản', color: 'bg-green-500' }
-};
+  const statusLabels = {
+    0: { text: 'Nháp', color: 'bg-gray-500' },
+    1: { text: 'Chờ duyệt', color: 'bg-yellow-500' },
+    2: { text: 'Đã xuất bản', color: 'bg-green-500' }
+  };
 
-const publicationLabels = {
-  0: { text: 'Chưa xuất bản', color: 'text-gray-400' },
-  1: { text: 'Đã xuất bản', color: 'text-green-400' }
-};
-
-export default function AuthorBookList() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedPublication, setSelectedPublication] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const booksPerPage = 10;
+  const publicationLabels = {
+    0: { text: 'Chưa xuất bản', color: 'text-gray-400' },
+    1: { text: 'Đã xuất bản', color: 'text-green-400' }
+  };
 
   // Filter books
   const filteredBooks = useMemo(() => {
@@ -188,22 +188,20 @@ export default function AuthorBookList() {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          book.progress_status === 0
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${book.progress_status === 0
                             ? 'bg-gray-100 text-gray-600'
                             : book.progress_status === 1
-                            ? 'bg-yellow-100 text-yellow-600'
-                            : 'bg-green-100 text-green-600'
-                        }`}
+                              ? 'bg-yellow-100 text-yellow-600'
+                              : 'bg-green-100 text-green-600'
+                          }`}
                       >
                         {statusLabels[book.progress_status as keyof typeof statusLabels].text}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`text-sm font-medium ${
-                          book.publication_status === 0 ? 'text-gray-600' : 'text-green-600'
-                        }`}
+                        className={`text-sm font-medium ${book.publication_status === 0 ? 'text-gray-600' : 'text-green-600'
+                          }`}
                       >
                         {publicationLabels[book.publication_status as keyof typeof publicationLabels].text}
                       </span>

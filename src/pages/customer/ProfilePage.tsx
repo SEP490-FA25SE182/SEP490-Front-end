@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail, updateUser, type User ,
   getAddressesByUserId,
   createAddress,
-  updateAddress,
+  // updateAddress,
   deleteAddress,
   type Address,
 } from "@/services/UserService";
@@ -108,17 +108,17 @@ export default function ProfilePage() {
   /* ---------------------------------------------
    🏠 Address Handlers (Add / Update / Delete)
   --------------------------------------------- */
-  const handleUpdateAddress = async (addr: Address) => {
-    try {
-      await updateAddress(addr.userAddressId, {
-        addressInfor: addr.addressInfor,
-        isActived: "ACTIVE",
-      });
-      toast.success("Cập nhật địa chỉ thành công!");
-    } catch {
-      toast.error("Cập nhật địa chỉ thất bại!");
-    }
-  };
+  // const handleUpdateAddress = async (addr: Address) => {
+  //   try {
+  //     await updateAddress(addr.userAddressId, {
+  //       addressInfor: addr.addressInfor,
+  //       isActived: "ACTIVE",
+  //     });
+  //     toast.success("Cập nhật địa chỉ thành công!");
+  //   } catch {
+  //     toast.error("Cập nhật địa chỉ thất bại!");
+  //   }
+  // };
 
   const handleDeleteAddress = async (id: string) => {
     try {
@@ -130,13 +130,13 @@ export default function ProfilePage() {
     }
   };
 
-  const handleAddressChange = (id: string, value: string) => {
-    setAddresses((prev) =>
-      prev.map((addr) =>
-        addr.userAddressId === id ? { ...addr, addressInfor: value } : addr
-      )
-    );
-  };
+  // const handleAddressChange = (id: string, value: string) => {
+  //   setAddresses((prev) =>
+  //     prev.map((addr) =>
+  //       addr.userAddressId === id ? { ...addr, addressInfor: value } : addr
+  //     )
+  //   );
+  // };
 
   if (isLoading || !user)
     return <p className="text-gray-500">Đang tải thông tin...</p>;

@@ -145,7 +145,10 @@ export default function AuthorBookList() {
               </SelectContent>
             </Select>
 
-            <Button className="bg-purple-600 hover:bg-purple-700">
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => window.location.href = '/author/authorcreatebook'}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Tạo sách mới
             </Button>

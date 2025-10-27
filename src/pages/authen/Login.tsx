@@ -3,14 +3,13 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from "sonner";
-
 import axios from 'axios';
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/firebase";
 import { useLoginUser } from "@/services/AuthService";
 import { getRoleById } from "@/services/RoleService";
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +20,7 @@ export default function Login() {
   const { mutate: loginUser, isPending } = useLoginUser();
 
   const { setUser, setToken } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +42,26 @@ export default function Login() {
               localStorage.setItem("userRole", res.user.roleId);
             }
 
-            toast.success("Đăng nhập thành công!", {
-              description: "Chào mừng bạn quay trở lại.",
+            // persist backend user into AuthContext
+            setUser({
+              fullName: res.user.fullName || "",
+              email: res.user.email || "",
+              avatarUrl: (res.user as any).avatarUrl || "",
+              userId: res.user.userId,
+            });
+            setToken(res.token);
+
+            localStorage.setItem("user", JSON.stringify({
+              fullName: res.user.fullName || "",
+              email: res.user.email || "",
+              avatarUrl: (res.user as any).avatarUrl || "",
+              userId: res.user.userId,
+            }));
+            localStorage.setItem("token", res.token);
+
+            toast({
+              title: "Đăng nhập thành công",
+              description: "Chào mừng bạn quay trở lại."
             });
 
             // điều hướng theo roleName (fetch role info)
@@ -56,6 +74,9 @@ export default function Login() {
                 if (roleName.includes('author')) {
                   window.location.href = "/author/authorincome";
                   return;
+                } else if (roleName.includes('admin')) {
+                  window.location.href = "/admin/dashboard";
+                  return;
                 }
               }
             } catch (err) {
@@ -64,15 +85,19 @@ export default function Login() {
 
             window.location.href = "/";
           } else {
-            toast.error("Đăng nhập thất bại!", {
+            toast({
+              title: "Đăng nhập thất bại",
               description: "Sai email hoặc mật khẩu.",
+              variant: "destructive",
             });
           }
         },
         onError: (error: any) => {
           console.error("Login Error:", error);
-          toast.error("Đăng nhập thất bại!", {
+          toast({
+            title: "Đăng nhập thất bại",
             description: "Vui lòng thử lại sau.",
+            variant: "destructive",
           });
         },
       }
@@ -92,12 +117,13 @@ export default function Login() {
         idToken, // log thử
       });
 
-       setUser({
-      fullName: user.displayName || "",
-      email: user.email || "",
-      avatarUrl: user.photoURL || "",
-    });
-    setToken(idToken);
+      // temporarily set basic firebase info while backend responds
+      setUser({
+        fullName: user.displayName || "",
+        email: user.email || "",
+        avatarUrl: user.photoURL || "",
+      });
+      setToken(idToken);
 
       // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
       const response = await axios.post("http://localhost:8081/api/rookie/users/auth/google", {
@@ -111,8 +137,26 @@ export default function Login() {
         localStorage.setItem("token", res.token);
         localStorage.setItem("userRole", res.user.roleId || "");
 
-        toast.success("Đăng nhập Google thành công!", {
-          description: `Chào mừng ${res.user.fullName || "bạn"}!`,
+        // persist backend user into AuthContext (ensure userId present)
+        setUser({
+          fullName: res.user.fullName || user.displayName || "",
+          email: res.user.email || user.email || "",
+          avatarUrl: res.user.avatarUrl || user.photoURL || "",
+          userId: res.user.userId,
+        });
+        setToken(res.token);
+
+        localStorage.setItem("user", JSON.stringify({
+          fullName: res.user.fullName || "",
+          email: res.user.email || "",
+          avatarUrl: (res.user as any).avatarUrl || "",
+          userId: res.user.userId,
+        }));
+        localStorage.setItem("token", res.token);
+
+        toast({
+          title: "Đăng nhập Google thành công",
+          description: `Chào mừng ${res.user.fullName || "bạn"}!`
         });
 
         try {
@@ -140,8 +184,10 @@ export default function Login() {
 
     } catch (error) {
       console.error("Google Login Error:", error);
-      toast.error("Đăng nhập Google thất bại!", {
+      toast({
+        title: "Đăng nhập Google thất bại",
         description: "Vui lòng thử lại sau.",
+        variant: "destructive",
       });
     }
   };
@@ -241,7 +287,7 @@ export default function Login() {
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-end">           
+            <div className="flex items-center justify-end">
               <a
                 href="/forgotpassword"
                 className="text-xs text-indigo-600 hover:text-indigo-700"

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 const BASE_URL = "http://localhost:8081/api/rookie/users/books";
 
@@ -61,6 +61,33 @@ export const createChapter = async (data: Chapter): Promise<Chapter> => {
     return res.data;
 };
 
+/** Lấy tất cả chapter (GET /api/rookie/users/books/chapters) */
+export const getAllChapters = async (params?: {
+    page?: number;
+    size?: number;
+    sort?: string[];
+    q?: string;
+    bookId?: string;
+    publicationStatus?: string;
+    progressStatus?: string;
+    isActived?: string;
+}) => {
+    const res = await axios.get(`${BASE_URL}/chapters`, { params });
+    return res.data;
+};
+
+/** Lấy chapter theo ID (GET /api/rookie/users/books/chapters/{id}) */
+export const getChapterById = async (id: string): Promise<Chapter> => {
+    const res = await axios.get<Chapter>(`${BASE_URL}/chapters/${id}`);
+    return res.data;
+};
+
+/** Cập nhật chapter (PUT /api/rookie/users/books/chapters/{id}) */
+export const updateChapter = async (id: string, data: Partial<Chapter>): Promise<Chapter> => {
+    const res = await axios.put<Chapter>(`${BASE_URL}/chapters/${id}`, data);
+    return res.data;
+};
+
 /** Xóa chapter */
 export const deleteChapter = async (id: string): Promise<void> => {
     await axios.delete(`${BASE_URL}/chapters/${id}`);
@@ -77,6 +104,11 @@ export const deletePage = async (id: string): Promise<void> => {
     await axios.delete(`${BASE_URL}/pages/${id}`);
 };
 
+/** Lấy sách theo ID (GET /api/rookie/users/books/{id}) */
+export const getBookById = async (id: string): Promise<Book> => {
+    const res = await axios.get<Book>(`${BASE_URL}/${id}`);
+    return res.data;
+};
 
 // ==============================
 // React Query Hooks
@@ -89,9 +121,44 @@ export const useCreateBook = () =>
 export const useDeleteBook = () =>
     useMutation({ mutationFn: (id: string) => deleteBook(id) });
 
+/** Hook: lấy book theo id */
+export const useGetBookById = (id?: string) =>
+    useQuery({
+        queryKey: ["book", id],
+        queryFn: () => getBookById(id as string),
+        enabled: !!id,
+    });
+
 // CHAPTER hooks
 export const useCreateChapter = () =>
     useMutation({ mutationFn: (data: Chapter) => createChapter(data) });
+
+export const useGetAllChapters = (params?: {
+    page?: number;
+    size?: number;
+    sort?: string[];
+    q?: string;
+    bookId?: string;
+    publicationStatus?: string;
+    progressStatus?: string;
+    isActived?: string;
+}) =>
+    useQuery({
+        queryKey: ["chapters", params],
+        queryFn: () => getAllChapters(params),
+    });
+
+// GET CHAPTER BY ID hook
+export const useGetChapterById = (id: string) =>
+    useQuery({
+        queryKey: ["chapter", id],
+        queryFn: () => getChapterById(id),
+        enabled: !!id, // chỉ chạy khi có id
+    });
+
+/** Hook: cập nhật chapter */
+export const useUpdateChapter = () =>
+    useMutation({ mutationFn: ({ id, data }: { id: string; data: Partial<Chapter> }) => updateChapter(id, data) });
 
 export const useDeleteChapter = () =>
     useMutation({ mutationFn: (id: string) => deleteChapter(id) });

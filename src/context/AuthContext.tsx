@@ -19,30 +19,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
-  setUser: () => {},
-  setToken: () => {},
+  setUser: () => { },
+  setToken: () => { },
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  // Theo dõi Firebase token thay đổi
+  // 🔹 Khôi phục user và token khi reload
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    const savedToken = localStorage.getItem("token");
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    if (savedToken) {
+      setToken(savedToken);
+    }
+  }, []);
+
+  // 🔹 Theo dõi Firebase token thay đổi
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const idToken = await firebaseUser.getIdToken();
         setToken(idToken);
-        setUser({
-          fullName: firebaseUser.displayName || "Người dùng",
-          email: firebaseUser.email || "",
-          avatarUrl:
-            firebaseUser.photoURL ||
-            "https://avatar.iran.liara.run/public/boy?username=default",
-        });
       } else {
         setToken(null);
         setUser(null);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
       }
     });
     return () => unsubscribe();

@@ -18,6 +18,7 @@ import BlogPage from "./pages/customer/BlogPage";
 import AuthorIncome from "./pages/author/AuthorIncome";
 import AuthorBookList from "./pages/author/AuthorBookList";
 import AuthorCreateBook from "./pages/author/AuthorCreateBook";
+import AuthorChapterList from "./pages/author/AuthorChapterList";
 
 import CustomerLayout from "./layouts/CustomerLayout";
 
@@ -43,6 +44,7 @@ export default function AppRouter() {
       <Route path="/author/authorincome" element={<AuthorIncome />} />
       <Route path="/author/authorbooklist" element={<AuthorBookList />} />
       <Route path="/author/authorcreatebook" element={<AuthorCreateBook />} />
+      <Route path="/author/books/:bookId/chapters" element={<AuthorChapterList />} />
     </Routes>
   );
 }

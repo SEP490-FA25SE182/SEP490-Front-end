@@ -26,6 +26,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useNavigate } from "react-router-dom";
 
 export default function AuthorBookList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,6 +35,8 @@ export default function AuthorBookList() {
   const [selectedPublication, setSelectedPublication] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const booksPerPage = 10;
+
+  const navigate = useNavigate();
 
   const [books, setBooks] = useState<any[]>([]);
   const [, setLoading] = useState(true);
@@ -215,7 +218,7 @@ export default function AuthorBookList() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button variant="secondary" size="sm">
+                      <Button variant="secondary" size="sm" onClick={() => navigate(`/author/books/${book.book_id}/chapters`)}>
                         Xem chi tiết
                       </Button>
                     </TableCell>

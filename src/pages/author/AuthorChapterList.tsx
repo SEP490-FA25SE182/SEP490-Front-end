@@ -45,46 +45,32 @@ import { useToast } from "@/components/ui/use-toast";
 
 export default function AuthorChapterList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
   const { bookId: paramBookId } = useParams<{ bookId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // fetch book detail and chapters (react-query hooks)
+  // fetch book detail and chapters
   const { data: book, isLoading: loadingBook } = useGetBookById(paramBookId);
   const bookId = book?.bookId ?? paramBookId;
   const { data: chaptersResp, isLoading: loadingChapters } = useGetAllChapters(
     bookId ? { bookId } : undefined
   );
 
-  // dialog state
+  // dialogs
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
-
-  // delete alert dialog state
   const [openDeleteAlert, setOpenDeleteAlert] = useState(false);
   const [deletingChapter, setDeletingChapter] = useState<Chapter | null>(null);
-
   const deleteChapter = useDeleteChapter();
 
   const handleCreated = async () => {
-    // Sửa lại cách invalidate query
-    await queryClient.invalidateQueries({
-      queryKey: ['chapters', { bookId }]
-    });
-  };
-
-  const handleOpenEdit = (chapter: Chapter) => {
-    setEditingChapter(chapter);
-    setOpenEditDialog(true);
+    await queryClient.invalidateQueries({ queryKey: ["chapters", { bookId }] });
   };
 
   const handleEditSaved = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ['chapters', { bookId }]
-    });
+    await queryClient.invalidateQueries({ queryKey: ["chapters", { bookId }] });
     setOpenEditDialog(false);
     setEditingChapter(null);
   };
@@ -98,54 +84,45 @@ export default function AuthorChapterList() {
     if (!deletingChapter) return;
     try {
       await deleteChapter.mutateAsync(deletingChapter.chapterId as string);
-      toast({ title: "Xóa thành công", description: `Đã xóa chương "${deletingChapter.chapterName}".` });
-      await queryClient.invalidateQueries({
-        queryKey: ['chapters', { bookId }]
+      toast({
+        title: "Xóa thành công",
+        description: `Đã xóa chương "${deletingChapter.chapterName}".`,
       });
+      await queryClient.invalidateQueries({ queryKey: ["chapters", { bookId }] });
     } catch (err) {
-      console.error("Xóa chapter lỗi:", err);
-      toast({ title: "Xóa thất bại", description: "Không thể xóa chương. Vui lòng thử lại.", variant: "destructive" });
+      toast({
+        title: "Xóa thất bại",
+        description: "Không thể xóa chương. Vui lòng thử lại.",
+        variant: "destructive",
+      });
     } finally {
       setOpenDeleteAlert(false);
       setDeletingChapter(null);
     }
   };
 
-  // normalize chapters (backend may return array or { content: [...] })
+  // lọc chapter ACTIVE
   const chapters: any[] = useMemo(() => {
     if (!chaptersResp) return [];
-
-    // lấy danh sách content đúng cấu trúc
     const list = Array.isArray(chaptersResp)
       ? chaptersResp
       : Array.isArray((chaptersResp as any).content)
         ? (chaptersResp as any).content
         : [];
-
-    // lọc bỏ chapter có isActived = "INACTIVE"
-    return list.filter((ch: { isActived: string; }) => ch.isActived !== "INACTIVE");
+    return list.filter((ch: { isActived: string }) => ch.isActived !== "INACTIVE");
   }, [chaptersResp]);
 
-  // Pagination
+  // pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const chaptersPerPage = 10;
-  const totalPages = Math.max(1, Math.ceil(chapters.length / chaptersPerPage));
-  const startIndex = (currentPage - 1) * chaptersPerPage;
-  const currentChapters = chapters.slice(startIndex, startIndex + chaptersPerPage);
-
-  const handlePrev = () => {
-    if (currentPage > 1) setCurrentPage((p) => p - 1);
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) setCurrentPage((p) => p + 1);
-  };
+  const perPage = 10;
+  const totalPages = Math.max(1, Math.ceil(chapters.length / perPage));
+  const currentChapters = chapters.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
-
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center px-6 py-4">
             <Button
@@ -156,14 +133,50 @@ export default function AuthorChapterList() {
             >
               {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
-
             <div className="ml-4 text-white">
               <div className="text-sm">Danh sách chương</div>
-              <div className="text-xs text-gray-300">Sách: {loadingBook ? "Đang tải..." : book?.bookName ?? "Chưa chọn"}</div>
+              <div className="text-xs text-gray-300">
+                Sách: {loadingBook ? "Đang tải..." : book?.bookName ?? "Chưa chọn"}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Book detail section (moved create button ra ngoài list) */}
+        <div className="bg-[#1a2332] px-6 py-6 border-b border-white/10">
+          <div className="flex items-start justify-between">
+            <div className="flex gap-6 items-start">
+              {book?.coverUrl && (
+                <img
+                  src={book.coverUrl}
+                  alt={book.bookName}
+                  className="w-28 h-36 rounded-md object-cover border"
+                  onError={(e) => {
+                    const t = e.target as HTMLImageElement;
+                    t.src =
+                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='224'%3E%3Crect width='100%25' height='100%25' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='white'%3EInvalid URL%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              )}
+              <div className="flex flex-col gap-2 text-white">
+                <h2 className="text-xl font-semibold">{book?.bookName ?? "Chưa có tiêu đề"}</h2>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {book?.decription || "Không có mô tả"}
+                </p>
+
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-2 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-200">Trạng thái xuất bản:</span>{" "}
+                    <span className="text-gray-300">
+                      {book?.publicationStatus || "Chưa xác định"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* add the create button to the top-right */}
-            <div className="ml-auto">
+            {/* Create button moved outside the list (top-right of book detail) */}
+            <div className="ml-6 self-start">
               <Button
                 className="bg-purple-600 hover:bg-purple-700"
                 onClick={() => setOpenCreateDialog(true)}
@@ -173,33 +186,12 @@ export default function AuthorChapterList() {
               </Button>
             </div>
           </div>
-        </header>
-
-        {/* Actions */}
-        <div className="bg-[#1a2332] px-6 py-4 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {book?.coverUrl && (
-              <img
-                src={book.coverUrl}
-                alt={book.bookName}
-                className="w-16 h-20 rounded-md object-cover border"
-                onError={(e) => {
-                  const t = e.target as HTMLImageElement;
-                  t.src =
-                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='224'%3E%3Crect width='100%25' height='100%25' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='white'%3EInvalid URL%3C/text%3E%3C/svg%3E";
-                }}
-              />
-            )}
-            <div className="text-white">
-              <div className="font-semibold">{book?.bookName ?? "Chưa có tiêu đề"}</div>
-              <div className="text-sm text-gray-300 max-w-xl line-clamp-2">{book?.decription ?? "-"}</div>
-            </div>
-          </div>
         </div>
 
-        {/* Table */}
+        {/* Chapter list section */}
         <div className="flex-1 overflow-auto p-6">
           <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+            {/* Table */}
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
@@ -209,7 +201,6 @@ export default function AuthorChapterList() {
                   <TableHead className="text-white font-medium">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
                 {currentChapters.map((chapter: any) => {
                   const id = chapter.chapterId ?? chapter.chapter_id;
@@ -218,46 +209,38 @@ export default function AuthorChapterList() {
                     chapterName: chapter.chapterName ?? chapter.chapter_name,
                     chapterNumber: chapter.chapterNumber ?? chapter.chapter_number,
                     decription: chapter.decription ?? chapter.description,
-                    review: chapter.review,
-                    publishedDate: chapter.publishedDate,
-                    progressStatus: chapter.progressStatus,
-                    publicationStatus: chapter.publicationStatus,
                     bookId: chapter.bookId ?? chapter.book_id,
                     isActived: chapter.isActived,
                   };
 
                   return (
                     <TableRow key={id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="text-gray-900 font-medium">{normalized.chapterName}</div>
+                      <TableCell className="font-medium text-gray-900">
+                        {normalized.chapterName}
+                      </TableCell>
+                      <TableCell>{normalized.chapterNumber ?? "-"}</TableCell>
+                      <TableCell className="text-sm text-gray-700">
+                        {normalized.decription ?? "-"}
                       </TableCell>
                       <TableCell>
-                        <div className="text-gray-900">{normalized.chapterNumber ?? "-"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-gray-700 text-sm">{normalized.decription ?? "-"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-gray-600">
-                                <MoreVertical className="w-5 h-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="min-w-[160px]">
-                              <DropdownMenuItem onClick={() => navigate(`/author/chapter/${id}`)}>
-                                Xem chi tiết
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleOpenEdit(normalized)}>
-                                Chỉnh sửa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleConfirmDelete(normalized)}>
-                                Xóa
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-gray-600">
+                              <MoreVertical className="w-5 h-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/author/chapters/${id}/pages`)}>
+                              Xem chi tiết
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setEditingChapter(normalized)}>
+                              Chỉnh sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleConfirmDelete(normalized)}>
+                              Xóa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
@@ -265,17 +248,12 @@ export default function AuthorChapterList() {
               </TableBody>
             </Table>
 
-            {/* Empty / Loading state */}
-            {(loadingChapters || loadingBook) && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">Đang tải dữ liệu...</p>
-              </div>
+            {/* Loading / Empty */}
+            {(loadingBook || loadingChapters) && (
+              <div className="text-center py-8 text-gray-500">Đang tải dữ liệu...</div>
             )}
-
             {!loadingChapters && currentChapters.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">Không tìm thấy chapter nào</p>
-              </div>
+              <div className="text-center py-8 text-gray-500">Không tìm thấy chapter nào</div>
             )}
 
             {/* Pagination */}
@@ -287,10 +265,18 @@ export default function AuthorChapterList() {
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious onClick={handlePrev} className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""} />
+                      <PaginationPrevious
+                        onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+                        className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
+                      />
                     </PaginationItem>
                     <PaginationItem>
-                      <PaginationNext onClick={handleNext} className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""} />
+                      <PaginationNext
+                        onClick={() =>
+                          currentPage < totalPages && setCurrentPage(currentPage + 1)
+                        }
+                        className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
+                      />
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
@@ -300,23 +286,22 @@ export default function AuthorChapterList() {
         </div>
       </div>
 
-      {/* Chapter create dialog */}
+      {/* Dialogs */}
       <ChapterCreateDialog
         isOpen={openCreateDialog}
         onClose={() => setOpenCreateDialog(false)}
         bookId={bookId}
         onCreated={handleCreated}
       />
-
-      {/* Chapter edit dialog */}
       <ChapterEditDialog
         isOpen={openEditDialog}
-        onClose={() => { setOpenEditDialog(false); setEditingChapter(null); }}
+        onClose={() => {
+          setOpenEditDialog(false);
+          setEditingChapter(null);
+        }}
         chapter={editingChapter}
         onUpdated={handleEditSaved}
       />
-
-      {/* Delete confirm alert */}
       <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -326,7 +311,9 @@ export default function AuthorChapterList() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>Huỷ</Button>
+            <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>
+              Huỷ
+            </Button>
             <Button className="ml-2" onClick={handleDelete}>
               Xóa
             </Button>

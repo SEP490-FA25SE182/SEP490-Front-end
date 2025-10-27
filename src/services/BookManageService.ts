@@ -99,6 +99,30 @@ export const createPage = async (data: Page): Promise<Page> => {
     return res.data;
 };
 
+export const getAllPages = async (params?: {
+    page?: number;
+    size?: number;
+    sort?: string[];
+    q?: string;
+    chapterId?: string;
+    isActived?: string;
+}) => {
+    const res = await axios.get(`${BASE_URL}/pages`, { params });
+    return res.data;
+};
+
+/** Lấy page theo ID (GET /api/rookie/users/books/pages/{id}) */
+export const getPageById = async (id: string): Promise<Page> => {
+    const res = await axios.get<Page>(`${BASE_URL}/pages/${id}`);
+    return res.data;
+};
+
+/** Cập nhật page (PUT /api/rookie/users/books/pages/{id}) */
+export const updatePage = async (id: string, data: Partial<Page>): Promise<Page> => {
+    const res = await axios.put<Page>(`${BASE_URL}/pages/${id}`, data);
+    return res.data;
+};
+
 /** Xóa page */
 export const deletePage = async (id: string): Promise<void> => {
     await axios.delete(`${BASE_URL}/pages/${id}`);
@@ -167,6 +191,34 @@ export const useDeleteChapter = () =>
 // PAGE hooks
 export const useCreatePage = () =>
     useMutation({ mutationFn: (data: Page) => createPage(data) });
+
+export const useGetAllPages = (params?: {
+    page?: number;
+    size?: number;
+    sort?: string[];
+    q?: string;
+    chapterId?: string;
+    isActived?: string;
+}) =>
+    useQuery({
+        queryKey: ["pages", params],
+        queryFn: () => getAllPages(params),
+    });
+
+/** Hook: lấy page theo id */
+export const useGetPageById = (id?: string) =>
+    useQuery({
+        queryKey: ["page", id],
+        queryFn: () => getPageById(id as string),
+        enabled: !!id,
+    });
+
+/** Hook: cập nhật page */
+export const useUpdatePage = () =>
+    useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Page> }) =>
+            updatePage(id, data),
+    });
 
 export const useDeletePage = () =>
     useMutation({ mutationFn: (id: string) => deletePage(id) });

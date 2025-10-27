@@ -73,12 +73,12 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
 
         <div className="space-y-3 mt-2">
           <div>
-            <Label>Tên chương</Label>
+            <Label className="mb-3">Tên chương</Label>
             <Input value={chapterName} onChange={(e) => setChapterName(e.target.value)} placeholder="Ví dụ: Chương 1 - Khởi đầu" />
           </div>
 
           <div>
-            <Label>Số chương</Label>
+            <Label className="mb-3">Thứ tự chương</Label>
             <Input
               type="number"
               value={chapterNumber as any}
@@ -88,7 +88,7 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
           </div>
 
           <div>
-            <Label>Mô tả</Label>
+            <Label className="mb-3">Mô tả</Label>
             <Textarea value={decription} onChange={(e) => setDecription(e.target.value)} placeholder="Mô tả ngắn (tuỳ chọn)" />
           </div>
         </div>

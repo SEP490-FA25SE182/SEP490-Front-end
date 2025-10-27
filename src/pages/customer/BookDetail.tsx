@@ -142,12 +142,14 @@ export const BookDetail = () => {
   /* ---------------------------
    🧾 Xử lý format ngày
   --------------------------- */
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const formatDate = (dateString?: string | null) =>
+    dateString
+      ? new Date(dateString).toLocaleDateString("vi-VN", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "Không rõ";
 
   /* ---------------------------
    🛒 Thêm vào giỏ hàng (qua CartContext)

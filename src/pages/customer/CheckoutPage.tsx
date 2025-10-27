@@ -82,7 +82,7 @@ export default function CheckoutPage() {
   const { state: cartState } = useCart();
   const { user } = useAuth();
 
-  const lines = cartState.lines;
+  // const lines = cartState.lines;
   const isBuyNow = !!location.state?.buyNowLine;
   const linesToPay = isBuyNow
     ? [location.state!.buyNowLine!]

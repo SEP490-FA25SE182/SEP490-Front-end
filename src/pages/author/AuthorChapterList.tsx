@@ -114,9 +114,16 @@ export default function AuthorChapterList() {
   // normalize chapters (backend may return array or { content: [...] })
   const chapters: any[] = useMemo(() => {
     if (!chaptersResp) return [];
-    if (Array.isArray(chaptersResp)) return chaptersResp;
-    if (Array.isArray((chaptersResp as any).content)) return (chaptersResp as any).content;
-    return [];
+
+    // lấy danh sách content đúng cấu trúc
+    const list = Array.isArray(chaptersResp)
+      ? chaptersResp
+      : Array.isArray((chaptersResp as any).content)
+        ? (chaptersResp as any).content
+        : [];
+
+    // lọc bỏ chapter có isActived = "INACTIVE"
+    return list.filter((ch: { isActived: string; }) => ch.isActived !== "INACTIVE");
   }, [chaptersResp]);
 
   // Pagination
@@ -188,17 +195,6 @@ export default function AuthorChapterList() {
               <div className="text-sm text-gray-300 max-w-xl line-clamp-2">{book?.decription ?? "-"}</div>
             </div>
           </div>
-
-          <div>
-            {/* keep navigation option if needed */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(bookId ? `/author/authorchaptercreate?bookId=${bookId}` : "/author/authorchaptercreate")}
-            >
-              Truy cập trang tạo (tuỳ chọn)
-            </Button>
-          </div>
         </div>
 
         {/* Table */}
@@ -234,7 +230,6 @@ export default function AuthorChapterList() {
                     <TableRow key={id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="text-gray-900 font-medium">{normalized.chapterName}</div>
-                        <div className="text-gray-500 text-sm">ID: {id}</div>
                       </TableCell>
                       <TableCell>
                         <div className="text-gray-900">{normalized.chapterNumber ?? "-"}</div>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Menu, X, Search, Plus } from 'lucide-react';
-import { getAllBooks } from "@/services/BookService";
+import { getBooks } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AuthorBookList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -37,6 +38,7 @@ export default function AuthorBookList() {
   const booksPerPage = 10;
 
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [books, setBooks] = useState<any[]>([]);
   const [, setLoading] = useState(true);
@@ -44,41 +46,59 @@ export default function AuthorBookList() {
   useEffect(() => {
     async function fetchBooks() {
       try {
-        const res = await getAllBooks(); // Gọi API
-        setBooks(res || []); // Giả sử res là mảng
+        // dùng getBooks với params, đặc biệt truyền authorId từ AuthContext
+        const res = await getBooks({
+          authorId: user?.userId ?? undefined,
+          page: 0,
+          size: 200, // lấy nhiều để client-side pagination; chỉnh nếu cần server-side pagination
+        });
+        setBooks(res?.content ?? []);
       } catch (err) {
         console.error("Lỗi khi tải sách:", err);
       } finally {
         setLoading(false);
       }
     }
+
+    // chỉ fetch khi user đã có userId hoặc ít nhất có email (tùy impl)
     fetchBooks();
-  }, []);
+  }, [user]);
 
-  const statusLabels = {
-    0: { text: 'Nháp', color: 'bg-gray-500' },
-    1: { text: 'Chờ duyệt', color: 'bg-yellow-500' },
-    2: { text: 'Đã xuất bản', color: 'bg-green-500' }
+  // helper: map publicationStatus -> label + class
+  const getPublicationLabel = (publication: any) => {
+    const p = String(publication ?? "").toUpperCase();
+
+    // common mappings; thêm các giá trị backend cụ thể nếu cần
+    const map: Record<string, { text: string; className: string }> = {
+      "0": { text: "Chưa xuất bản", className: "text-gray-600" },
+      "1": { text: "Đã xuất bản", className: "text-green-600" },
+      "DRAFT": { text: "Nháp", className: "text-gray-600" },
+      "PENDING": { text: "Chờ duyệt", className: "text-yellow-600" },
+      "PUBLISHED": { text: "Đã xuất bản", className: "text-green-600" },
+      "ACTIVE": { text: "Hoạt động", className: "text-green-600" },
+      "INACTIVE": { text: "Không hoạt động", className: "text-gray-500" },
+    };
+
+    return map[p] ?? { text: publication ?? "-", className: "text-gray-600" };
   };
 
-  const publicationLabels = {
-    0: { text: 'Chưa xuất bản', color: 'text-gray-400' },
-    1: { text: 'Đã xuất bản', color: 'text-green-400' }
-  };
-
-  // Filter books
+  // Filter books (hỗ trợ cả snake_case trả về từ backend hoặc camelCase)
   const filteredBooks = useMemo(() => {
     return books.filter(book => {
-      const matchesSearch = book.book_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = selectedStatus === 'all' || book.progress_status.toString() === selectedStatus;
-      const matchesPublication = selectedPublication === 'all' || book.publication_status.toString() === selectedPublication;
+      const name = book.bookName ?? book.book_name ?? '';
+      const progress = (book.progressStatus ?? book.progress_status) as any;
+      const publication = (book.publicationStatus ?? book.publication_status) as any;
+
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = selectedStatus === 'all' || String(progress) === selectedStatus;
+      const matchesPublication = selectedPublication === 'all' || String(publication) === selectedPublication;
 
       return matchesSearch && matchesStatus && matchesPublication;
     });
-  }, [searchQuery, selectedStatus, selectedPublication]);
+  }, [books, searchQuery, selectedStatus, selectedPublication]);
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredBooks.length / booksPerPage);
+  const totalPages = Math.ceil(filteredBooks.length / booksPerPage) || 1;
   const startIndex = (currentPage - 1) * booksPerPage;
   const currentBooks = filteredBooks.slice(startIndex, startIndex + booksPerPage);
 
@@ -148,9 +168,9 @@ export default function AuthorBookList() {
               </SelectContent>
             </Select>
 
-            <Button 
+            <Button
               className="bg-purple-600 hover:bg-purple-700"
-              onClick={() => window.location.href = '/author/authorcreatebook'}
+              onClick={() => navigate('/author/authorcreatebook')}
             >
               <Plus className="w-4 h-4 mr-2" />
               Tạo sách mới
@@ -166,7 +186,6 @@ export default function AuthorBookList() {
                 <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
                   <TableHead className="text-white font-medium">Bìa sách</TableHead>
                   <TableHead className="text-white font-medium">Tên sách</TableHead>
-                  <TableHead className="text-white font-medium">Trạng thái</TableHead>
                   <TableHead className="text-white font-medium">Xuất bản</TableHead>
                   <TableHead className="text-white font-medium">Cập nhật</TableHead>
                   <TableHead className="text-white font-medium">Hành động</TableHead>
@@ -174,56 +193,50 @@ export default function AuthorBookList() {
               </TableHeader>
 
               <TableBody>
-                {currentBooks.map((book) => (
-                  <TableRow key={book.book_id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <img
-                        src={book.cover_url}
-                        alt={book.book_name}
-                        className="w-12 h-16 object-cover rounded shadow-lg"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="64"%3E%3Crect width="48" height="64" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="10" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 font-medium">{book.book_name}</div>
-                      <div className="text-gray-500 text-sm">ID: {book.book_id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${book.progress_status === 0
-                            ? 'bg-gray-100 text-gray-600'
-                            : book.progress_status === 1
-                              ? 'bg-yellow-100 text-yellow-600'
-                              : 'bg-green-100 text-green-600'
-                          }`}
-                      >
-                        {statusLabels[book.progress_status as keyof typeof statusLabels].text}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-sm font-medium ${book.publication_status === 0 ? 'text-gray-600' : 'text-green-600'
-                          }`}
-                      >
-                        {publicationLabels[book.publication_status as keyof typeof publicationLabels].text}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 text-sm">
-                        {new Date(book.updated_date).toLocaleDateString('vi-VN')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="secondary" size="sm" onClick={() => navigate(`/author/books/${book.book_id}/chapters`)}>
-                        Xem chi tiết
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {currentBooks.map((book) => {
+                  const cover = book.coverUrl ?? book.cover_url;
+                  const name = book.bookName ?? book.book_name;
+                  const id = book.bookId ?? book.book_id;
+                  const publication = book.publicationStatus ?? book.publication_status;
+                  const updated = book.updatedAt ?? book.updated_date ?? book.updated_date;
+
+                  const pubInfo = getPublicationLabel(publication);
+
+                  return (
+                    <TableRow key={id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <img
+                          src={cover}
+                          alt={name}
+                          className="w-12 h-16 object-cover rounded shadow-lg"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src =
+                              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="64"%3E%3Crect width="48" height="64" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="10" fill="white"%3ENo Image%3C/text%3E%3C/svg%3E';
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-gray-900 font-medium">{name}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-sm font-medium ${pubInfo.className}`}>
+                          {pubInfo.text}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-gray-900 text-sm">
+                          {updated ? new Date(updated).toLocaleDateString('vi-VN') : '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="secondary" size="sm" onClick={() => navigate(`/author/books/${id}/chapters`)}>
+                          Xem chi tiết
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
 

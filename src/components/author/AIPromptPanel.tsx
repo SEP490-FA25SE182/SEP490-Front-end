@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,11 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { useGenerateIllustration } from "@/services/AIService";
 
-export default function AIPromptPanel() {
+interface AIPromptPanelProps {
+  onGenerated?: (url: string) => void;
+}
+
+const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
   const [form, setForm] = useState({
     prompt: "",
     negativePrompt: "",
@@ -49,6 +53,12 @@ export default function AIPromptPanel() {
     const url =
       res?.imageUrl || res?.output?.[0]?.url || res?.data?.[0]?.url || null;
     setPreview(url);
+    handleImageGenerated(url); // Gọi hàm xử lý khi có ảnh
+  };
+
+  const handleImageGenerated = (url: string) => {
+    // gọi callback khi có ảnh từ AI
+    onGenerated?.(url);
   };
 
   return (
@@ -176,4 +186,6 @@ export default function AIPromptPanel() {
       )}
     </div>
   );
-}
+};
+
+export default AIPromptPanel;

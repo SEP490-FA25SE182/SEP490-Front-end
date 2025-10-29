@@ -91,8 +91,8 @@ const AuthorPageList = () => {
     const list = Array.isArray(pagesResp)
       ? pagesResp
       : Array.isArray((pagesResp as any).content)
-      ? (pagesResp as any).content
-      : [];
+        ? (pagesResp as any).content
+        : [];
     return list.filter((p: { isActived?: string }) => p.isActived !== "INACTIVE");
   }, [pagesResp]);
 
@@ -122,6 +122,24 @@ const AuthorPageList = () => {
               <div className="text-xs text-gray-300">
                 Chương: {loadingChapter ? "Đang tải..." : chapter?.chapterName ?? "Chưa chọn"}
               </div>
+            </div>
+
+            <div className="ml-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                    + Tạo trang mới
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-text`)}>
+                    Tạo trang chữ
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
+                    Tạo trang ảnh
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>

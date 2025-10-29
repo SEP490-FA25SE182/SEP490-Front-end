@@ -20,6 +20,8 @@ import AuthorBookList from "./pages/author/AuthorBookList";
 import AuthorCreateBook from "./pages/author/AuthorCreateBook";
 import AuthorChapterList from "./pages/author/AuthorChapterList";
 import AuthorPageList from "./pages/author/AuthorPageList";
+import TextPageCreate from "./pages/author/TextPageCreate";
+import ImagePageCreate from "./pages/author/ImagePageCreate";
 
 import CustomerLayout from "./layouts/CustomerLayout";
 
@@ -47,6 +49,8 @@ export default function AppRouter() {
       <Route path="/author/authorcreatebook" element={<AuthorCreateBook />} />
       <Route path="/author/books/:bookId/chapters" element={<AuthorChapterList />} />
       <Route path="/author/chapters/:chapterId/pages" element={<AuthorPageList />} />
+      <Route path="/author/chapters/:chapterId/pages/create-text" element={<TextPageCreate />} />
+      <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImagePageCreate />} />
     </Routes>
   );
 }

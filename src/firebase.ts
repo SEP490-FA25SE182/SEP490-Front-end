@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getStorage } from "firebase/storage";
+import { getDownloadURL, ref } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,3 +17,28 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+export const storage = getStorage(app);
+export async function resolveFirebaseUrl(url: string): Promise<string> {
+  if (!url) return "";
+
+  // Nếu đã là https thì trả về luôn
+  if (!url.startsWith("gs://")) return url;
+
+  try {
+    // ✅ Lấy bucket từ biến môi trường Firebase hoặc từ URL
+    const bucket = storage.app.options.storageBucket; // ví dụ: "your-app.appspot.com"
+
+    // ✅ Tách phần đường dẫn sau bucket
+    const path = url.replace(`gs://${bucket}/`, "");
+
+    // ✅ Tạo ref chuẩn
+    const fileRef = ref(storage, path);
+
+    // ✅ Lấy link tải thực tế
+    const downloadUrl = await getDownloadURL(fileRef);
+    return downloadUrl;
+  } catch (err) {
+    console.error("🔥 Lỗi khi convert Firebase URL:", err);
+    return "";
+  }
+}

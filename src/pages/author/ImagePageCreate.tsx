@@ -10,9 +10,9 @@ import {
   useCreatePage
 } from "@/services/BookManageService";
 import {
-  useCreateAIGeneration,
   useCreateAIGenerationTarget,
-    useCreateIllustration,
+  useCreateIllustration,
+  useCreatePageIllustration,
 } from "@/services/AIService";
 
 export default function ImagePageCreate() {
@@ -23,13 +23,14 @@ export default function ImagePageCreate() {
 
   const createPage = useCreatePage();
   const createIllustration = useCreateIllustration();
-  const createAIGeneration = useCreateAIGeneration();
   const createAIGenerationTarget = useCreateAIGenerationTarget();
+  const createPageIllustration = useCreatePageIllustration();
 
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [aiImage, setAIImage] = useState<string | null>(null);
   const [sourceType, setSourceType] = useState<"UPLOAD" | "AI" | null>(null);
+  const [aiMeta, setAiMeta] = useState<{ imageUrl?: string; aiGeneration?: any } | null>(null);
 
   const handleImportImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,10 +41,19 @@ export default function ImagePageCreate() {
     }
   };
 
-  const handleAIImageGenerated = (url: string) => {
-    setAIImage(url);
-    setSelectedImage(url);
-    setSourceType("AI");
+  const handleAIImageGenerated = (payload: { imageUrl: string; aiGeneration?: any } | string) => {
+    // backward-compat: AIPromptPanel previously sent string; handle both
+    if (typeof payload === "string") {
+      setAIImage(payload);
+      setSelectedImage(payload);
+      setSourceType("AI");
+      setAiMeta({ imageUrl: payload });
+    } else {
+      setAIImage(payload.imageUrl || null);
+      setSelectedImage(payload.imageUrl || null);
+      setSourceType("AI");
+      setAiMeta(payload);
+    }
   };
 
   const handleSave = async () => {
@@ -65,39 +75,24 @@ export default function ImagePageCreate() {
         isActived: "ACTIVE",
       });
 
-      // 2️⃣ Nếu là ảnh AI → lưu AI Generation & Target
-      if (sourceType === "AI") {
-        const aiGen = await createAIGeneration.mutateAsync([
-          {
-            modelName: "stable-diffusion-xl-1024-v1-0",
-            prompt: "AI Generated Image",
-            status: "SUCCESS",
-            userId: "author-demo",
-            mode: "TEXT_TO_IMAGE",
-            aspectRatio: "1:1",
-            stylePreset: "REALISTIC",
-            cfgScale: 7,
-            format: "png",
-            title: "AI Generated Page Image",
-            style: "REALISTIC",
-            isActived: "ACTIVE",
-          },
-        ]);
-
-        if (aiGen?.[0]?.aiGenerationId) {
+      // 2️⃣ Nếu là ảnh AI → nếu có aiGeneration từ bước generate thì gắn target PAGE
+      if (sourceType === "AI" && aiMeta?.aiGeneration?.aiGenerationId) {
+        try {
           await createAIGenerationTarget.mutateAsync([
             {
-              aiGenerationId: aiGen[0].aiGenerationId,
+              aiGenerationId: aiMeta.aiGeneration.aiGenerationId,
               targetType: "PAGE",
               targetRefId: page.pageId!,
               isActived: "ACTIVE",
             },
           ]);
+        } catch (e) {
+          console.error("Failed to create AI generation target for page", e);
         }
       }
 
-      // 3️⃣ Lưu illustration (ảnh trang)
-      await createIllustration.mutateAsync([
+      // 3️⃣ Lưu illustration (ảnh trang) vào bảng Illustrations
+      const illustrations = await createIllustration.mutateAsync([
         {
           imageUrl: selectedImage,
           style: "REALISTIC",
@@ -108,6 +103,24 @@ export default function ImagePageCreate() {
           isActived: "ACTIVE",
         },
       ]);
+
+      // backend có thể trả mảng → lấy id đầu tiên
+      const savedIll = Array.isArray(illustrations) ? illustrations[0] : illustrations;
+      const illustrationId = savedIll?.illustrationId;
+
+      // 4️⃣ Gắn illustration vào page (bảng PageIllustrations)
+      if (illustrationId && page.pageId) {
+        try {
+          await createPageIllustration.mutateAsync([
+            {
+              pageId: page.pageId!,
+              illustrationId,
+            },
+          ]);
+        } catch (e) {
+          console.error("Failed to link illustration to page", e);
+        }
+      }
 
       toast({ title: "Tạo trang ảnh thành công" });
       navigate(`/author/chapters/${chapterId}/pages`);

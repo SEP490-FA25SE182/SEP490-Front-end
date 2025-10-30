@@ -249,20 +249,31 @@ export default function AuthorBookList() {
 
             {/* Pagination */}
             {filteredBooks.length > 0 && (
-              <div className="border-t px-6 py-4 flex items-center justify-between bg-white">
-                <span className="text-sm text-gray-600">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious onClick={handlePrev} className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""} />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationNext onClick={handleNext} className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""} />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+              <div className="border-t px-6 py-4 bg-white">
+                <div className="max-w-full mx-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-0">
+                  <div className="hidden sm:block sm:w-1/3" /> {/* spacer left on desktop */}
+                  <div className="w-full sm:flex-1 flex justify-center">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={handlePrev}
+                            className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={handleNext}
+                            className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                  <div className="w-full sm:w-1/3 text-sm text-gray-600 text-center sm:text-right whitespace-nowrap">
+                    Trang {currentPage} / {totalPages}
+                  </div>
+                </div>
               </div>
             )}
           </div>

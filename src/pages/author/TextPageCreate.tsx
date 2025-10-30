@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Plus, Minus } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,21 @@ export default function TextPageCreate() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [content, setContent] = useState<string>("");
 
+  // === Audio fields ===
+  const [showAudioForm, setShowAudioForm] = useState(false);
+  const [audioData, setAudioData] = useState({
+    audio_url: "",
+    voice: "",
+    language: "",
+    duration_ms: "",
+    format: "",
+    title: "",
+  });
+
+  const handleAudioChange = (field: string, value: string) => {
+    setAudioData((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleSubmit = async () => {
     try {
       await createPage.mutateAsync({
@@ -26,8 +41,13 @@ export default function TextPageCreate() {
         content,
         chapterId: chapterId || "",
         isActived: "ACTIVE",
+        // Nếu có audio thì có thể gửi kèm (nếu backend hỗ trợ)
+        // audio: showAudioForm ? audioData : null,
       });
-      toast({ title: "Tạo trang thành công", description: "Trang mới đã được thêm vào chương." });
+      toast({
+        title: "Tạo trang thành công",
+        description: "Trang mới đã được thêm vào chương.",
+      });
       navigate(`/author/chapters/${chapterId}/pages`);
     } catch {
       toast({
@@ -58,7 +78,7 @@ export default function TextPageCreate() {
                 {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </Button>
               <div className="ml-4 text-white">
-                <div className="text-sm font-medium">Tạo trang chữ mới</div>              
+                <div className="text-sm font-medium">Tạo trang chữ mới</div>
               </div>
             </div>
           </div>
@@ -71,6 +91,7 @@ export default function TextPageCreate() {
               Nhập thông tin trang chữ
             </h1>
 
+            {/* Page number */}
             <div className="mb-5">
               <label className="block text-gray-700 mb-2 text-sm font-medium">
                 Số trang
@@ -83,6 +104,7 @@ export default function TextPageCreate() {
               />
             </div>
 
+            {/* Content */}
             <div className="mb-6">
               <label className="block text-gray-700 mb-2 text-sm font-medium">
                 Nội dung
@@ -98,10 +120,92 @@ export default function TextPageCreate() {
               </div>
             </div>
 
+            {/* Add Audio button */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium text-gray-800">Audio kèm theo (tuỳ chọn)</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAudioForm(!showAudioForm)}
+                className="flex items-center gap-2"
+              >
+                {showAudioForm ? (
+                  <>
+                    <Minus className="w-4 h-4" /> Ẩn form
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" /> Thêm audio
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Audio form */}
+            {showAudioForm && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Audio URL</label>
+                  <Input
+                    type="text"
+                    value={audioData.audio_url}
+                    onChange={(e) => handleAudioChange("audio_url", e.target.value)}
+                    placeholder="Nhập URL audio..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Voice</label>
+                  <Input
+                    type="text"
+                    value={audioData.voice}
+                    onChange={(e) => handleAudioChange("voice", e.target.value)}
+                    placeholder="VD: Female, Male, AI Voice..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Language</label>
+                  <Input
+                    type="text"
+                    value={audioData.language}
+                    onChange={(e) => handleAudioChange("language", e.target.value)}
+                    placeholder="VD: Vietnamese, English..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Duration (ms)</label>
+                  <Input
+                    type="number"
+                    value={audioData.duration_ms}
+                    onChange={(e) => handleAudioChange("duration_ms", e.target.value)}
+                    placeholder="VD: 120000 (2 phút)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Format</label>
+                  <Input
+                    type="text"
+                    value={audioData.format}
+                    onChange={(e) => handleAudioChange("format", e.target.value)}
+                    placeholder="VD: mp3, wav..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Title</label>
+                  <Input
+                    type="text"
+                    value={audioData.title}
+                    onChange={(e) => handleAudioChange("title", e.target.value)}
+                    placeholder="Tiêu đề audio"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
             <div className="flex justify-end gap-3 mt-8">
               <Button
                 variant="ghost"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(`/author/chapters/${chapterId}/pages`)}
                 className="text-gray-600 hover:bg-gray-100"
               >
                 Hủy

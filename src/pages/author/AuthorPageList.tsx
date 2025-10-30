@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Menu, X, MoreVertical } from "lucide-react";
+import { Menu, X, Eye, Edit, Trash2 } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +38,12 @@ import {
   AlertDialogFooter,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -163,7 +169,7 @@ const AuthorPageList = () => {
           </div>
         </div>
 
-        {/* Page list section */}
+        {/* Page list */}
         <div className="flex-1 overflow-auto p-6">
           <div className="bg-white rounded-lg shadow-xl overflow-hidden">
             <Table>
@@ -171,7 +177,7 @@ const AuthorPageList = () => {
                 <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
                   <TableHead className="text-white font-medium">Số trang</TableHead>
                   <TableHead className="text-white font-medium">Nội dung</TableHead>
-                  <TableHead className="text-white font-medium w-[100px]">Hành động</TableHead>
+                  <TableHead className="text-white font-medium w-[120px]">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -179,28 +185,66 @@ const AuthorPageList = () => {
                   <TableRow key={page.pageId} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{page.pageNumber}</TableCell>
                     <TableCell className="text-sm text-gray-700">
-                      {page.content?.substring(0, 100)}
-                      {page.content?.length > 100 ? "..." : ""}
+                      {(() => {
+                        const htmlContent = page.content || "";
+                        const plainText = htmlContent.replace(/<[^>]+>/g, " ").trim();
+                        const words = plainText.split(/\s+/);
+                        const shortText = words.slice(0, 8).join(" ");
+                        return words.length > 8 ? `${shortText}...` : shortText;
+                      })()}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-gray-600">
-                            <MoreVertical className="w-5 h-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/author/page/${page.pageId}`)}>
-                            Xem chi tiết
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/author/page/${page.pageId}/edit`)}>
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleConfirmDelete(page)}>
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <TooltipProvider>
+                        <div className="flex items-center space-x-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-gray-600"
+                                onClick={() => navigate(`/author/page/${page.pageId}`)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <span>Xem chi tiết</span>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-gray-600"
+                                onClick={() => navigate(`/author/page/${page.pageId}/edit`)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <span>Chỉnh sửa</span>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() => handleConfirmDelete(page)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <span>Xóa</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))}

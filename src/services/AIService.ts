@@ -11,7 +11,7 @@ export interface AIGeneration {
   prompt: string;
   negativePrompt?: string;
   durationMs?: number;
-  status?: string;
+  status?: number;
   userId?: string;
   mode?: string;
   aspectRatio?: string;
@@ -64,6 +64,26 @@ export interface GenerateIllustrationMeta {
   seed?: number;
 }
 
+export interface Audio {
+  audioUrl: string;
+  voice: string;
+  format: string;
+  language: string;
+  durationMs: number;
+  title: string;
+  isActived: string; // "ACTIVE" hoặc "INACTIVE"
+}
+
+export interface PageAudio {
+  pageId: string;
+  audioId: string;
+}
+
+export interface PageIllustration {
+  pageId: string;
+  illustrationId: string;
+}
+
 /* ====================== API CALLS ====================== */
 
 /**
@@ -111,6 +131,90 @@ export const createAIGenerationTarget = async (
   return response.data;
 };
 
+/**
+ * Lấy danh sách tất cả audios
+ */
+export const getAudios = async (): Promise<Audio[]> => {
+  const response = await axios.get(`${API_BASE_URL}/audios`);
+  return response.data;
+};
+
+/**
+ * Lấy chi tiết một audio theo ID
+ */
+export const getAudioById = async (id: string): Promise<Audio> => {
+  const response = await axios.get(`${API_BASE_URL}/audios/${id}`);
+  return response.data;
+};
+
+/**
+ * Tạo mới audio (POST)
+ */
+export const createAudio = async (data: Audio[]): Promise<Audio[]> => {
+  const response = await axios.post(`${API_BASE_URL}/audios`, data);
+  return response.data;
+};
+
+/**
+ * Cập nhật audio theo ID (PUT)
+ */
+export const updateAudio = async (
+  id: string,
+  data: Audio
+): Promise<Audio> => {
+  const response = await axios.put(`${API_BASE_URL}/audios/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Xoá audio theo ID (DELETE)
+ */
+export const deleteAudio = async (id: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/audios/${id}`);
+};
+
+export const createPageAudio = async (
+  data: PageAudio[]
+): Promise<PageAudio[]> => {
+  const response = await axios.post(`${API_BASE_URL}/page-audios`, data);
+  return response.data;
+};
+
+/**
+ * Gắn illustration với trang (Page-Illustrations)
+ */
+export const createPageIllustration = async (
+  data: PageIllustration[]
+): Promise<PageIllustration[]> => {
+  const response = await axios.post(`${API_BASE_URL}/page-illustrations`, data);
+  return response.data;
+};
+
+export const generateIllustrationWithImage = async (
+  userId: string,
+  meta: GenerateIllustrationMeta,
+  controlImage?: File
+) => {
+  const formData = new FormData();
+  formData.append("meta", JSON.stringify(meta));
+  if (controlImage) {
+    formData.append("controlImage", controlImage);
+  }
+
+  const response = await axios.post(
+    `${API_BASE_URL}/illustrations/generate/generate`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        "X-User-Id": userId,
+      },
+    }
+  );
+
+  return response.data;
+};
+
 /* ====================== HOOKS ====================== */
 
 /** Hook: Gọi AI sinh ảnh */
@@ -145,5 +249,72 @@ export const useCreateAIGenerationTarget = () => {
   return useMutation({
     mutationFn: (data: AIGenerationTarget[]) =>
       createAIGenerationTarget(data),
+  });
+};
+
+/** Hook: Lấy tất cả audios */
+export const useGetAudios = () => {
+  return useMutation({
+    mutationFn: () => getAudios(),
+  });
+};
+
+/** Hook: Lấy audio theo ID */
+export const useGetAudioById = () => {
+  return useMutation({
+    mutationFn: (id: string) => getAudioById(id),
+  });
+};
+
+/** Hook: Tạo mới audio */
+export const useCreateAudio = () => {
+  return useMutation({
+    mutationFn: (data: Audio[]) => createAudio(data),
+  });
+};
+
+/** Hook: Cập nhật audio */
+export const useUpdateAudio = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Audio;
+    }) => updateAudio(id, data),
+  });
+};
+
+/** Hook: Xoá audio */
+export const useDeleteAudio = () => {
+  return useMutation({
+    mutationFn: (id: string) => deleteAudio(id),
+  });
+};
+
+export const useCreatePageAudio = () => {
+  return useMutation({
+    mutationFn: (data: PageAudio[]) => createPageAudio(data),
+  });
+};
+
+/** Hook: Gắn illustration vào trang */
+export const useCreatePageIllustration = () => {
+  return useMutation({
+    mutationFn: (data: PageIllustration[]) => createPageIllustration(data),
+  });
+};
+export const useGenerateIllustrationWithImage = () => {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      meta,
+      controlImage,
+    }: {
+      userId: string;
+      meta: GenerateIllustrationMeta;
+      controlImage?: File;
+    }) => generateIllustrationWithImage(userId, meta, controlImage),
   });
 };

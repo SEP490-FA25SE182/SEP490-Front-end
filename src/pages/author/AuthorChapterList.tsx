@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Menu, X, Plus, MoreVertical } from "lucide-react";
+import { Menu, X, Plus, Eye, Edit, Trash2 } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,12 +27,6 @@ import {
 import { ChapterCreateDialog } from "@/components/dialog/ChapterCreateDialog";
 import { ChapterEditDialog } from "@/components/dialog/ChapterEditDialog";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -42,6 +36,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function AuthorChapterList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -99,6 +99,14 @@ export default function AuthorChapterList() {
       setOpenDeleteAlert(false);
       setDeletingChapter(null);
     }
+  };
+
+  const handlePrev = () => {
+    if (currentPage > 1) setCurrentPage(prev => prev - 1);
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
   };
 
   // lọc chapter ACTIVE
@@ -223,24 +231,60 @@ export default function AuthorChapterList() {
                         {normalized.decription ?? "-"}
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-gray-600">
-                              <MoreVertical className="w-5 h-5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/author/chapters/${id}/pages`)}>
-                              Xem chi tiết
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setEditingChapter(normalized)}>
-                              Chỉnh sửa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleConfirmDelete(normalized)}>
-                              Xóa
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <TooltipProvider>
+                          <div className="flex items-center space-x-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-gray-600"
+                                  onClick={() => navigate(`/author/chapters/${id}/pages`)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>Xem chi tiết</span>
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-gray-600"
+                                  onClick={() => {
+                                    setEditingChapter(normalized);
+                                    setOpenEditDialog(true);
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>Chỉnh sửa</span>
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() => handleConfirmDelete(normalized)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>Xóa</span>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   );
@@ -258,28 +302,31 @@ export default function AuthorChapterList() {
 
             {/* Pagination */}
             {chapters.length > 0 && (
-              <div className="border-t px-6 py-4 flex items-center justify-between bg-white">
-                <span className="text-sm text-gray-600">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                        className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
-                      />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() =>
-                          currentPage < totalPages && setCurrentPage(currentPage + 1)
-                        }
-                        className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+              <div className="border-t px-6 py-4 bg-white">
+                <div className="max-w-full mx-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-0">
+                  <div className="hidden sm:block sm:w-1/3" /> {/* spacer left on desktop */}
+                  <div className="w-full sm:flex-1 flex justify-center">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={handlePrev}
+                            className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={handleNext}
+                            className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                  <div className="w-full sm:w-1/3 text-sm text-gray-600 text-center sm:text-right whitespace-nowrap">
+                    Trang {currentPage} / {totalPages}
+                  </div>
+                </div>
               </div>
             )}
           </div>

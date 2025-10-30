@@ -21,7 +21,11 @@ import AuthorCreateBook from "./pages/author/AuthorCreateBook";
 import AuthorChapterList from "./pages/author/AuthorChapterList";
 import AuthorPageList from "./pages/author/AuthorPageList";
 
+import AdminDashboardPage from "./pages/admin/AdminDashboard";
+
 import CustomerLayout from "./layouts/CustomerLayout";
+import UserManagementPage from "./pages/admin/UserManagement";
+import OrderManagementPage from "./pages/admin/OrderManagement";
 
 export default function AppRouter() {
   return (
@@ -47,6 +51,10 @@ export default function AppRouter() {
       <Route path="/author/authorcreatebook" element={<AuthorCreateBook />} />
       <Route path="/author/books/:bookId/chapters" element={<AuthorChapterList />} />
       <Route path="/author/chapters/:chapterId/pages" element={<AuthorPageList />} />
+
+      <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+      <Route path="/admin/users" element={<UserManagementPage />} />
+      <Route path="/admin/orders" element={<OrderManagementPage />} />
     </Routes>
   );
 }

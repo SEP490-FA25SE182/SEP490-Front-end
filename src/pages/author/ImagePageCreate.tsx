@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import AIPromptPanel from "@/components/author/AIPromptPanel";
 import {
-  useCreatePage
-} from "@/services/BookManageService";
-import {
   useCreateAIGenerationTarget,
-  useCreateIllustration,
   useCreatePageIllustration,
 } from "@/services/AIService";
+import { useCreatePage, useGetAllPages } from "@/services/BookManageService";
+import { UploadService } from "@/services/UploadService";
 
 export default function ImagePageCreate() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -21,22 +19,27 @@ export default function ImagePageCreate() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const createPage = useCreatePage();
-  const createIllustration = useCreateIllustration();
-  const createAIGenerationTarget = useCreateAIGenerationTarget();
+  const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
+
   const createPageIllustration = useCreatePageIllustration();
+  const createPage = useCreatePage();
+  const createAIGenerationTarget = useCreateAIGenerationTarget();
 
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [aiImage, setAIImage] = useState<string | null>(null);
   const [sourceType, setSourceType] = useState<"UPLOAD" | "AI" | null>(null);
-  const [aiMeta, setAiMeta] = useState<{ imageUrl?: string; aiGeneration?: any } | null>(null);
+  const [aiMeta, setAiMeta] = useState<{ imageUrl?: string; aiGeneration?: any; illustrationId?: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  const { data: pagesResp } = useGetAllPages(chapterId ? { chapterId } : undefined);
 
   const handleImportImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
       setSelectedImage(imageUrl);
+      setUploadedFile(file); // ✅ Lưu file để upload Firebase
       setSourceType("UPLOAD");
     }
   };
@@ -66,59 +69,88 @@ export default function ImagePageCreate() {
       return;
     }
 
+    // --- new: check duplicate page when saving uploaded image OR AI image ---
+    // Ngăn không cho lưu nếu đã có trang cùng số trong chương (active)
+    if (sourceType === "UPLOAD" || sourceType === "AI") {
+      const list = Array.isArray(pagesResp)
+        ? pagesResp
+        : Array.isArray((pagesResp as any)?.content)
+          ? (pagesResp as any).content
+          : [];
+      const duplicate = list.some(
+        (p: any) => Number(p.pageNumber) === Number(pageNumber) && p.isActived !== "INACTIVE"
+      );
+      if (duplicate) {
+        toast({
+          title: "Trùng số trang",
+          description: `Đã tồn tại trang số ${pageNumber} trong chương này. Vui lòng chọn số trang khác.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    // --- end check ---
+
     try {
-      // 1️⃣ Tạo page mới
+      let finalImageUrl = selectedImage;
+
+      // ✅ 1. Upload lên Firebase nếu là ảnh từ máy
+      if (sourceType === "UPLOAD" && uploadedFile) {
+        toast({ title: "Đang upload ảnh lên Firebase..." });
+        const gsUrl = await UploadService.uploadImageToFirebase(uploadedFile, "pages");
+        finalImageUrl = gsUrl;
+        console.log("Firebase uploaded image:", gsUrl);
+      }
+
+      // 2️⃣ Tạo page mới
       const page = await createPage.mutateAsync({
         pageNumber,
-        content: selectedImage,
+        content: finalImageUrl,
         chapterId,
         isActived: "ACTIVE",
       });
 
-      // 2️⃣ Nếu là ảnh AI → nếu có aiGeneration từ bước generate thì gắn target PAGE
-      if (sourceType === "AI" && aiMeta?.aiGeneration?.aiGenerationId) {
-        try {
-          await createAIGenerationTarget.mutateAsync([
-            {
-              aiGenerationId: aiMeta.aiGeneration.aiGenerationId,
-              targetType: "PAGE",
-              targetRefId: page.pageId!,
-              isActived: "ACTIVE",
-            },
-          ]);
-        } catch (e) {
-          console.error("Failed to create AI generation target for page", e);
+      // 3️⃣ Tùy theo chế độ (aiPanelOpen) và nguồn ảnh (UPLOAD / AI):
+      // - Nếu ảnh import từ máy (UPLOAD) -> chỉ lưu Page (không gọi createIllustration ở đây vì đã loại bỏ)
+      // - Nếu ảnh từ AI (AI) -> tạo AI generation target (nếu có aiGenerationId) và gắn PageIllustration (nếu có illustrationId)
+      if (sourceType === "AI") {
+        // Nếu có aiGenerationId → tạo target liên kết với PAGE
+        if (aiMeta?.aiGeneration?.aiGenerationId) {
+          try {
+            await createAIGenerationTarget.mutateAsync([
+              {
+                aiGenerationId: aiMeta.aiGeneration.aiGenerationId,
+                // backend có thể yêu cầu targetType/targetRefId; thêm nếu cần
+                isActived: "ACTIVE",
+              },
+            ]);
+          } catch (e) {
+            console.error("Failed to create AI generation target for page", e);
+          }
         }
-      }
 
-      // 3️⃣ Lưu illustration (ảnh trang) vào bảng Illustrations
-      const illustrations = await createIllustration.mutateAsync([
-        {
-          imageUrl: selectedImage,
-          style: "REALISTIC",
-          format: "png",
-          width: 1024,
-          height: 1024,
-          title: "Page Illustration",
-          isActived: "ACTIVE",
-        },
-      ]);
+        // Nếu backend trả illustrationId trong aiMeta -> gắn PageIllustration
+        const illustrationId =
+          aiMeta?.illustrationId ||
+          aiMeta?.aiGeneration?.illustrationId ||
+          aiMeta?.aiGeneration?.inputImageId; // fallback keys
 
-      // backend có thể trả mảng → lấy id đầu tiên
-      const savedIll = Array.isArray(illustrations) ? illustrations[0] : illustrations;
-      const illustrationId = savedIll?.illustrationId;
-
-      // 4️⃣ Gắn illustration vào page (bảng PageIllustrations)
-      if (illustrationId && page.pageId) {
-        try {
-          await createPageIllustration.mutateAsync([
-            {
-              pageId: page.pageId!,
-              illustrationId,
-            },
-          ]);
-        } catch (e) {
-          console.error("Failed to link illustration to page", e);
+        if (illustrationId) {
+          try {
+            await createPageIllustration.mutateAsync([
+              { pageId: page.pageId!, illustrationId },
+            ]);
+          } catch (e) {
+            console.error("Failed to attach existing illustration to page", e);
+          }
+        } else {
+          // Nếu không có illustrationId, báo lên author (không gọi createIllustration vì đã loại bỏ)
+          toast({
+            title: "Thiếu illustrationId",
+            description:
+              "Ảnh AI đã được tạo nhưng backend không trả illustrationId; không thể gắn ảnh vào trang tự động.",
+            variant: "destructive",
+          });
         }
       }
 
@@ -154,21 +186,34 @@ export default function ImagePageCreate() {
                 {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </Button>
               <div className="ml-4 text-white">
-                <div className="text-sm font-medium">Tạo trang ảnh mới</div>               
+                <div className="text-sm font-medium">Tạo trang ảnh mới</div>
               </div>
+            </div>
+
+            {/* AI Panel toggle moved to the right */}
+            <div className="flex items-center">
+              <Button
+                size="sm"
+                onClick={() => setAiPanelOpen((s) => !s)}
+                className="ml-2 bg-purple-600 hover:bg-purple-700"
+              >
+                {aiPanelOpen ? "Đóng AI Panel" : "Mở AI Panel"}
+              </Button>
             </div>
           </div>
         </header>
 
         {/* Body: chia 2 cột */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: AIPromptPanel */}
-          <div className="w-1/2 bg-[#1a2332] p-6 overflow-auto border-r border-white/10">
-            <AIPromptPanel onGenerated={handleAIImageGenerated} />
-          </div>
+          {/* Left: AIPromptPanel (ẩn/hiện theo aiPanelOpen) */}
+          {aiPanelOpen && (
+            <div className="w-1/2 bg-[#1a2332] p-6 overflow-auto border-r border-white/10">
+              <AIPromptPanel onGenerated={handleAIImageGenerated} />
+            </div>
+          )}
 
-          {/* Right: Form tạo trang */}
-          <div className="w-1/2 bg-[#0f172a] p-8 overflow-auto">
+          {/* Right: Form tạo trang - chiếm full width nếu panel ẩn */}
+          <div className={`${aiPanelOpen ? "w-1/2" : "w-full"} bg-[#0f172a] p-8 overflow-auto`}>
             <h2 className="text-xl font-semibold mb-6">Thông tin trang ảnh</h2>
 
             {/* Page number */}
@@ -220,13 +265,24 @@ export default function ImagePageCreate() {
               </Button>
             </div>
 
-            <Button
-              onClick={handleSave}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-              disabled={createPage.isPending}
-            >
-              {createPage.isPending ? "Đang lưu..." : "Lưu trang ảnh"}
-            </Button>
+            {/* Nút Lưu và Hủy */}
+            <div className="flex gap-4 mt-8">
+              <Button
+                variant="outline"
+                className="flex-1 text-gray-600 hover:bg-gray-100"
+                onClick={() => navigate(`/author/chapters/${chapterId}/pages`)}
+                disabled={createPage.isPending}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSave}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={createPage.isPending}
+              >
+                {createPage.isPending ? "Đang lưu..." : "Lưu trang ảnh"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

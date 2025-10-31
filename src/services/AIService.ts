@@ -28,9 +28,7 @@ export interface AIGeneration {
 }
 
 export interface AIGenerationTarget {
-  targetType: string;
   aiGenerationId: string;
-  targetRefId: string;
   isActived?: string;
   updatedAt?: string;
 }
@@ -82,6 +80,15 @@ export interface PageAudio {
 export interface PageIllustration {
   pageId: string;
   illustrationId: string;
+}
+
+export interface GenerateTTSMeta {
+  text: string;
+  voiceName: string;
+  title: string;
+  language: string;
+  format: string;
+  model: string;
 }
 
 /* ====================== API CALLS ====================== */
@@ -197,21 +204,35 @@ export const generateIllustrationWithImage = async (
 ) => {
   const formData = new FormData();
   formData.append("meta", JSON.stringify(meta));
-  if (controlImage) {
-    formData.append("controlImage", controlImage);
-  }
+  if (controlImage) formData.append("controlImage", controlImage);
 
   const response = await axios.post(
     `${API_BASE_URL}/illustrations/generate/generate`,
     formData,
     {
       headers: {
-        "Content-Type": "multipart/form-data",
+        "X-User-Id": userId, // ✅ giữ lại header này
+      },
+      withCredentials: false, // hoặc true nếu backend yêu cầu cookie
+    }
+  );
+
+  return response.data;
+};
+
+export const generateTTS = async (
+  userId: string,
+  meta: GenerateTTSMeta
+): Promise<Audio> => {
+  const response = await axios.post(
+    `${API_BASE_URL}/audios/tts`,
+    meta,
+    {
+      headers: {
         "X-User-Id": userId,
       },
     }
   );
-
   return response.data;
 };
 
@@ -316,5 +337,17 @@ export const useGenerateIllustrationWithImage = () => {
       meta: GenerateIllustrationMeta;
       controlImage?: File;
     }) => generateIllustrationWithImage(userId, meta, controlImage),
+  });
+};
+
+export const useGenerateTTS = () => {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      meta,
+    }: {
+      userId: string;
+      meta: GenerateTTSMeta;
+    }) => generateTTS(userId, meta),
   });
 };

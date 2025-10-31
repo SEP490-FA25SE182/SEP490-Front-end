@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
-import { Menu, X, Eye, Edit, Trash2 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Menu, X, Eye, Edit, Trash2, Search } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
   useGetAllPages,
   useGetChapterById,
   useDeletePage,
-  type Page
+  type Page,
 } from "@/services/BookManageService";
 import {
   DropdownMenu,
@@ -47,6 +48,13 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
+// Hàm rút gọn text
+const truncateText = (text: string, maxWords = 7) => {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text;
+  return words.slice(0, maxWords).join(" ") + "...";
+};
+
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { chapterId } = useParams<{ chapterId?: string }>();
@@ -54,13 +62,16 @@ const AuthorPageList = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch chapter details and pages
+  // Filter
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Fetch data
   const { data: chapter, isLoading: loadingChapter } = useGetChapterById(chapterId || "");
   const { data: pagesResp, isLoading: loadingPages } = useGetAllPages(
     chapterId ? { chapterId } : undefined
   );
 
-  // Delete dialog state
+  // Delete
   const [openDeleteAlert, setOpenDeleteAlert] = useState(false);
   const [deletingPage, setDeletingPage] = useState<Page | null>(null);
   const deletePage = useDeletePage();
@@ -82,7 +93,7 @@ const AuthorPageList = () => {
     } catch (err) {
       toast({
         title: "Xóa thất bại",
-        description: "Không thể xóa trang. Vui lòng thử lại.",
+        description: "Không thể xóa trang.",
         variant: "destructive",
       });
     } finally {
@@ -91,26 +102,58 @@ const AuthorPageList = () => {
     }
   };
 
-  // Filter ACTIVE pages
+  // === Xử lý danh sách trang + filter ===
   const pages: Page[] = useMemo(() => {
     if (!pagesResp) return [];
     const list = Array.isArray(pagesResp)
       ? pagesResp
-      : Array.isArray((pagesResp as any).content)
+      : Array.isArray((pagesResp as any)?.content)
         ? (pagesResp as any).content
         : [];
-    return list.filter((p: { isActived?: string }) => p.isActived !== "INACTIVE");
-  }, [pagesResp]);
 
-  // Pagination
+    return list
+      .filter((p: any) => p.isActived !== "INACTIVE")
+      .filter((p: any) =>
+        searchTerm === "" ||
+        p.pageNumber.toString().includes(searchTerm)
+      )
+      .sort((a: any, b: any) => a.pageNumber - b.pageNumber); // SẮP XẾP TĂNG DẦN
+  }, [pagesResp, searchTerm]);
+
+  // === THÊM HÀM MỚI ===
+  const isFirebaseImageUrl = (url: string) => {
+    return (
+      (url.includes("firebasestorage.googleapis.com") && url.includes("alt=media")) ||
+      url.startsWith("gs://")
+    );
+  };
+
+  const getDisplayImageUrl = (url: string): string => {
+    if (url.startsWith("gs://")) {
+      const bucket = url.split("/")[2];
+      const path = url.split("/").slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    return url;
+  };
+
+  // === Phân trang ===
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
   const totalPages = Math.max(1, Math.ceil(pages.length / perPage));
   const currentPages = pages.slice((currentPage - 1) * perPage, currentPage * perPage);
 
+  const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
+  const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
@@ -150,26 +193,40 @@ const AuthorPageList = () => {
           </div>
         </header>
 
-        {/* Chapter detail section */}
-        <div className="bg-[#1a2332] px-6 py-6 border-b border-white/10">
-          <div className="text-white">
-            <h2 className="text-xl font-semibold mb-2">
-              {chapter?.chapterName || "Đang tải..."}
-            </h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Thứ tự chương:</span>{" "}
-                <span className="text-white">{chapter?.chapterNumber || "-"}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Mô tả:</span>{" "}
-                <span className="text-white">{chapter?.decription || "Không có mô tả"}</span>
-              </div>
+        {/* Chapter Info */}
+        <div className="bg-[#1a2332] px-6 py-4 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white mb-1">
+            {chapter?.chapterName || "Đang tải..."}
+          </h2>
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-300">
+            <div>
+              <span className="text-gray-400">Thứ tự:</span>{" "}
+              <span className="text-white">{chapter?.chapterNumber || "-"}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">Mô tả:</span>{" "}
+              <span className="text-white">{chapter?.decription || "Không có"}</span>
             </div>
           </div>
         </div>
 
-        {/* Page list */}
+        {/* Filter Input */}
+        <div className="px-6 py-3 bg-[#0f172a] border-b border-white/10">
+          <div className="relative max-w-xs">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Tìm số trang..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // reset về trang 1 khi filter
+              }}
+              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+            />
+          </div>
+        </div>
+
+        {/* Page Table */}
         <div className="flex-1 overflow-auto p-6">
           <div className="bg-white rounded-lg shadow-xl overflow-hidden">
             <Table>
@@ -184,15 +241,28 @@ const AuthorPageList = () => {
                 {currentPages.map((page) => (
                   <TableRow key={page.pageId} className="hover:bg-gray-50">
                     <TableCell className="font-medium">{page.pageNumber}</TableCell>
-                    <TableCell className="text-sm text-gray-700">
-                      {(() => {
-                        const htmlContent = page.content || "";
-                        const plainText = htmlContent.replace(/<[^>]+>/g, " ").trim();
-                        const words = plainText.split(/\s+/);
-                        const shortText = words.slice(0, 8).join(" ");
-                        return words.length > 8 ? `${shortText}...` : shortText;
-                      })()}
-                    </TableCell>
+
+                    {isFirebaseImageUrl(page.content) ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-12 rounded overflow-hidden border border-gray-200">
+                          <img
+                            src={getDisplayImageUrl(page.content)}
+                            alt={`Page ${page.pageNumber}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://via.placeholder.com/48?text=IMG";
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500">Hình ảnh</span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-700 line-clamp-2">
+                        {truncateText(page.content)}
+                      </p>
+                    )}
+
                     <TableCell>
                       <TooltipProvider>
                         <div className="flex items-center space-x-1">
@@ -201,15 +271,12 @@ const AuthorPageList = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-gray-600"
                                 onClick={() => navigate(`/author/page/${page.pageId}`)}
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <span>Xem chi tiết</span>
-                            </TooltipContent>
+                            <TooltipContent>Xem</TooltipContent>
                           </Tooltip>
 
                           <Tooltip>
@@ -217,15 +284,12 @@ const AuthorPageList = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-gray-600"
                                 onClick={() => navigate(`/author/page/${page.pageId}/edit`)}
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <span>Chỉnh sửa</span>
-                            </TooltipContent>
+                            <TooltipContent>Chỉnh sửa</TooltipContent>
                           </Tooltip>
 
                           <Tooltip>
@@ -239,9 +303,7 @@ const AuthorPageList = () => {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <span>Xóa</span>
-                            </TooltipContent>
+                            <TooltipContent>Xóa</TooltipContent>
                           </Tooltip>
                         </div>
                       </TooltipProvider>
@@ -251,58 +313,69 @@ const AuthorPageList = () => {
               </TableBody>
             </Table>
 
-            {/* Loading / Empty state */}
+            {/* Empty / Loading */}
             {(loadingChapter || loadingPages) && (
-              <div className="text-center py-8 text-gray-500">Đang tải dữ liệu...</div>
+              <div className="text-center py-8 text-gray-500">Đang tải...</div>
             )}
             {!loadingPages && currentPages.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Không tìm thấy trang nào</div>
+              <div className="text-center py-8 text-gray-500">
+                {searchTerm ? "Không tìm thấy trang nào." : "Chưa có trang nào."}
+              </div>
             )}
 
-            {/* Pagination */}
+            {/* PAGINATION - ĐẸP NHƯ AuthorBookList */}
             {pages.length > 0 && (
-              <div className="border-t px-6 py-4 flex items-center justify-between bg-white">
-                <span className="text-sm text-gray-600">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                        className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
-                      />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                        className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+              <div className="border-t px-6 py-4 bg-white">
+                <div className="max-w-full mx-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-0">
+                  {/* Spacer trái (ẩn trên mobile) */}
+                  <div className="hidden sm:block sm:w-1/3" />
+
+                  {/* Nút Previous / Next */}
+                  <div className="w-full sm:flex-1 flex justify-center">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={handlePrev}
+                            className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={handleNext}
+                            className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+
+                  {/* Thông tin trang */}
+                  <div className="w-full sm:w-1/3 text-sm text-gray-600 text-center sm:text-right whitespace-nowrap">
+                    Trang {currentPage} / {totalPages} ({pages.length} trang)
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Delete Alert Dialog */}
+      {/* Xóa xác nhận */}
       <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa trang</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc muốn xóa trang {deletingPage?.pageNumber}? Hành động này không thể hoàn tác.
+              Xóa trang <strong>{deletingPage?.pageNumber}</strong>? Không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>
-              Huỷ
+              Hủy
             </Button>
             <Button
               variant="destructive"
-              className="ml-2"
               onClick={handleDelete}
               disabled={deletePage.isPending}
             >
@@ -313,6 +386,6 @@ const AuthorPageList = () => {
       </AlertDialog>
     </div>
   );
-}
+};
 
 export default AuthorPageList;

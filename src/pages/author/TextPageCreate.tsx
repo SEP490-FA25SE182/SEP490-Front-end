@@ -4,10 +4,28 @@ import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useCreatePage } from "@/services/BookManageService";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+
+const GOOGLE_VOICES = [
+  { name: "Zephyr", label: "Bright, Higher pitch" },
+  { name: "Puck", label: "Upbeat, Middle pitch" },
+  { name: "Charon", label: "Informative, Lower pitch" },
+  { name: "Kore", label: "Firm, Middle pitch" },
+  { name: "Fenrir", label: "Excitable, Lower middle" }
+];
+
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "vi", label: "Vietnamese" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+];
 
 export default function TextPageCreate() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -22,12 +40,12 @@ export default function TextPageCreate() {
   // === Audio fields ===
   const [showAudioForm, setShowAudioForm] = useState(false);
   const [audioData, setAudioData] = useState({
-    audio_url: "",
-    voice: "",
-    language: "",
-    duration_ms: "",
-    format: "",
+    text: "", // The text to convert to speech
+    voiceName: GOOGLE_VOICES[0].name,
     title: "",
+    language: LANGUAGES[0].code,
+    format: "wav", // Default format
+    model: "gemini-2.5-flash-preview-tts" // Default model
   });
 
   const handleAudioChange = (field: string, value: string) => {
@@ -144,59 +162,84 @@ export default function TextPageCreate() {
             {/* Audio form */}
             {showAudioForm && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
-                <div>
-                  <label className="block text-gray-700 mb-1 text-sm font-medium">Audio URL</label>
-                  <Input
-                    type="text"
-                    value={audioData.audio_url}
-                    onChange={(e) => handleAudioChange("audio_url", e.target.value)}
-                    placeholder="Nhập URL audio..."
+                <div className="col-span-2">
+                  <label className="block text-gray-700 mb-1 text-sm font-medium">Text for TTS</label>
+                  <Textarea
+                    value={audioData.text}
+                    onChange={(e) => handleAudioChange("text", e.target.value)}
+                    placeholder="Enter the text you want to convert to speech..."
+                    className="min-h-[100px]"
                   />
                 </div>
+
                 <div>
                   <label className="block text-gray-700 mb-1 text-sm font-medium">Voice</label>
-                  <Input
-                    type="text"
-                    value={audioData.voice}
-                    onChange={(e) => handleAudioChange("voice", e.target.value)}
-                    placeholder="VD: Female, Male, AI Voice..."
-                  />
+                  <Select
+                    value={audioData.voiceName}
+                    onValueChange={(value) => handleAudioChange("voiceName", value)}
+                  >
+                    <SelectTrigger className="bg-white border-gray-300">
+                      <SelectValue placeholder="Select a voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GOOGLE_VOICES.map((voice) => (
+                        <SelectItem key={voice.name} value={voice.name}>
+                          {voice.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
                 <div>
                   <label className="block text-gray-700 mb-1 text-sm font-medium">Language</label>
-                  <Input
-                    type="text"
+                  <Select
                     value={audioData.language}
-                    onChange={(e) => handleAudioChange("language", e.target.value)}
-                    placeholder="VD: Vietnamese, English..."
-                  />
+                    onValueChange={(value) => handleAudioChange("language", value)}
+                  >
+                    <SelectTrigger className="bg-white border-gray-300">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 text-sm font-medium">Duration (ms)</label>
-                  <Input
-                    type="number"
-                    value={audioData.duration_ms}
-                    onChange={(e) => handleAudioChange("duration_ms", e.target.value)}
-                    placeholder="VD: 120000 (2 phút)"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 text-sm font-medium">Format</label>
-                  <Input
-                    type="text"
-                    value={audioData.format}
-                    onChange={(e) => handleAudioChange("format", e.target.value)}
-                    placeholder="VD: mp3, wav..."
-                  />
-                </div>
+
                 <div>
                   <label className="block text-gray-700 mb-1 text-sm font-medium">Title</label>
                   <Input
                     type="text"
                     value={audioData.title}
                     onChange={(e) => handleAudioChange("title", e.target.value)}
-                    placeholder="Tiêu đề audio"
+                    placeholder="Audio title"
+                    className="bg-white border-gray-300"
                   />
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-gray-700 mb-1 text-sm font-medium">Format</label>
+                    <Input
+                      type="text"
+                      value={audioData.format}
+                      disabled
+                      className="bg-gray-100 border-gray-300"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-gray-700 mb-1 text-sm font-medium">Model</label>
+                    <Input
+                      type="text"
+                      value={audioData.model}
+                      disabled
+                      className="bg-gray-100 border-gray-300"
+                    />
+                  </div>
                 </div>
               </div>
             )}

@@ -27,9 +27,16 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest extends Partial<CreateUserRequest> {}
 
 export const getAllUsers = async (): Promise<User[]> => {
-  const response = await axios.get(`${API_BASE_URL}/users`);
-  return response.data;
+  try {
+    const res = await axios.get(`${API_BASE_URL}/users/search`);
+    // 🔹 Nếu backend trả về Page<UserResponse>, chỉ lấy phần content
+    return res.data?.content ?? [];
+  } catch (error) {
+    console.error("❌ Lỗi khi lấy danh sách user:", error);
+    return [];
+  }
 };
+
 
 export const getUserById = async (id: string): Promise<User> => {
   const response = await axios.get(`${API_BASE_URL}/users/${id}`);
@@ -214,3 +221,30 @@ export const deleteAddress = async (addressId: string): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * 🔹 Lấy thông tin role theo ID
+ * GET /api/rookie/users/roles/{id}
+ */
+export interface Role {
+  roleId: string;
+  roleName: string;
+}
+
+export const getRoleById = async (roleId: string): Promise<Role> => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/users/roles/${roleId}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    // 🧩 Chỉ lấy 2 trường cần thiết
+    const { roleId: id, roleName } = res.data;
+    return { roleId: id, roleName };
+  } catch (error: any) {
+    console.error("❌ Lỗi khi lấy role:", error.response?.data || error);
+    throw error;
+  }
+};
+

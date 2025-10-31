@@ -23,7 +23,11 @@ import AuthorPageList from "./pages/author/AuthorPageList";
 import TextPageCreate from "./pages/author/TextPageCreate";
 import ImagePageCreate from "./pages/author/ImagePageCreate";
 
+import AdminDashboardPage from "./pages/admin/AdminDashboard";
+
 import CustomerLayout from "./layouts/CustomerLayout";
+import UserManagementPage from "./pages/admin/UserManagement";
+import OrderManagementPage from "./pages/admin/OrderManagement";
 
 export default function AppRouter() {
   return (
@@ -51,6 +55,10 @@ export default function AppRouter() {
       <Route path="/author/chapters/:chapterId/pages" element={<AuthorPageList />} />
       <Route path="/author/chapters/:chapterId/pages/create-text" element={<TextPageCreate />} />
       <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImagePageCreate />} />
+
+      <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+      <Route path="/admin/users" element={<UserManagementPage />} />
+      <Route path="/admin/orders" element={<OrderManagementPage />} />
     </Routes>
   );
 }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Menu, X, DollarSign, Users, ShoppingBag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, DollarSign, Users, ShoppingBag, Cpu } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +18,39 @@ import {
     Legend,
 } from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { getAllBooks } from "@/services/BookService"; // Cập nhật import từ BookService
+import { useGetAllAIGenerations } from "@/services/AIService";
 
 export default function AdminDashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [bookCount, setBookCount] = useState<number>(0); // Đổi tên từ userCount thành bookCount
+    const aiHook = useGetAllAIGenerations();
+    const { data: aiResp, isLoading: loadingAI } = aiHook;
 
-    /* ================================
+    useEffect(() => {
+        const fetchBooks = async () => {
+            try {
+                const res = await getAllBooks(); // Sử dụng getAllBooks thay vì getAllUsers
+                const list = Array.isArray(res)
+                    ? res
+                    : Array.isArray((res as any)?.content)
+                        ? (res as any).content
+                        : [];
+                setBookCount(list.length);
+            } catch (error) {
+                console.error("Lỗi khi tải danh sách sách:", error);
+            }
+        };
+        fetchBooks();
+    }, []);
+
+    const totalAIGenerations = Array.isArray(aiResp)
+        ? aiResp.length
+        : Array.isArray((aiResp as any)?.content)
+            ? (aiResp as any).content.length
+            : 0;
+
+    /* ================================ 
        🔹 DỮ LIỆU HARD CODE
     ================================ */
     const revenueData = [
@@ -64,7 +92,7 @@ export default function AdminDashboardPage() {
             currency: "VND",
         }).format(value);
 
-    /* ================================
+    /* ================================ 
        🔹 GIAO DIỆN
     ================================ */
     return (
@@ -108,19 +136,7 @@ export default function AdminDashboardPage() {
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <Users className="w-5 h-5" /> Người truy cập
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-2xl font-bold">6.000</p>
-                                <p className="text-white/70 text-sm">+8% so với tháng trước</p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <ShoppingBag className="w-5 h-5" /> Đơn hàng
+                                    <ShoppingBag className="w-5 h-5" /> Tổng đơn hàng
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -131,11 +147,31 @@ export default function AdminDashboardPage() {
 
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
-                                <CardTitle>Khách hàng VIP</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Users className="w-5 h-5" /> Số lượng sách
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-2xl font-bold">34</p>
-                                <p className="text-white/70 text-sm">thành viên tích cực</p>
+                                <p className="text-2xl font-bold">
+                                    {bookCount.toLocaleString()} {/* Đổi từ userCount thành bookCount */}
+                                </p>
+                                <p className="text-white/70 text-sm">
+                                    {loadingAI ? "Đang tải..." : "Tổng số sách"}
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Cpu className="w-5 h-5" /> Lượt dùng AI
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-2xl font-bold">
+                                    {loadingAI ? "..." : totalAIGenerations.toLocaleString()}
+                                </p>
+                                <p className="text-white/70 text-sm">Số lượt gọi AI</p>
                             </CardContent>
                         </Card>
                     </div>
@@ -160,12 +196,10 @@ export default function AdminDashboardPage() {
                                             `${data.name} ${(data.percent * 100).toFixed(1)}%`
                                         }
                                     >
-                                        {revenueData.map((entry, index) => (
+                                        {revenueData.map((_entry, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-
-
                                     <Tooltip
                                         formatter={(value) => formatCurrency(Number(value))}
                                         contentStyle={{ backgroundColor: "#1a2332", border: "none" }}

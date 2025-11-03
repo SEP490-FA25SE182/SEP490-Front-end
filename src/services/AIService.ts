@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 const API_BASE_URL = "http://localhost:8082/api/rookie";
 
@@ -236,6 +237,11 @@ export const generateTTS = async (
   return response.data;
 };
 
+export const getAllAIGenerations = async (): Promise<AIGeneration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/ai-generations`);
+  return response.data;
+};
+
 /* ====================== HOOKS ====================== */
 
 /** Hook: Gọi AI sinh ảnh */
@@ -349,5 +355,13 @@ export const useGenerateTTS = () => {
       userId: string;
       meta: GenerateTTSMeta;
     }) => generateTTS(userId, meta),
+  });
+};
+
+export const useGetAllAIGenerations = () => {
+  return useQuery<AIGeneration[]>({
+    queryKey: ["aiGenerations"],
+    queryFn: () => getAllAIGenerations(),
+    staleTime: 5 * 60 * 1000, // Dữ liệu giữ trong 5 phút trước khi stale
   });
 };

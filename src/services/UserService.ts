@@ -24,7 +24,7 @@ export interface CreateUserRequest {
   avatarUrl?: string;
 }
 
-export interface UpdateUserRequest extends Partial<CreateUserRequest> {}
+export interface UpdateUserRequest extends Partial<CreateUserRequest> { }
 
 export const getAllUsers = async (): Promise<User[]> => {
   try {
@@ -81,151 +81,6 @@ export const getUserAnalytics = async (): Promise<any> => {
   return response.data;
 };
 
-/* =======================================================
-   🏠 USER ADDRESS (Địa chỉ người dùng)
-======================================================= */
-
-export interface Address {
-  userAddressId: string;
-  addressInfor: string;
-  userId: string;
-  isActived: string; // "ACTIVE" hoặc "INACTIVE"
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/**
- * Body khi tạo mới địa chỉ
- * Backend yêu cầu gửi MẢNG: [{ addressInfor, isActived }]
- */
-export interface CreateAddressRequest {
-  addressInfor: string;
-  userId: string;
-  isActived: string; // Thường là "ACTIVE"
-}
-
-/**
- * Body khi cập nhật địa chỉ
- */
-export interface UpdateAddressRequest {
-  addressInfor: string;
-  isActived: string;
-}
-
-/* =======================================================
-   🔹 CÁC HÀM GỌI API
-======================================================= */
-
-/**
- * Lấy danh sách địa chỉ theo userId
- * GET /api/rookie/users/addresses/user/{userId}
- */
-export const getAddressesByUserId = async (
-  userId: string
-): Promise<Address[]> => {
-  try {
-    const res = await axios.get(`${API_BASE_URL}/users/addresses/user/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-    return res.data;
-  } catch (error: any) {
-    console.error("❌ Lỗi khi lấy danh sách địa chỉ:", error);
-    throw error;
-  }
-};
-
-/**
- * Tạo mới địa chỉ (theo chuẩn BE: nhận mảng)
- * POST /api/rookie/users/addresses
- * Body:
- * [
- *   {
- *     "addressInfor": "string",
- *     "isActived": "ACTIVE"
- *   }
- * ]
- */
-export const createAddress = async (
-  data: CreateAddressRequest
-): Promise<Address> => {
-  try {
-    console.log("📦 Gửi request tạo địa chỉ:", JSON.stringify([data], null, 2));
-
-    const res = await axios.post(`${API_BASE_URL}/users/addresses`, [data], {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-
-    console.log("✅ Kết quả tạo địa chỉ:", res.data);
-
-    // Backend có thể trả về mảng → lấy phần tử đầu tiên
-    return Array.isArray(res.data) ? res.data[0] : res.data;
-  } catch (error: any) {
-    console.error("❌ Lỗi khi tạo địa chỉ:", error.response?.data || error);
-    throw error;
-  }
-};
-
-/**
- * Cập nhật địa chỉ theo ID
- * PUT /api/rookie/users/addresses/{id}
- */
-export const updateAddress = async (
-  addressId: string,
-  data: UpdateAddressRequest
-): Promise<Address> => {
-  try {
-    console.log(
-      `📦 Cập nhật địa chỉ ${addressId}:`,
-      JSON.stringify(data, null, 2)
-    );
-
-    const res = await axios.put(
-      `${API_BASE_URL}/users/addresses/${addressId}`,
-      data,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      }
-    );
-
-    console.log("✅ Kết quả cập nhật địa chỉ:", res.data);
-    return res.data;
-  } catch (error: any) {
-    console.error("❌ Lỗi khi cập nhật địa chỉ:", error.response?.data || error);
-    throw error;
-  }
-};
-
-/**
- * Xóa địa chỉ theo ID
- * DELETE /api/rookie/users/addresses/{id}
- */
-export const deleteAddress = async (addressId: string): Promise<void> => {
-  try {
-    console.log(`🗑️ Xóa địa chỉ ID: ${addressId}`);
-    await axios.delete(`${API_BASE_URL}/users/addresses/${addressId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-    console.log("✅ Đã xóa địa chỉ thành công");
-  } catch (error: any) {
-    console.error("❌ Lỗi khi xóa địa chỉ:", error.response?.data || error);
-    throw error;
-  }
-};
-
-/**
- * 🔹 Lấy thông tin role theo ID
- * GET /api/rookie/users/roles/{id}
- */
 export interface Role {
   roleId: string;
   roleName: string;
@@ -247,4 +102,125 @@ export const getRoleById = async (roleId: string): Promise<Role> => {
     throw error;
   }
 };
+
+/* =======================================================
+   🏠 USER ADDRESS (Địa chỉ người dùng)
+======================================================= */
+
+
+/* ---------------------------------------------
+ 🧩 Interface địa chỉ đồng bộ với BE
+--------------------------------------------- */
+export interface Address {
+  userAddressId: string;
+  addressInfor: string;
+  userId: string;
+  isActived: string;
+  phoneNumber?: string; 
+  fullName?: string;    
+  type?: string;        
+  default?: boolean; 
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/* ---------------------------------------------
+ 🧩 Body khi tạo địa chỉ mới
+--------------------------------------------- */
+export interface CreateAddressRequest {
+  addressInfor: string;
+  userId: string;
+  isActived: string;
+  phoneNumber?: string;
+  fullName?: string;
+  type?: string;
+  default?: boolean;
+}
+
+/* ---------------------------------------------
+ 🧩 Body khi cập nhật địa chỉ
+--------------------------------------------- */
+export interface UpdateAddressRequest {
+  addressInfor: string;
+  userId: string;
+  isActived: string;
+  phoneNumber?: string;
+  fullName?: string;
+  type?: string;
+  default?: boolean;
+}
+
+/* =======================================================
+   🔹 API CALLS
+======================================================= */
+
+
+export const getAddressesByUserId = async (userId: string): Promise<Address[]> => {
+  const res = await axios.get(`${API_BASE_URL}/users/addresses/user/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+  return res.data;
+};
+
+
+export const createAddress = async (data: CreateAddressRequest): Promise<Address> => {
+  const res = await axios.post(`${API_BASE_URL}/users/addresses`, [data], {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+
+  return Array.isArray(res.data) ? res.data[0] : res.data;
+};
+
+
+export const updateAddress = async (
+  addressId: string,
+  data: UpdateAddressRequest
+): Promise<Address> => {
+  const res = await axios.put(`${API_BASE_URL}/users/addresses/${addressId}`, data, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+  return res.data;
+};
+
+
+export const deleteAddress = async (addressId: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/users/addresses/${addressId}`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+};
+
+/**
+ * (Tuỳ chọn) Search địa chỉ cho admin
+ * GET /api/rookie/users/addresses/search?isActived=ACTIVE&userId=...
+ */
+export const searchAddresses = async (params?: {
+  isActived?: "ACTIVE" | "INACTIVE";
+  userId?: string;
+  phoneNumber?: string;
+  type?: string;
+  default?: boolean;
+  page?: number;
+  size?: number;
+}): Promise<{ content: Address[]; totalElements: number }> => {
+  const res = await axios.get(`${API_BASE_URL}/users/addresses/search`, {
+    params,
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+  return res.data;
+};
+
+
+
 

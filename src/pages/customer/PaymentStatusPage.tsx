@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
-import { formatVND } from "@/lib/money";
 import { OrderService } from "@/services/OrderService";
+import { useCart } from "@/context/CartContext";
+
 
 export default function PaymentStatusPage() {
   const navigate = useNavigate();
@@ -15,26 +16,28 @@ export default function PaymentStatusPage() {
   const success = query.get("success"); // ?success=true / false
   const [status, setStatus] = useState<"pending" | "success" | "failed">("pending");
   const [order, setOrder] = useState<any>(null);
+  const { clear } = useCart();
+
 
   const fetchOrder = async (orderId: string) => {
-  try {
-    const res = await OrderService.getOrderById(orderId);
-    setOrder(res);
-  } catch (error) {
-    console.error("❌ Lỗi khi truy vấn order:", error);
-  }
-};
+    try {
+      const res = await OrderService.getOrderById(orderId);
+      setOrder(res);
+    } catch (error) {
+      console.error("❌ Lỗi khi truy vấn order:", error);
+    }
+  };
 
 
   useEffect(() => {
-  const saved = localStorage.getItem("lastOrder");
-  if (saved) {
-    const { orderId } = JSON.parse(saved);
-    if (orderId) {
-      fetchOrder(orderId);
+    const saved = localStorage.getItem("lastOrder");
+    if (saved) {
+      const { orderId } = JSON.parse(saved);
+      if (orderId) {
+        fetchOrder(orderId);
+      }
     }
-  }
-}, []);
+  }, []);
 
 
   // Gán trạng thái dựa vào query param
@@ -52,6 +55,14 @@ export default function PaymentStatusPage() {
       }, 1000);
       return () => clearTimeout(timer);
     }
+  }, [status]);
+
+  useEffect(() => {
+
+    clear();
+    localStorage.removeItem("lastOrder");
+    console.log("🧹 Giỏ hàng đã được xoá sau thanh toán thành công");
+
   }, [status]);
 
   return (
@@ -79,9 +90,6 @@ export default function PaymentStatusPage() {
                 </p>
                 <Separator className="bg-white/10 my-4" />
                 <p className="text-sm opacity-80">Cảm ơn bạn đã mua hàng ❤️</p>
-                <p className="text-lg font-bold text-green-300">
-                  {formatVND(order?.totalPrice ?? 0)} {/* Có thể thay bằng giá trị tạm */}
-                </p>
                 <div className="flex justify-center gap-3">
                   <Button
                     className="bg-purple-600 hover:bg-purple-700"

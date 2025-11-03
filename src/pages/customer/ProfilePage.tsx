@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail, updateUser, type User ,
   getAddressesByUserId,
   createAddress,
-  // updateAddress,
+  updateAddress,
   deleteAddress,
   type Address,
 } from "@/services/UserService";
@@ -240,23 +240,20 @@ export default function ProfilePage() {
       <MapPin className="w-5 h-5" /> Sổ địa chỉ
     </h2>
 
-    {/* Nút Thêm địa chỉ */}
+    {/* ➕ Nút Thêm địa chỉ */}
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="flex items-center gap-2">
           <Plus className="w-4 h-4" /> Thêm địa chỉ
         </Button>
       </DialogTrigger>
-
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Thêm địa chỉ mới</DialogTitle>
         </DialogHeader>
-
-        <AddAddressForm
+        <AddOrEditAddressForm
           userId={user.userId}
           onSuccess={async () => {
-            // ✅ Cập nhật danh sách từ BE
             const updated = await getAddressesByUserId(user.userId);
             setAddresses(updated);
           }}
@@ -265,32 +262,112 @@ export default function ProfilePage() {
     </Dialog>
   </div>
 
-  {/* Danh sách địa chỉ */}
+  {/* 📋 Danh sách địa chỉ */}
   <div className="space-y-4">
     {addresses.length === 0 ? (
       <p className="text-gray-500 italic">Chưa có địa chỉ nào.</p>
     ) : (
-      addresses.map((addr) => (
-        <div
-          key={addr.userAddressId}
-          className="p-4 rounded-xl border border-gray-200 bg-gray-50 flex justify-between items-center"
-        >
-          <p className="text-gray-800">{addr.addressInfor}</p>
+      <div className="space-y-3">
+        {addresses.map((addr) => (
+          <div
+            key={addr.userAddressId}
+            className={`p-4 rounded-xl border ${
+              addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+            } flex justify-between items-start`}
+          >
+            <div className="flex flex-col gap-1">
+              <p className="text-gray-800">{addr.addressInfor}</p>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDeleteAddress(addr.userAddressId)}
-            >
-              <Trash2 className="w-4 h-4 text-red-500" />
-            </Button>
+              {addr.fullName && (
+                <p className="text-sm text-gray-600">👤 {addr.fullName}</p>
+              )}
+              {addr.phoneNumber && (
+                <p className="text-sm text-gray-600">📞 {addr.phoneNumber}</p>
+              )}
+              {addr.type && (
+                <p className="text-sm text-gray-500 italic">🏷️ {addr.type}</p>
+              )}
+
+              {addr.default && (
+                <span className="text-xs text-white bg-blue-500 px-2 py-0.5 rounded mt-1 w-fit">
+                  Mặc định
+                </span>
+              )}
+            </div>
+
+            {/* Nút hành động */}
+            <div className="flex items-center gap-2">
+              {/* 🔘 Radio: chọn làm mặc định */}
+              {!addr.default && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      // Gửi toàn bộ thông tin hiện tại, chỉ thêm default=true
+                      const payload = {
+                        addressInfor: addr.addressInfor,
+                        userId: addr.userId,
+                        isActived: "ACTIVE",
+                        phoneNumber: addr.phoneNumber || "",
+                        fullName: addr.fullName || "",
+                        type: addr.type || "",
+                        isDefault: true, // ✅ đây là key BE yêu cầu
+                      };
+                      console.log("📦 Payload gửi BE:", payload);
+                      await updateAddress(addr.userAddressId, payload);
+                      toast.success("✅ Đã đặt làm địa chỉ mặc định!");
+                      const updated = await getAddressesByUserId(user.userId);
+                      setAddresses(updated);
+                    } catch (error) {
+                      console.error(error);
+                      toast.error("Không thể đặt mặc định!");
+                    }
+                  }}
+                >
+                  🔘 Đặt mặc định
+                </Button>
+              )}
+
+              {/* ✏️ Sửa */}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Edit2 className="w-4 h-4 text-blue-600" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Chỉnh sửa địa chỉ</DialogTitle>
+                  </DialogHeader>
+                  <AddOrEditAddressForm
+                    userId={user.userId}
+                    defaultAddress={addr}
+                    onSuccess={async () => {
+                      const updated = await getAddressesByUserId(user.userId);
+                      setAddresses(updated);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+
+              {/* 🗑️ Xóa */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDeleteAddress(addr.userAddressId)}
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </Button>
+            </div>
           </div>
-        </div>
-      ))
+        ))}
+      </div>
     )}
   </div>
 </div>
+
+
 
 
     </div>
@@ -329,103 +406,142 @@ function InfoField({
   );
 }
 
-function AddAddressForm({
+function AddOrEditAddressForm({
   userId,
+  userDefaultInfo,
+  defaultAddress,
   onSuccess,
 }: {
   userId: string;
-  onSuccess: (newAddress: any) => void;
+  userDefaultInfo?: User;
+  defaultAddress?: Address;
+  onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
 
-  // 🏠 Dữ liệu nhập liệu
-  const [addressDetail, setAddressDetail] = useState("");
+  // 🧩 Dữ liệu
+  const [fullName, setFullName] = useState(defaultAddress?.fullName || userDefaultInfo?.fullName || "");
+  const [phoneNumber, setPhoneNumber] = useState(defaultAddress?.phoneNumber || userDefaultInfo?.phoneNumber || "");
+  const [type, setType] = useState(defaultAddress?.type || "");
+  const [isDefault, setIsDefault] = useState(defaultAddress?.default || false);
+  const [addressDetail, setAddressDetail] = useState(defaultAddress?.addressInfor || "");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [ward, setWard] = useState("");
-
-  // 🌏 Dữ liệu địa lý
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
 
-  // 🔹 Fetch danh sách tỉnh/thành
+  // 🌍 Fetch danh sách tỉnh/huyện/xã
   useEffect(() => {
-    fetch("https://provinces.open-api.vn/api/p/")
+    fetch("http://provinces.open-api.vn/api/p/")
       .then((res) => res.json())
       .then(setProvinces)
       .catch(() => toast.error("Không tải được danh sách tỉnh/thành!"));
   }, []);
 
-  // 🔹 Fetch danh sách quận/huyện khi chọn tỉnh
   useEffect(() => {
     if (!province) return;
-    fetch(`https://provinces.open-api.vn/api/p/${province}?depth=2`)
+    fetch(`http://provinces.open-api.vn/api/p/${province}?depth=2`)
       .then((res) => res.json())
       .then((data) => setDistricts(data.districts || []))
       .catch(() => toast.error("Không tải được danh sách quận/huyện!"));
   }, [province]);
 
-  // 🔹 Fetch danh sách phường/xã khi chọn quận
   useEffect(() => {
     if (!district) return;
-    fetch(`https://provinces.open-api.vn/api/d/${district}?depth=2`)
+    fetch(`http://provinces.open-api.vn/api/d/${district}?depth=2`)
       .then((res) => res.json())
       .then((data) => setWards(data.wards || []))
       .catch(() => toast.error("Không tải được danh sách phường/xã!"));
   }, [district]);
 
+  // 💾 Submit
   const handleSubmit = async () => {
-    if (!addressDetail || !province || !district || !ward) {
-      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ!");
+    if (!addressDetail) {
+      toast.error("Vui lòng nhập địa chỉ!");
       return;
     }
 
     try {
       setLoading(true);
 
-      const provinceName =
-        provinces.find((p) => p.code === Number(province))?.name || "";
-      const districtName =
-        districts.find((d) => d.code === Number(district))?.name || "";
+      const provinceName = provinces.find((p) => p.code === Number(province))?.name || "";
+      const districtName = districts.find((d) => d.code === Number(district))?.name || "";
       const wardName = wards.find((w) => w.code === Number(ward))?.name || "";
+      const fullAddress = [addressDetail, wardName, districtName, provinceName]
+        .filter(Boolean)
+        .join(", ");
 
-      const fullAddress = `${addressDetail}, ${wardName}, ${districtName}, ${provinceName}`;
-
-      // ✅ Gửi đúng request body theo chuẩn backend
-      const newAddress = await createAddress({
+      const payload = {
         addressInfor: fullAddress,
-        userId: userId,
-        isActived: "ACTIVE",
-      });
+        userId,
+        isActived: "ACTIVE" as const,
+        phoneNumber: phoneNumber || userDefaultInfo?.phoneNumber || "",
+        fullName: fullName || userDefaultInfo?.fullName || "",
+        type,
+        default: isDefault,
+      };
+      
 
-      toast.success("Thêm địa chỉ thành công!");
-      onSuccess(newAddress);
+      if (defaultAddress) {
+        await updateAddress(defaultAddress.userAddressId, payload);
+        toast.success("Cập nhật địa chỉ thành công!");
+      } else {
+        await createAddress(payload);
+        toast.success("Thêm địa chỉ thành công!");
+      }
 
-      // Reset form
-      setAddressDetail("");
-      setProvince("");
-      setDistrict("");
-      setWard("");
-
-      // ✅ Tự động đóng Dialog
-      const closeButton = document.querySelector(
-        "[data-radix-dialog-close]"
-      ) as HTMLElement;
-      if (closeButton) closeButton.click();
+      onSuccess();
+      document.querySelector<HTMLElement>("[data-radix-dialog-close]")?.click();
     } catch (err) {
       console.error(err);
-      toast.error("Không thể thêm địa chỉ!");
+      toast.error("Không thể lưu địa chỉ!");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🧩 Render
   return (
     <div className="space-y-4">
-      {/* Số nhà & địa chỉ */}
+      {/* Họ tên (readonly nếu đã có) */}
       <div>
-        <Label>Số nhà / Đường</Label>
+        <Label>Người nhận</Label>
+        <Input
+          placeholder="VD: Nguyễn Văn A"
+          value={fullName}
+          readOnly={!!userDefaultInfo}
+          onChange={(e) => setFullName(e.target.value)}
+          className={userDefaultInfo ? "bg-gray-100" : ""}
+        />
+      </div>
+
+      {/* Số điện thoại (readonly nếu đã có) */}
+      <div>
+        <Label>Số điện thoại</Label>
+        <Input
+          placeholder="VD: 0909123456"
+          value={phoneNumber}
+          readOnly={!!userDefaultInfo}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          className={userDefaultInfo ? "bg-gray-100" : ""}
+        />
+      </div>
+
+      {/* Loại địa chỉ */}
+      <div>
+        <Label>Loại địa chỉ</Label>
+        <Input
+          placeholder="VD: Nhà riêng, Cơ quan..."
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        />
+      </div>
+
+      {/* Địa chỉ chi tiết */}
+      <div>
+        <Label>Địa chỉ chi tiết</Label>
         <Input
           placeholder="VD: 123 Nguyễn Văn Cừ"
           value={addressDetail}
@@ -493,14 +609,41 @@ function AddAddressForm({
         </select>
       </div>
 
+      {/* Radio Mặc định */}
+      <div>
+        <Label>Đặt làm địa chỉ mặc định</Label>
+        <div className="flex gap-6 mt-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="isDefault"
+              checked={isDefault === true}
+              onChange={() => setIsDefault(true)}
+            />
+            <span>Có</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="isDefault"
+              checked={isDefault === false}
+              onChange={() => setIsDefault(false)}
+            />
+            <span>Không</span>
+          </label>
+        </div>
+      </div>
+
       <DialogFooter>
         <Button onClick={handleSubmit} disabled={loading}>
-          {loading ? "Đang thêm..." : "Thêm địa chỉ"}
+          {loading ? "Đang lưu..." : defaultAddress ? "Lưu thay đổi" : "Thêm địa chỉ"}
         </Button>
       </DialogFooter>
     </div>
   );
 }
+
+
 
 
 

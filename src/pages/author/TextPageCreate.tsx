@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { useCreatePage } from "@/services/BookManageService";
+import { useCreatePage, useGetAllPages } from "@/services/BookManageService"; // Thêm useGetAllPages
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 
@@ -33,6 +33,7 @@ export default function TextPageCreate() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const createPage = useCreatePage();
+  const { data: pagesResp } = useGetAllPages(chapterId ? { chapterId } : undefined); // Lấy danh sách trang
 
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [content, setContent] = useState<string>("");
@@ -53,6 +54,34 @@ export default function TextPageCreate() {
   };
 
   const handleSubmit = async () => {
+    // Kiểm tra thiếu thông tin
+    if (!chapterId || !content) {
+      toast({
+        title: "Thiếu thông tin",
+        description: "Vui lòng nhập số trang và nội dung trước khi lưu.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Kiểm tra trùng số trang
+    const list = Array.isArray(pagesResp)
+      ? pagesResp
+      : Array.isArray((pagesResp as any)?.content)
+      ? (pagesResp as any).content
+      : [];
+    const duplicate = list.some(
+      (p: any) => Number(p.pageNumber) === Number(pageNumber) && p.isActived !== "INACTIVE"
+    );
+    if (duplicate) {
+      toast({
+        title: "Trùng số trang",
+        description: `Đã tồn tại trang số ${pageNumber} trong chương này. Vui lòng chọn số trang khác.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await createPage.mutateAsync({
         pageNumber,

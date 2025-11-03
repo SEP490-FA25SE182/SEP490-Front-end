@@ -1,15 +1,7 @@
 import { useState, useMemo } from "react";
-import { Menu, X, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { Menu, X, Plus, Eye, Edit, Trash2, MoreVertical, BookOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Pagination,
   PaginationContent,
@@ -34,14 +26,14 @@ import {
   AlertDialogFooter,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 export default function AuthorChapterList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -101,14 +93,6 @@ export default function AuthorChapterList() {
     }
   };
 
-  const handlePrev = () => {
-    if (currentPage > 1) setCurrentPage(prev => prev - 1);
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
-  };
-
   // lọc chapter ACTIVE
   const chapters: any[] = useMemo(() => {
     if (!chaptersResp) return [];
@@ -117,14 +101,24 @@ export default function AuthorChapterList() {
       : Array.isArray((chaptersResp as any).content)
         ? (chaptersResp as any).content
         : [];
-    return list.filter((ch: { isActived: string }) => ch.isActived !== "INACTIVE");
+    return list
+      .filter((ch: { isActived: string }) => ch.isActived !== "INACTIVE")
+      .sort((a: any, b: any) => (a.chapterNumber ?? 0) - (b.chapterNumber ?? 0));
   }, [chaptersResp]);
 
   // pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const perPage = 10;
+  const perPage = 12;
   const totalPages = Math.max(1, Math.ceil(chapters.length / perPage));
   const currentChapters = chapters.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  const handlePrev = () => {
+    if (currentPage > 1) setCurrentPage(prev => prev - 1);
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
+  };
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -150,7 +144,7 @@ export default function AuthorChapterList() {
           </div>
         </header>
 
-        {/* Book detail section (moved create button ra ngoài list) */}
+        {/* Book detail section */}
         <div className="bg-[#1a2332] px-6 py-6 border-b border-white/10">
           <div className="flex items-start justify-between">
             <div className="flex gap-6 items-start">
@@ -158,7 +152,7 @@ export default function AuthorChapterList() {
                 <img
                   src={book.coverUrl}
                   alt={book.bookName}
-                  className="w-28 h-36 rounded-md object-cover border"
+                  className="w-28 h-36 rounded-md object-cover border shadow-lg"
                   onError={(e) => {
                     const t = e.target as HTMLImageElement;
                     t.src =
@@ -183,153 +177,136 @@ export default function AuthorChapterList() {
               </div>
             </div>
 
-            {/* Create button moved outside the list (top-right of book detail) */}
-            <div className="ml-6 self-start">
+            {/* Create button */}
+            <div className="ml-auto flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-gray-200 text-gray-800"
+                onClick={() => navigate(-1)}
+              >
+                Quay về sách
+              </Button>
               <Button
                 className="bg-purple-600 hover:bg-purple-700"
                 onClick={() => setOpenCreateDialog(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Tạo chapter mới
+                Tạo chương mới
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Chapter list section */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-            {/* Table */}
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                  <TableHead className="text-white font-medium">Tên chương</TableHead>
-                  <TableHead className="text-white font-medium">Số chương</TableHead>
-                  <TableHead className="text-white font-medium">Mô tả</TableHead>
-                  <TableHead className="text-white font-medium">Hành động</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentChapters.map((chapter: any) => {
-                  const id = chapter.chapterId ?? chapter.chapter_id;
-                  const normalized: Chapter = {
-                    chapterId: id,
-                    chapterName: chapter.chapterName ?? chapter.chapter_name,
-                    chapterNumber: chapter.chapterNumber ?? chapter.chapter_number,
-                    decription: chapter.decription ?? chapter.description,
-                    bookId: chapter.bookId ?? chapter.book_id,
-                    isActived: chapter.isActived,
-                  };
+        {/* Chapter Grid - File View */}
+        <div className="flex-1 overflow-auto p-6 bg-[#0f172a]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {currentChapters.map((chapter: any) => {
+              const id = chapter.chapterId ?? chapter.chapter_id;
+              const normalized: Chapter = {
+                chapterId: id,
+                chapterName: chapter.chapterName ?? chapter.chapter_name,
+                chapterNumber: chapter.chapterNumber ?? chapter.chapter_number,
+                decription: chapter.decription ?? chapter.description,
+                bookId: chapter.bookId ?? chapter.book_id,
+                isActived: chapter.isActived,
+              };
 
-                  return (
-                    <TableRow key={id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium text-gray-900">
+              return (
+                <div key={id} className="group relative">
+                  <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20">
+                    {/* Chapter Icon */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative w-16 h-20 flex items-center justify-center rounded bg-white/5">
+                        <BookOpen className="w-12 h-12 text-purple-400" strokeWidth={1.5} />
+                      </div>
+                      
+                      {/* Chapter Name */}
+                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
                         {normalized.chapterName}
-                      </TableCell>
-                      <TableCell>{normalized.chapterNumber ?? "-"}</TableCell>
-                      <TableCell className="text-sm text-gray-700">
-                        {normalized.decription ?? "-"}
-                      </TableCell>
-                      <TableCell>
-                        <TooltipProvider>
-                          <div className="flex items-center space-x-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-gray-600"
-                                  onClick={() => navigate(`/author/chapters/${id}/pages`)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <span>Xem chi tiết</span>
-                              </TooltipContent>
-                            </Tooltip>
+                      </div>
+                      
+                      {/* Chapter Number Badge */}
+                      <div className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                        Chương {normalized.chapterNumber ?? "-"}
+                      </div>
+                    </div>
 
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-gray-600"
-                                  onClick={() => {
-                                    setEditingChapter(normalized);
-                                    setOpenEditDialog(true);
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <span>Chỉnh sửa</span>
-                              </TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-red-600 hover:bg-red-50"
-                                  onClick={() => handleConfirmDelete(normalized)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <span>Xóa</span>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </TooltipProvider>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-
-            {/* Loading / Empty */}
-            {(loadingBook || loadingChapters) && (
-              <div className="text-center py-8 text-gray-500">Đang tải dữ liệu...</div>
-            )}
-            {!loadingChapters && currentChapters.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Không tìm thấy chapter nào</div>
-            )}
-
-            {/* Pagination */}
-            {chapters.length > 0 && (
-              <div className="border-t px-6 py-4 bg-white">
-                <div className="max-w-full mx-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-0">
-                  <div className="hidden sm:block sm:w-1/3" /> {/* spacer left on desktop */}
-                  <div className="w-full sm:flex-1 flex justify-center">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={handlePrev}
-                            className={currentPage === 1 ? "opacity-50 pointer-events-none" : ""}
-                          />
-                        </PaginationItem>
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={handleNext}
-                            className={currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                  <div className="w-full sm:w-1/3 text-sm text-gray-600 text-center sm:text-right whitespace-nowrap">
-                    Trang {currentPage} / {totalPages}
+                    {/* Dropdown Menu Button */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => navigate(`/author/chapters/${id}/pages`)}>
+                            <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingChapter(normalized);
+                              setOpenEditDialog(true);
+                            }}
+                          >
+                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleConfirmDelete(normalized)} 
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
+
+          {/* Loading / Empty */}
+          {(loadingBook || loadingChapters) && (
+            <div className="text-center py-12 text-gray-400">Đang tải dữ liệu...</div>
+          )}
+          {!loadingChapters && currentChapters.length === 0 && (
+            <div className="text-center py-12 text-gray-400">Chưa có chương nào</div>
+          )}
+
+          {/* Pagination */}
+          {chapters.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <div className="max-w-full mx-auto flex flex-col sm:flex-row items-center gap-3 sm:gap-0">
+                <div className="hidden sm:block sm:w-1/3" />
+                <div className="w-full sm:flex-1 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={handlePrev}
+                          className={`text-white hover:bg-white/10 ${currentPage === 1 ? "opacity-50 pointer-events-none" : ""}`}
+                        />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={handleNext}
+                          className={`text-white hover:bg-white/10 ${currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}`}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+                <div className="w-full sm:w-1/3 text-sm text-gray-400 text-center sm:text-right whitespace-nowrap">
+                  Trang {currentPage} / {totalPages} ({chapters.length} chương)
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -361,8 +338,12 @@ export default function AuthorChapterList() {
             <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>
               Huỷ
             </Button>
-            <Button className="ml-2" onClick={handleDelete}>
-              Xóa
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteChapter.isPending}
+            >
+              {deleteChapter.isPending ? "Đang xóa..." : "Xóa"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

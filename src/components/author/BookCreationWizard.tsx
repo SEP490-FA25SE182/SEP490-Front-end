@@ -3,66 +3,71 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateBook } from "@/services/BookManageService";
 import { useAuth } from "@/context/AuthContext";
-import { useGetAllRoles } from "@/services/RoleService";
 import { getUserByEmail } from "@/services/UserService";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { getCurrentUserId } from "@/utils/authStorage";
 
 export default function BookCreationWizard() {
   const [book, setBook] = useState({
     bookName: "",
     coverUrl: "",
     decription: "",
-    authorId: "",
+    authorId: "", // sẽ được set tự động
   });
 
   const createBook = useCreateBook();
   const { user } = useAuth();
-  const { data: allRoles } = useGetAllRoles();
-
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // ✅ Lấy authorId từ currentUserId (localStorage) -> user.userId -> getUserByEmail
   useEffect(() => {
     const fetchAuthorId = async () => {
       try {
-        if (user?.userId) {
-          setBook((prev) => ({ ...prev, authorId: user.userId || "" }));
-          return;
-        }
+        // 1) Ưu tiên lấy từ localStorage (authStorage)
+        const uidFromStorage = getCurrentUserId();
+    if (uidFromStorage) {
+      setBook(prev => ({ ...prev, authorId: uidFromStorage }));
+      return;
+    }
 
-        // Fallback: try fetch user by email from backend
-        if (!user?.email) {
-          console.warn("No user email available in AuthContext");
-          return;
-        }
+    // 2) từ AuthContext
+    if (user?.userId) {
+      const uid: string = user.userId;   // 👈 thu hẹp kiểu tại đây
+      setBook(prev => ({ ...prev, authorId: uid }));
+      return;
+    }
 
-        const currentUser = await getUserByEmail(user.email);
+    // 3) fallback theo email
+    if (user?.email) {
+      const currentUser = await getUserByEmail(user.email);
+      if (currentUser?.userId) {
+        const uid: string = currentUser.userId; // 👈 cũng thu hẹp
+        setBook(prev => ({ ...prev, authorId: uid }));
+        return;
+      }
+    }
 
-        if (!currentUser) {
-          toast({
-            title: "Không tìm thấy tác giả",
-            description:
-              "Không tìm thấy thông tin tác giả trong hệ thống. Vui lòng đăng nhập lại.",
-          });
-          console.warn("Không tìm thấy user khớp với email:", user?.email);
-          return;
-        }
-
-        setBook((prev) => ({ ...prev, authorId: currentUser.userId }));
+        // Không tìm được authorId
+        toast({
+          title: "Không tìm thấy tác giả",
+          description: "Không xác định được tài khoản hiện tại. Vui lòng đăng nhập lại.",
+          variant: "destructive",
+        });
       } catch (error) {
-        console.error("❌ Lỗi khi fetch thông tin authorId:", error);
+        console.error("❌ Lỗi khi xác định authorId:", error);
         toast({
           title: "Lỗi",
-          description:
-            "Không thể lấy thông tin tác giả. Vui lòng thử lại sau.",
+          description: "Không thể lấy thông tin tác giả. Vui lòng thử lại sau.",
           variant: "destructive",
         });
       }
     };
 
     fetchAuthorId();
-  }, [user, allRoles, toast]);
+    // chỉ phụ thuộc vào user (không còn roles)
+  }, [user, toast]);
 
   const handleCreateBook = async () => {
     if (!book.bookName?.trim() || !book.decription?.trim()) {
@@ -76,7 +81,7 @@ export default function BookCreationWizard() {
     if (!book.authorId) {
       toast({
         title: "Không tìm thấy tác giả",
-        description: "Không tìm thấy thông tin tác giả. Vui lòng đăng nhập lại.",
+        description: "Không thể xác định authorId. Vui lòng đăng nhập lại.",
         variant: "destructive",
       });
       return;
@@ -86,7 +91,7 @@ export default function BookCreationWizard() {
       const res = await createBook.mutateAsync(book);
       toast({
         title: "Tạo sách thành công",
-        description: `“${book.bookName}” đã được tạo.`
+        description: `“${book.bookName}” đã được tạo.`,
       });
       if (res) {
         navigate("/author/authorbooklist");
@@ -143,10 +148,8 @@ export default function BookCreationWizard() {
           onChange={(e) => setBook({ ...book, decription: e.target.value })}
           className="bg-transparent border-white/20 text-white"
         />
-        <Button
-          onClick={handleCreateBook}
-          className="bg-purple-600 hover:bg-purple-700 w-full"
-        >
+
+        <Button onClick={handleCreateBook} className="bg-purple-600 hover:bg-purple-700 w-full">
           Lưu
         </Button>
       </div>

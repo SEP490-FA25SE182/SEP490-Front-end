@@ -43,6 +43,7 @@ export interface Illustration {
   height: number;
   title: string;
   isActived?: string;
+  userId?: string;
 }
 
 export interface GenerateIllustrationMeta {
@@ -71,6 +72,7 @@ export interface Audio {
   durationMs: number;
   title: string;
   isActived: string; // "ACTIVE" hoặc "INACTIVE"
+  userId?: string;
 }
 
 export interface PageAudio {

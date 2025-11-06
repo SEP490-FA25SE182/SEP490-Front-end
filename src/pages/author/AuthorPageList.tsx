@@ -33,9 +33,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import { PageCreateDialog } from "@/components/dialog/PageCreateDialog";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -170,11 +172,14 @@ const AuthorPageList = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-text`)}>
-                    Tạo trang chữ
+                  <DropdownMenuItem onClick={() => setOpenCreateDialog(true)}>
+                    Tạo trang trống
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
-                    Tạo trang ảnh
+                    Tạo ảnh
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-audio`)}>
+                    Tạo audio
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -252,8 +257,8 @@ const AuthorPageList = () => {
 
                       {/* Page Type Badge */}
                       <div className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-purple-500/20 text-purple-300'
+                        ? 'bg-blue-500/20 text-blue-300'
+                        : 'bg-purple-500/20 text-purple-300'
                         }`}>
                         {isImage ? 'Trang Ảnh' : 'Trang Chữ'}
                       </div>
@@ -334,6 +339,15 @@ const AuthorPageList = () => {
           )}
         </div>
       </div>
+
+      <PageCreateDialog
+        isOpen={openCreateDialog}
+        onClose={() => setOpenCreateDialog(false)}
+        chapterId={chapterId}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+        }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>

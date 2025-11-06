@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { BlogService, type BlogPost } from "@/services/BlogService";
-import { UploadService } from "@/services/UploadService";
+import { UploadService } from "@/services/FirebaseService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { getUserById, type User } from "@/services/UserService";

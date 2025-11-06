@@ -94,7 +94,7 @@ const AuthorPageDetail = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        onClick={() => navigate(`/author/pages/${pageId}/create-text`)}
+                        onClick={() => navigate(`/author/pages/${pageId}/edit-text`)}
                       >
                         Tạo nội dung chữ
                       </DropdownMenuItem>

@@ -65,6 +65,7 @@ export interface GenerateIllustrationMeta {
 }
 
 export interface Audio {
+  audioId?: string;
   audioUrl: string;
   voice: string;
   format: string;
@@ -144,8 +145,8 @@ export const createAIGenerationTarget = async (
 /**
  * Lấy danh sách tất cả audios
  */
-export const getAudios = async (): Promise<Audio[]> => {
-  const response = await axios.get(`${API_BASE_URL}/audios`);
+export const getAudios = async (params?: { userId?: string }): Promise<Audio[]> => {
+  const response = await axios.get(`${API_BASE_URL}/audios`, { params });
   return response.data;
 };
 
@@ -282,9 +283,10 @@ export const useCreateAIGenerationTarget = () => {
 };
 
 /** Hook: Lấy tất cả audios */
-export const useGetAudios = () => {
-  return useMutation({
-    mutationFn: () => getAudios(),
+export const useGetAudios = (params?: { userId?: string }) => {
+  return useQuery({
+    queryKey: ["audios", params],
+    queryFn: () => getAudios(params),
   });
 };
 

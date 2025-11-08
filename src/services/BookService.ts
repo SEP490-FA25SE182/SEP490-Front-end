@@ -99,8 +99,6 @@ export const getBooks = async (
   return { ...res.data, content: converted };
 };
 
-  return { ...res.data, content: converted };
-};
 
 /* =======================================================
    🧩 LẤY TOÀN BỘ SÁCH (KHÔNG PHÂN TRANG)

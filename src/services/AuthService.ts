@@ -1,6 +1,8 @@
+// src/services/auth.ts
 import axios from 'axios';
 import { useMutation } from "@tanstack/react-query";
-
+import { setAuth, clearAuth } from "@/utils/authStorage";
+import { bookService } from "@/services/BookService";
 
 const BASE_URL = 'http://localhost:8081/api/rookie/users';
 
@@ -15,49 +17,16 @@ export interface RegisterRequest {
   gender?: string;
   isActived?: string;
 }
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
+export interface LoginRequest { email: string; password: string; }
 export interface AuthResponse {
-  user?: {
-    userId: string;
-    fullName: string;
-    email: string;
-    roleId?: string;
-    isActived?: string;
-  };
+  user?: { userId: string; fullName: string; email: string; roleId?: string; isActived?: string; };
   token?: string;
 }
+export interface ForgotPasswordRequest { email: string; }
+export interface ResetPasswordRequest { token: string; newPassword: string; }
+export interface GoogleAuthRequest { [key: string]: string; }
+export interface ChangePasswordRequest { email: string; currentPassword: string; newPassword: string; }
 
-export interface ForgotPasswordRequest {
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  token: string;
-  newPassword: string;
-}
-
-export interface GoogleAuthRequest {
-  // Có thể mở rộng nếu backend yêu cầu thêm dữ liệu
-  [key: string]: string;
-}
-
-export interface ChangePasswordRequest {
-  email: string;
-  currentPassword: string;
-  newPassword: string;
-}
-
-/**
- * Đăng ký người dùng mới
- * Gửi theo mẫu backend yêu cầu: mảng chứa object user
- * @param userData Thông tin người dùng
- * @returns AuthResponse
- */
 export const registerUser = async (userData: RegisterRequest): Promise<AuthResponse> => {
   const payload = {
     fullName: userData.fullName,
@@ -66,110 +35,94 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
     phoneNumber: userData.phoneNumber,
     roleId: userData.roleId || ""
   };
-
   const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/register`, payload);
   return response.data;
 };
 
-/**
- * Đăng nhập
- * @param credentials Email và password
- * @returns AuthResponse
- */
 export const loginUser = async (credentials: LoginRequest): Promise<AuthResponse> => {
   const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/login`, credentials);
   return response.data;
 };
 
-/**
- * Đăng xuất
- * @param token JWT token
- * @returns AuthResponse
- */
 export const logoutUser = async (token: string): Promise<AuthResponse> => {
   const response = await axios.post<AuthResponse>(
     `${BASE_URL}/auth/logout`,
     {},
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+    { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data;
 };
 
-/** Đăng nhập bằng Google */
 export const googleAuth = async (data: GoogleAuthRequest): Promise<AuthResponse> => {
   const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/google`, data);
   return response.data;
 };
-
-/** Quên mật khẩu */
 export const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
   await axios.post(`${BASE_URL}/auth/password/forgot`, data);
 };
-
-/** Đặt lại mật khẩu */
 export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
   await axios.post(`${BASE_URL}/auth/password/reset`, data);
 };
-
-/** Thay đổi mật khẩu */
 export const changePassword = async (data: ChangePasswordRequest, token?: string): Promise<void> => {
   await axios.post(
     `${BASE_URL}/auth/password/change`,
     data,
-    token
-      ? {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      : undefined
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
   );
 };
 
-export const useRegisterUser = () => {
-  return useMutation({
-    mutationFn: (data: RegisterRequest) => registerUser(data),
-  });
-};
-
-export const useLoginUser = () => {
-  return useMutation({
+/** Hooks */
+export const useLoginUser = () =>
+  useMutation({
     mutationFn: (credentials: LoginRequest) => loginUser(credentials),
+    onSuccess: (res: AuthResponse) => {
+      if (res?.token && res?.user?.userId) {
+        setAuth(res.token, {
+          userId: res.user.userId,
+          fullName: res.user.fullName,
+          email: res.user.email,
+          roleId: res.user.roleId,
+          isActived: res.user.isActived,
+        });
+        // 👇 Cực kỳ quan trọng: đồng bộ vào BookService
+        bookService.setUserId(res.user.userId);
+      }
+    },
   });
-};
 
-export const useLogoutUser = () => {
-  return useMutation({
+export const useRegisterUser = () =>
+  useMutation({
+    mutationFn: (data: RegisterRequest) => registerUser(data),
+    onSuccess: (res: AuthResponse) => {
+      if (res?.token && res?.user?.userId) {
+        setAuth(res.token, {
+          userId: res.user.userId,
+          fullName: res.user.fullName,
+          email: res.user.email,
+          roleId: res.user.roleId,
+          isActived: res.user.isActived,
+        });
+        // 👇 Đồng bộ vào BookService
+        bookService.setUserId(res.user.userId);
+      }
+    },
+  });
+
+export const useLogoutUser = () =>
+  useMutation({
     mutationFn: (token: string) => logoutUser(token),
+    onSuccess: () => clearAuth(),
+    onError: () => { clearAuth(); },
   });
-};
 
-
-export const useGoogleAuth = () => {
-  return useMutation({
-    mutationFn: (data: GoogleAuthRequest) => googleAuth(data),
-  });
-};
-
-export const useForgotPassword = () => {
-  return useMutation({
-    mutationFn: (data: ForgotPasswordRequest) => forgotPassword(data),
-  });
-};
-
-export const useResetPassword = () => {
-  return useMutation({
-    mutationFn: (data: ResetPasswordRequest) => resetPassword(data),
-  });
-};
-
-export const useChangePassword = () => {
-  return useMutation({
+export const useGoogleAuth = () =>
+  useMutation({ mutationFn: (data: GoogleAuthRequest) => googleAuth(data) });
+export const useForgotPassword = () =>
+  useMutation({ mutationFn: (data: ForgotPasswordRequest) => forgotPassword(data) });
+export const useResetPassword = () =>
+  useMutation({ mutationFn: (data: ResetPasswordRequest) => resetPassword(data) });
+export const useChangePassword = () =>
+  useMutation({
     mutationFn: (payload: { data: ChangePasswordRequest; token?: string }) =>
       changePassword(payload.data, payload.token),
   });
-};

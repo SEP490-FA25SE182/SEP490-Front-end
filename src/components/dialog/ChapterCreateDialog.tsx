@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useCreateChapter } from "@/services/BookManageService";
+import { useCreateChapter, useGetAllChapters } from "@/services/BookManageService";
 import { useToast } from "@/components/ui/use-toast";
 
 interface Props {
@@ -20,6 +20,9 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
   const [decription, setDecription] = useState("");
   const { toast } = useToast();
   const createChapter = useCreateChapter();
+  const { data: chaptersResp } = useGetAllChapters(
+    bookId ? { bookId } : undefined
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -34,6 +37,25 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
       toast({
         title: "Thiếu thông tin",
         description: "Vui lòng nhập tên chương, số chương và đảm bảo sách đã được chọn.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const chapters = Array.isArray(chaptersResp)
+      ? chaptersResp
+      : Array.isArray((chaptersResp as any)?.content)
+        ? (chaptersResp as any).content
+        : [];
+
+    const duplicate = chapters.some(
+      (c: any) => Number(c.chapterNumber) === Number(chapterNumber) && c.isActived !== "INACTIVE"
+    );
+
+    if (duplicate) {
+      toast({
+        title: "Trùng số thứ tự",
+        description: `Đã tồn tại chương số ${chapterNumber} trong sách này. Vui lòng chọn số khác.`,
         variant: "destructive",
       });
       return;

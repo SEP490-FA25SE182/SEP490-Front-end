@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 const API_BASE_URL = "http://localhost:8082/api/rookie";
 
@@ -11,7 +12,7 @@ export interface AIGeneration {
   prompt: string;
   negativePrompt?: string;
   durationMs?: number;
-  status?: string;
+  status?: number;
   userId?: string;
   mode?: string;
   aspectRatio?: string;
@@ -28,9 +29,7 @@ export interface AIGeneration {
 }
 
 export interface AIGenerationTarget {
-  targetType: string;
   aiGenerationId: string;
-  targetRefId: string;
   isActived?: string;
   updatedAt?: string;
 }
@@ -44,6 +43,7 @@ export interface Illustration {
   height: number;
   title: string;
   isActived?: string;
+  userId?: string;
 }
 
 export interface GenerateIllustrationMeta {
@@ -62,6 +62,39 @@ export interface GenerateIllustrationMeta {
   negativePrompt?: string;
   controlnetType?: string;
   seed?: number;
+}
+
+export interface Audio {
+  audioId?: string;
+  audioUrl: string;
+  voice: string;
+  format: string;
+  language: string;
+  durationMs: number;
+  title: string;
+  isActived: string; // "ACTIVE" hoặc "INACTIVE"
+  userId?: string;
+}
+
+export interface PageAudio {
+  pageAudioId?: string;
+  pageId: string;
+  audioId: string;
+}
+
+export interface PageIllustration {
+  pageIllustrationId?: string;
+  pageId: string;
+  illustrationId: string;
+}
+
+export interface GenerateTTSMeta {
+  text: string;
+  voiceName: string;
+  title: string;
+  language: string;
+  format: string;
+  model: string;
 }
 
 /* ====================== API CALLS ====================== */
@@ -111,6 +144,251 @@ export const createAIGenerationTarget = async (
   return response.data;
 };
 
+/**
+ * Lấy danh sách tất cả audios
+ */
+export const getAudios = async (params?: { userId?: string }): Promise<Audio[]> => {
+  const response = await axios.get(`${API_BASE_URL}/audios`, { params });
+  return response.data;
+};
+
+/**
+ * Lấy chi tiết một audio theo ID
+ */
+export const getAudioById = async (id: string): Promise<Audio> => {
+  const response = await axios.get(`${API_BASE_URL}/audios/${id}`);
+  return response.data;
+};
+
+/**
+ * Tạo mới audio (POST)
+ */
+export const createAudio = async (data: Audio[]): Promise<Audio[]> => {
+  const response = await axios.post(`${API_BASE_URL}/audios`, data);
+  return response.data;
+};
+
+/**
+ * Cập nhật audio theo ID (PUT)
+ */
+export const updateAudio = async (
+  id: string,
+  data: Audio
+): Promise<Audio> => {
+  const response = await axios.put(`${API_BASE_URL}/audios/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Xoá audio theo ID (DELETE)
+ */
+export const deleteAudio = async (id: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/audios/${id}`);
+};
+
+export const createPageAudio = async (
+  data: PageAudio[]
+): Promise<PageAudio[]> => {
+  const response = await axios.post(`${API_BASE_URL}/page-audios`, data);
+  return response.data;
+};
+
+/**
+ * Gắn illustration với trang (Page-Illustrations)
+ */
+export const createPageIllustration = async (
+  data: PageIllustration[]
+): Promise<PageIllustration[]> => {
+  const response = await axios.post(`${API_BASE_URL}/page-illustrations`, data);
+  return response.data;
+};
+
+export const generateIllustrationWithImage = async (
+  userId: string,
+  meta: GenerateIllustrationMeta,
+  controlImage?: File
+) => {
+  const formData = new FormData();
+  formData.append("meta", JSON.stringify(meta));
+  if (controlImage) formData.append("controlImage", controlImage);
+
+  const response = await axios.post(
+    `${API_BASE_URL}/illustrations/generate/generate`,
+    formData,
+    {
+      headers: {
+        "X-User-Id": userId, // ✅ giữ lại header này
+      },
+      withCredentials: false, // hoặc true nếu backend yêu cầu cookie
+    }
+  );
+
+  return response.data;
+};
+
+export const generateTTS = async (
+  userId: string,
+  meta: GenerateTTSMeta
+): Promise<Audio> => {
+  const response = await axios.post(
+    `${API_BASE_URL}/audios/tts`,
+    meta,
+    {
+      headers: {
+        "X-User-Id": userId,
+      },
+    }
+  );
+  return response.data;
+};
+
+export const getAllAIGenerations = async (): Promise<AIGeneration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/ai-generations`);
+  return response.data;
+};
+
+/**
+ * Lấy danh sách tất cả illustrations
+ */
+export const getAllIllustrations = async (params?: { userId?: string }): Promise<Illustration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations`, { params });
+  return response.data;
+};
+
+/**
+ * Lấy chi tiết một illustration theo ID
+ */
+export const getIllustrationById = async (id: string): Promise<Illustration> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations/${id}`);
+  return response.data;
+};
+
+/**
+ * Search for audios with filters
+ */
+export const searchAudios = async (params?: {
+  voice?: string;
+  query?: string;
+  format?: string;
+  language?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<Audio[]> => {
+  const response = await axios.get(`${API_BASE_URL}/audios/search`, { params });
+  return response.data?.content ?? [];
+};
+
+/**
+ * Search for illustrations with filters
+ */
+export const searchIllustrations = async (params?: {
+  style?: string;
+  format?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<Illustration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations/search`, { params });
+  return response.data?.content ?? [];
+};
+
+/**
+ * Search for page-audios with filters
+ */
+export const searchPageAudios = async (params?: {
+  pageId?: string;
+  audioId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<{
+  content: PageAudio[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: string[];
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  size: number;
+  number: number;
+  sort: string[];
+  numberOfElements: number;
+  first: boolean;
+  empty: boolean;
+}> => {
+  const response = await axios.get(`${API_BASE_URL}/page-audios/search`, { params });
+  return response.data;
+};
+
+/**
+ * Search for page-illustrations with filters
+ */
+export const searchPageIllustrations = async (params?: {
+  pageId?: string;
+  illustrationId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<{
+  content: PageIllustration[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: string[];
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  size: number;
+  number: number;
+  sort: string[];
+  numberOfElements: number;
+  first: boolean;
+  empty: boolean;
+}> => {
+  const response = await axios.get(`${API_BASE_URL}/page-illustrations/search`, { params });
+  return response.data;
+};
+
+/**
+ * Update page-audio relationship by ID
+ */
+export const updatePageAudio = async (
+  id: string,
+  data: PageAudio
+): Promise<PageAudio> => {
+  const response = await axios.put(`${API_BASE_URL}/page-audios/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Update page-illustration relationship by ID
+ */
+export const updatePageIllustration = async (
+  id: string,
+  data: PageIllustration
+): Promise<PageIllustration> => {
+  const response = await axios.put(`${API_BASE_URL}/page-illustrations/${id}`, data);
+  return response.data;
+};
+
 /* ====================== HOOKS ====================== */
 
 /** Hook: Gọi AI sinh ảnh */
@@ -145,5 +423,199 @@ export const useCreateAIGenerationTarget = () => {
   return useMutation({
     mutationFn: (data: AIGenerationTarget[]) =>
       createAIGenerationTarget(data),
+  });
+};
+
+/** Hook: Lấy tất cả audios */
+export const useGetAudios = (params?: { userId?: string }) => {
+  return useQuery({
+    queryKey: ["audios", params],
+    queryFn: () => getAudios(params),
+  });
+};
+
+/** Hook: Lấy audio theo ID */
+export const useGetAudioById = () => {
+  return useMutation({
+    mutationFn: (id: string) => getAudioById(id),
+  });
+};
+
+/** Hook: Tạo mới audio */
+export const useCreateAudio = () => {
+  return useMutation({
+    mutationFn: (data: Audio[]) => createAudio(data),
+  });
+};
+
+/** Hook: Cập nhật audio */
+export const useUpdateAudio = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Audio;
+    }) => updateAudio(id, data),
+  });
+};
+
+/** Hook: Xoá audio */
+export const useDeleteAudio = () => {
+  return useMutation({
+    mutationFn: (id: string) => deleteAudio(id),
+  });
+};
+
+export const useCreatePageAudio = () => {
+  return useMutation({
+    mutationFn: (data: PageAudio[]) => createPageAudio(data),
+  });
+};
+
+/** Hook: Gắn illustration vào trang */
+export const useCreatePageIllustration = () => {
+  return useMutation({
+    mutationFn: (data: PageIllustration[]) => createPageIllustration(data),
+  });
+};
+export const useGenerateIllustrationWithImage = () => {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      meta,
+      controlImage,
+    }: {
+      userId: string;
+      meta: GenerateIllustrationMeta;
+      controlImage?: File;
+    }) => generateIllustrationWithImage(userId, meta, controlImage),
+  });
+};
+
+export const useGenerateTTS = () => {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      meta,
+    }: {
+      userId: string;
+      meta: GenerateTTSMeta;
+    }) => generateTTS(userId, meta),
+  });
+};
+
+export const useGetAllAIGenerations = () => {
+  return useQuery<AIGeneration[]>({
+    queryKey: ["aiGenerations"],
+    queryFn: () => getAllAIGenerations(),
+    staleTime: 5 * 60 * 1000, // Dữ liệu giữ trong 5 phút trước khi stale
+  });
+};
+
+/** Hook: Lấy tất cả illustrations */
+export const useGetAllIllustrations = (params?: { userId?: string }) => {
+  return useQuery({
+    queryKey: ["illustrations", params],
+    queryFn: () => getAllIllustrations(params),
+  });
+};
+
+/** Hook: Lấy illustration theo ID */
+export const useGetIllustrationById = () => {
+  return useMutation({
+    mutationFn: (id: string) => getIllustrationById(id),
+  });
+};
+/** Hook: Search for audios */
+export const useSearchAudios = (params?: {
+  voice?: string;
+  query?: string;
+  format?: string;
+  language?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["audios", "search", params],
+    queryFn: () => searchAudios(params),
+  });
+};
+
+/** Hook: Search for illustrations */
+export const useSearchIllustrations = (params?: {
+  style?: string;
+  format?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["illustrations", "search", params],
+    queryFn: () => searchIllustrations(params),
+  });
+};
+
+/** Hook: Search for page-audios */
+export const useSearchPageAudios = (params?: {
+  pageId?: string;
+  audioId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["pageAudios", "search", params],
+    queryFn: () => searchPageAudios(params),
+  });
+};
+
+/** Hook: Search for page-illustrations */
+export const useSearchPageIllustrations = (params?: {
+  pageId?: string;
+  illustrationId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["pageIllustrations", "search", params],
+    queryFn: () => searchPageIllustrations(params),
+  });
+};
+
+/** Hook: Update page-audio */
+export const useUpdatePageAudio = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: PageAudio;
+    }) => updatePageAudio(id, data),
+  });
+};
+
+/** Hook: Update page-illustration */
+export const useUpdatePageIllustration = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: PageIllustration;
+    }) => updatePageIllustration(id, data),
   });
 };

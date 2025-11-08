@@ -1,15 +1,11 @@
+// src/context/CartContext.tsx
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
-import { type Book } from "@/services/BookService";
+import { type Book, getBookById } from "@/services/BookService";
 import { CartService } from "@/services/CartService";
 import { CartItemService, type CartItem } from "@/services/CartItemService";
-import { getUserByEmail } from "@/services/UserService";
-import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { getBookById } from "@/services/BookService";
+import { getCurrentUserId } from "@/utils/authStorage";
 
-/* =====================================================
-   🛒 TYPE DEFINITIONS
-===================================================== */
 export type CartLine = {
   book: Book;
   qty: number;
@@ -17,14 +13,8 @@ export type CartLine = {
   cartItemId?: string;
 };
 
-export type CartState = {
-  cartId: string | null;
-  lines: CartLine[];
-};
+export type CartState = { cartId: string | null; lines: CartLine[]; };
 
-/* =====================================================
-   ⚙️ REDUCER
-===================================================== */
 type Action =
   | { type: "INIT"; cartId: string; lines: CartLine[] }
   | { type: "ADD"; line: CartLine }
@@ -34,47 +24,24 @@ type Action =
 
 const initialState: CartState = { cartId: null, lines: [] };
 
-
-
 function reducer(state: CartState, action: Action): CartState {
   switch (action.type) {
-    case "INIT":
-      return { cartId: action.cartId, lines: action.lines };
-    case "ADD":
-      const exists = state.lines.find(
-        (l) => l.book.bookId === action.line.book.bookId
-      );
-      if (exists) {
-        return {
-          ...state,
-          lines: state.lines.map((l) =>
-            l.book.bookId === action.line.book.bookId
-              ? { ...l, qty: l.qty + action.line.qty }
-              : l
-          ),
-        };
-      } else {
-        return { ...state, lines: [...state.lines, action.line] };
-      }
+    case "INIT": return { cartId: action.cartId, lines: action.lines };
+    case "ADD": {
+      const exists = state.lines.find((l) => l.book.bookId === action.line.book.bookId);
+      return exists
+        ? { ...state, lines: state.lines.map((l) =>
+            l.book.bookId === action.line.book.bookId ? { ...l, qty: l.qty + action.line.qty } : l) }
+        : { ...state, lines: [...state.lines, action.line] };
+    }
     case "SET_QTY":
-      return {
-        ...state,
-        lines: state.lines.map((l) =>
-          l.book.bookId === action.bookId ? { ...l, qty: action.qty } : l
-        ),
-      };
-    case "REMOVE":
-      return { ...state, lines: state.lines.filter((l) => l.book.bookId !== action.bookId) };
-    case "CLEAR":
-      return { cartId: state.cartId, lines: [] };
-    default:
-      return state;
+      return { ...state, lines: state.lines.map((l) => l.book.bookId === action.bookId ? { ...l, qty: action.qty } : l ) };
+    case "REMOVE": return { ...state, lines: state.lines.filter((l) => l.book.bookId !== action.bookId) };
+    case "CLEAR": return { cartId: state.cartId, lines: [] };
+    default: return state;
   }
 }
 
-/* =====================================================
-   💡 CONTEXT VALUE TYPE
-===================================================== */
 type CartContextValue = {
   state: CartState;
   addToCart: (book: Book, qty?: number) => Promise<void>;
@@ -87,162 +54,91 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-/* =====================================================
-   🚀 PROVIDER COMPONENT
-===================================================== */
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
- const [state, dispatch] = useReducer(reducer, initialState, () => {
-  const saved = localStorage.getItem("cart_state");
-  return saved ? JSON.parse(saved) : initialState;
-});
+  const [state, dispatch] = useReducer(reducer, initialState, () => {
+    const saved = localStorage.getItem("cart_state");
+    return saved ? JSON.parse(saved) : initialState;
+  });
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  /* --------------------------------------------------
-     🧠 Lấy userId từ email (vì AuthContext chỉ lưu email)
-  -------------------------------------------------- */
+  // 🔑 Lấy userId từ localStorage (đã được set khi login) + sync khi storage thay đổi
   useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        if (user?.email) {
-          const res = await getUserByEmail(user.email);
-          setUserId(res.userId);
-        }
-      } catch (err) {
-        console.error("❌ Lỗi lấy userId:", err);
-      }
+    setUserId(getCurrentUserId());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "rookie.auth.currentUserId") setUserId(e.newValue);
     };
-    fetchUserId();
-  }, [user]);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
-  /* --------------------------------------------------
-     🛒 Tải giỏ hàng khi userId sẵn sàng
-  -------------------------------------------------- */
+  // 🛒 Tải giỏ hàng khi userId sẵn sàng
   useEffect(() => {
     const fetchCart = async () => {
       if (!userId) return;
       try {
-         console.log("🚀 Fetching cart for user:", userId);
         let cart = await CartService.getCartByUserId(userId);
-         console.log("🧩 Cart:", cart);
-        if (!cart) {
-          cart = await CartService.createCart(userId);
-        }
+        if (!cart) cart = await CartService.createCart(userId);
 
         const items = await CartItemService.getItemsByCartId(cart.cartId);
-         console.log("📦 Items:", items);
         const lines: CartLine[] = await Promise.all(
-        items.map(async (i: CartItem) => {
-          try {
-            const book = await getBookById(i.bookId);
-            return {
-              book,
-              qty: i.quantity,
-              price: i.price,
-              cartItemId: i.cartItemId,
-            };
-          } catch (err) {
-            console.error("❌ Lỗi khi lấy thông tin sách:", i.bookId, err);
-            return {
-              book: { bookId: i.bookId } as Book, // fallback để không crash
-              qty: i.quantity,
-              price: i.price,
-              cartItemId: i.cartItemId,
-            };
-          }
-        })
-      );
+          items.map(async (i: CartItem) => {
+            try {
+              const book = await getBookById(i.bookId); // đã có header/params userId từ BookService
+              return { book, qty: i.quantity, price: i.price, cartItemId: i.cartItemId };
+            } catch (err) {
+              console.error("❌ Lỗi khi lấy thông tin sách:", i.bookId, err);
+              return { book: { bookId: i.bookId } as Book, qty: i.quantity, price: i.price, cartItemId: i.cartItemId };
+            }
+          })
+        );
 
         dispatch({ type: "INIT", cartId: cart.cartId, lines });
-        console.log("✅ Cart loaded:", cart.cartId);
       } catch (err) {
-         console.error("❌ Lỗi fetchCart:", err);
         console.error("❌ Lỗi khi tải giỏ hàng:", err);
       }
     };
     fetchCart();
   }, [userId]);
 
-  // 🔹 Lưu state hiện tại vào localStorage để giữ dữ liệu khi reload
-useEffect(() => {
-  localStorage.setItem("cart_state", JSON.stringify(state));
-}, [state]);
+  // 💾 Lưu giỏ hàng vào localStorage
+  useEffect(() => {
+    localStorage.setItem("cart_state", JSON.stringify(state));
+  }, [state]);
 
-
-  /* --------------------------------------------------
-     🧮 Tổng tiền & số lượng
-  -------------------------------------------------- */
-  const subtotal = useMemo(
-    () => state.lines.reduce((s, l) => s + (l.price || 0) * l.qty, 0),
-    [state.lines]
-  );
+  const subtotal = useMemo(() => state.lines.reduce((s, l) => s + (l.price || 0) * l.qty, 0), [state.lines]);
   const count = useMemo(() => state.lines.reduce((n, l) => n + l.qty, 0), [state.lines]);
 
-  /* --------------------------------------------------
-     🛒 Thêm sản phẩm vào giỏ
-  -------------------------------------------------- */
   const addToCart = async (book: Book, qty = 1) => {
-  if (!userId) {
-    toast.error("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng");
-    return;
-  }
-
-  try {
-    // 🧩 Lấy giỏ hàng hiện tại (hoặc tạo mới)
-    let cart = await CartService.getCartByUserId(userId);
-    if (!cart) {
-      cart = await CartService.createCart(userId);
+    if (!userId) {
+      toast.error("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng");
+      return;
     }
+    try {
+      let cart = await CartService.getCartByUserId(userId);
+      if (!cart) cart = await CartService.createCart(userId);
+      const cartId = cart.cartId;
 
-    const cartId = cart.cartId;
-
-    // ⚙️ Kiểm tra xem sản phẩm đã tồn tại trong giỏ chưa
-    const existing = state.lines.find(
-      (l) => l.book.bookId === book.bookId
-    );
-
-    if (existing) {
-      // 🔹 Nếu đã có -> cộng dồn số lượng & cập nhật BE
-      const newQty = existing.qty + qty;
-      await CartItemService.updateCartItem(existing.cartItemId!, newQty);
-
-      dispatch({ type: "SET_QTY", bookId: book.bookId, qty: newQty });
-
-      toast.success(`Đã cập nhật số lượng “${book.bookName}” (${newQty})`);
-    } else {
-      // 🔹 Nếu chưa có -> tạo item mới
-      const newItem = await CartItemService.addCartItem(
-        cartId,
-        book.bookId,
-        qty,
-        2000
-      );
-
-      dispatch({
-        type: "ADD",
-        line: {
-          book,
-          qty,
-          price: newItem.price ?? 2000,
-          cartItemId: newItem.cartItemId,
-        },
-      });
-
-      toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
+      const existing = state.lines.find((l) => l.book.bookId === book.bookId);
+      if (existing) {
+        const newQty = existing.qty + qty;
+        await CartItemService.updateCartItem(existing.cartItemId!, newQty);
+        dispatch({ type: "SET_QTY", bookId: book.bookId, qty: newQty });
+        toast.success(`Đã cập nhật số lượng “${book.bookName}” (${newQty})`);
+      } else {
+        const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, 2000);
+        dispatch({
+          type: "ADD",
+          line: { book, qty, price: newItem.price ?? 2000, cartItemId: newItem.cartItemId },
+        });
+        toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
+      }
+    } catch (err) {
+      console.error("❌ Lỗi khi thêm sản phẩm:", err);
+      toast.error("Không thể thêm sản phẩm vào giỏ hàng");
     }
-  } catch (err) {
-    console.error("❌ Lỗi khi thêm sản phẩm:", err);
-    toast.error("Không thể thêm sản phẩm vào giỏ hàng");
-  }
-};
+  };
 
-
-
-
-  /* --------------------------------------------------
-     ✏️ Cập nhật số lượng
-  -------------------------------------------------- */
   const setQty = async (bookId: string, qty: number) => {
     const line = state.lines.find((l) => l.book.bookId === bookId);
     if (!line || !line.cartItemId) return;
@@ -250,9 +146,6 @@ useEffect(() => {
     dispatch({ type: "SET_QTY", bookId, qty });
   };
 
-  /* --------------------------------------------------
-     🗑️ Xóa 1 sản phẩm
-  -------------------------------------------------- */
   const remove = async (bookId: string) => {
     const line = state.lines.find((l) => l.book.bookId === bookId);
     if (!line?.cartItemId) return;
@@ -260,17 +153,11 @@ useEffect(() => {
     dispatch({ type: "REMOVE", bookId });
   };
 
-  /* --------------------------------------------------
-     🧹 Xóa toàn bộ giỏ hàng
-  -------------------------------------------------- */
   const clear = async () => {
     if (state.cartId) await CartItemService.clearCart(state.cartId);
     dispatch({ type: "CLEAR" });
   };
 
-  /* --------------------------------------------------
-     💾 Giá trị context
-  -------------------------------------------------- */
   const value: CartContextValue = useMemo(
     () => ({ state, addToCart, remove, setQty, clear, subtotal, count }),
     [state, subtotal, count]
@@ -279,9 +166,7 @@ useEffect(() => {
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
-/* =====================================================
-   🧩 HOOK TIỆN ÍCH
-===================================================== */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {
   const ctx = useContext(CartContext);
   if (!ctx) throw new Error("useCart must be used within CartProvider");

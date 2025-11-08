@@ -15,6 +15,8 @@ import { formatVND } from "@/lib/money";
 import { toast } from "sonner";
 import { OrderDetailService } from "@/services/OrderDetailService";
 import { getBookById } from "@/services/BookService";
+import { FeedbackService, type CreateFeedbackRequest, type Feedback } from "@/services/FeedbackService";
+import { Star } from "lucide-react";
 
 
 
@@ -24,8 +26,17 @@ export default function TransactionPage() {
   const [selected, setSelected] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [orderDetails, setOrderDetails] = useState<any[]>([]);
-  const [filter, setFilter] = useState("all"); // 🆕 Bộ lọc thời gian
-  
+  const [filter, setFilter] = useState("all");
+  const [openFeedback, setOpenFeedback] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<any | null>(null);
+  const [rating, setRating] = useState("5");
+  const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingFeedback, setExistingFeedback] = useState<Feedback | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [userFeedbackMap, setUserFeedbackMap] = useState<Record<string, boolean>>({});
+
+
 
 
 
@@ -51,7 +62,7 @@ export default function TransactionPage() {
     }
   };
 
-  
+
 
   // 🧩 Fetch danh sách order theo cartId
   useEffect(() => {
@@ -109,7 +120,7 @@ export default function TransactionPage() {
     fetchOrders();
   }, [user, filter]); // 🆕 Thêm filter vào dependency
 
-  
+
 
 
   // 🧾 Xem chi tiết
@@ -135,6 +146,28 @@ export default function TransactionPage() {
       );
 
       setOrderDetails(enrichedDetails);
+      try {
+        // Lấy userId từ email
+        const userRes = await getUserByEmail(user?.email || "");
+        const userId = userRes?.userId;
+
+        if (userId) {
+          // Gọi API lấy feedback của user này
+          const feedbacks = await FeedbackService.getAll({ userId });
+
+
+          // Tạo map { bookId: true } để biết sách nào đã đánh giá
+          const feedbackMap: Record<string, boolean> = {};
+          feedbacks.forEach((fb: any) => {
+            feedbackMap[fb.bookId] = true;
+          });
+
+          setUserFeedbackMap(feedbackMap);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi tải feedback của user:", err);
+      }
+
     } catch (err) {
       console.error("❌ Lỗi khi lấy order details:", err);
       toast("Không thể tải chi tiết đơn hàng!");
@@ -182,15 +215,14 @@ export default function TransactionPage() {
             </div>
             <div className="text-right">
               <span
-                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${
-                  order.status === 4
-                    ? "bg-green-100 text-green-600"
-                    : order.status === 1
+                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${order.status === 4
+                  ? "bg-green-100 text-green-600"
+                  : order.status === 1
                     ? "bg-yellow-100 text-yellow-600"
                     : order.status === 5
-                    ? "bg-red-100 text-red-600"
-                    : "bg-gray-100 text-gray-600"
-                }`}
+                      ? "bg-red-100 text-red-600"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
               >
                 {mapOrderStatus(Number(order.status))}
               </span>
@@ -261,6 +293,24 @@ export default function TransactionPage() {
                           <p className="text-xs text-gray-500">
                             SL: {item.quantity} × {formatVND(item.price)}
                           </p>
+
+                          {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã giao thành công) */}
+                          {selected?.status === 4 && !userFeedbackMap[item.bookId] && (
+                            <Button
+                              className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
+                              onClick={async () => {
+                                setSelectedBook(item);
+                                setOpenFeedback(true);
+                                setIsEditing(false);
+                                setExistingFeedback(null);
+                                setContent("");
+                                setRating("5");
+                              }}
+                            >
+                              ✍️ Đánh giá
+                            </Button>
+                          )}
+
                         </div>
                       </div>
                       <span className="font-semibold">
@@ -273,6 +323,7 @@ export default function TransactionPage() {
                     Không có sản phẩm trong đơn này.
                   </p>
                 )}
+
               </div>
 
               <div className="flex justify-end mt-4">
@@ -284,6 +335,154 @@ export default function TransactionPage() {
           )}
         </DialogContent>
       </Dialog>
+
+
+
+      {/* 🔹 DIALOG FEEDBACK HOÀN CHỈNH */}
+      <Dialog open={openFeedback} onOpenChange={setOpenFeedback}>
+        <DialogContent className="max-w-md bg-white text-gray-800">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBook?.book?.bookName
+                ? `Đánh giá cho "${selectedBook.book.bookName}"`
+                : "Đánh giá sách"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* ⭐ Khu vực chọn số sao */}
+          <div className="flex items-center gap-2 mt-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                onClick={() => {
+                  if (!isEditing && existingFeedback) return; // Chỉ cho chọn khi đang tạo mới hoặc đang edit
+                  setRating(String(star));
+                }}
+                className={`w-7 h-7 cursor-pointer transition-all ${Number(rating) >= star
+                  ? "fill-yellow-500 text-yellow-500 scale-110"
+                  : "text-gray-300 hover:text-yellow-400"
+                  }`}
+              />
+            ))}
+            <span className="text-sm text-gray-500 ml-2 select-none">
+              {rating === "1" && "Tệ"}
+              {rating === "2" && "Không hài lòng"}
+              {rating === "3" && "Bình thường"}
+              {rating === "4" && "Hài lòng"}
+              {rating === "5" && "Tuyệt vời"}
+            </span>
+          </div>
+
+          {/* ✍️ Nội dung đánh giá */}
+          <div className="mt-4 space-y-2">
+            <label className="text-sm font-medium">Nội dung</label>
+            <textarea
+              className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[#764BA2] text-sm"
+              rows={3}
+              placeholder="Hãy chia sẻ cảm nhận của bạn..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              readOnly={!!existingFeedback && !isEditing}
+            />
+          </div>
+
+          {/* ⚙️ Các nút hành động */}
+          <div className="flex justify-end gap-2 mt-5">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Blur focus trước khi đóng để tránh warning aria-hidden
+                if (document.activeElement instanceof HTMLElement)
+                  document.activeElement.blur();
+                setOpenFeedback(false);
+              }}
+            >
+              Đóng
+            </Button>
+
+            {/* ✅ Nếu chưa có feedback → gửi mới */}
+            {!existingFeedback ? (
+              <Button
+                className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                onClick={async () => {
+                  if (!user?.email || !selectedBook) return;
+                  try {
+                    setIsSubmitting(true);
+                    const userRes = await getUserByEmail(user.email);
+                    const userId = userRes?.userId;
+
+                    const payload: CreateFeedbackRequest = {
+                      content,
+                      rating,
+                      userId,
+                      bookId: selectedBook.bookId,
+                      orderDetailId: selectedBook.orderDetailId,
+                    };
+
+                    await FeedbackService.create(payload);
+                    toast.success("🎉 Cảm ơn bạn đã đánh giá!");
+                    setUserFeedbackMap((prev) => ({
+                      ...prev,
+                      [selectedBook.bookId]: true,
+                    }));
+                    if (document.activeElement instanceof HTMLElement)
+                      document.activeElement.blur();
+                    setOpenFeedback(false);
+                    setContent("");
+                    setRating("5");
+                  } catch (err) {
+                    console.error("❌ Lỗi khi gửi feedback:", err);
+                    toast.error("Không thể gửi đánh giá.");
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+              </Button>
+            ) : (
+              /* ✏️ Nếu đã có feedback → xem hoặc chỉnh sửa */
+              <Button
+                className={`${isEditing
+                  ? "bg-gradient-to-l from-[#764BA2] to-[#667EEA]"
+                  : "bg-[#3B2A66]"
+                  } text-white hover:opacity-90`}
+                onClick={async () => {
+                  if (!isEditing) {
+                    // bật chế độ chỉnh sửa
+                    setIsEditing(true);
+                  } else {
+                    try {
+                      setIsSubmitting(true);
+                      await FeedbackService.update(existingFeedback.feedbackId, {
+                        content,
+                        rating,
+                      });
+                      toast.success("✅ Đã cập nhật đánh giá!");
+                      setIsEditing(false);
+                    } catch (err) {
+                      console.error("❌ Lỗi khi cập nhật feedback:", err);
+                      toast.error("Không thể cập nhật đánh giá.");
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                {isEditing
+                  ? isSubmitting
+                    ? "Đang lưu..."
+                    : "💾 Lưu thay đổi"
+                  : "✏️ Chỉnh sửa"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
     </div>
   );
 }

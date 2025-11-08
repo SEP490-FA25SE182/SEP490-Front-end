@@ -38,7 +38,11 @@ export const PaymentService = {
   async createPaymentCheckout(orderId: string): Promise<PaymentCheckoutResponse> {
     console.log("📦 Gửi request tạo thanh toán PayOS cho order:", orderId);
 
+    const returnUrl = `${window.location.origin}/payment-status?success=true`;
+    const cancelUrl = `${window.location.origin}/payment-status?success=false`;
+
     const res = await axios.post(`${API_BASE_URL}/payments/${orderId}/checkout`, null, {
+      params: { returnUrl, cancelUrl },
       headers: { "Content-Type": "application/json" },
     });
 

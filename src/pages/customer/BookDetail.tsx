@@ -13,48 +13,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useFavorites } from "@/context/FavoriteContext";
-
 import { getAllBooks, getBookById, type Book } from "@/services/BookService";
+import { useCart } from "@/context/CartContext";
 
-import { useCart } from "@/context/CartContext"; // 🧠 sử dụng context mới
+import { FeedbackService, type Feedback } from "@/services/FeedbackService";
+import { getUserById } from "@/services/UserService";
 
 /* ---------------------------
  🧩 Review và StarRating
 --------------------------- */
-interface Review {
-  id: string;
-  userName: string;
-  rating: number;
-  comment: string;
-  date: string;
-}
-
-const mockReviews: Review[] = [
-  {
-    id: "1",
-    userName: "Nguyễn Văn A",
-    rating: 5,
-    comment:
-      "Sách hay tuyệt vời, nội dung cuốn hút từ đầu đến cuối. Rất đáng để đọc!",
-    date: "2025-03-15",
-  },
-  {
-    id: "2",
-    userName: "Trần Thị B",
-    rating: 4,
-    comment: "Cách viết rất dễ hiểu, tuy nhiên phần kết thúc hơi đột ngột.",
-    date: "2025-03-10",
-  },
-  {
-    id: "3",
-    userName: "Lê Văn C",
-    rating: 5,
-    comment:
-      "Một trong những cuốn sách hay nhất mà tôi từng đọc. Highly recommended!",
-    date: "2025-03-05",
-  },
-];
-
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
   <div className="flex">
     {[1, 2, 3, 4, 5].map((star) => (
@@ -104,23 +71,63 @@ export const BookDetail = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { addToCart } = useCart(); // 🛒 Dùng từ context thay vì gọi API trực tiếp
+  const { addToCart } = useCart();
   const [showPreview, setShowPreview] = useState(false);
 
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🩵 Feedback state
+  interface FeedbackWithUser extends Feedback {
+    userName?: string;
+  }
+  const [feedbacks, setFeedbacks] = useState<FeedbackWithUser[]>([]);
+  const [averageRating, setAverageRating] = useState<number>(0);
+
   /* ---------------------------
-   📡 Fetch book detail & related
+   📡 Fetch book detail & feedbacks
   --------------------------- */
   useEffect(() => {
     const fetchBookData = async () => {
       try {
         if (!bookId) return;
+
+        // 1️⃣ Lấy thông tin sách
         const bookData = await getBookById(bookId);
         setBook(bookData);
 
+        // 2️⃣ Lấy feedback thật từ API
+        const allFeedbacks = await FeedbackService.getAll();
+        const filtered = allFeedbacks.filter(
+          (f) => f.bookId === bookId && f.isActived === "ACTIVE"
+        );
+
+        // 3️⃣ Gắn tên người dùng song song
+        const feedbacksWithUser = await Promise.all(
+          filtered.map(async (f) => {
+            try {
+              const user = await getUserById(f.userId);
+              return { ...f, userName: user.fullName || "Người dùng ẩn danh" };
+            } catch {
+              return { ...f, userName: "Người dùng ẩn danh" };
+            }
+          })
+        );
+        setFeedbacks(feedbacksWithUser);
+
+        // 4️⃣ Tính trung bình rating
+        if (feedbacksWithUser.length > 0) {
+          const total = feedbacksWithUser.reduce(
+            (sum, f) => sum + parseFloat(f.rating),
+            0
+          );
+          setAverageRating(total / feedbacksWithUser.length);
+        } else {
+          setAverageRating(0);
+        }
+
+        // 5️⃣ Lấy sách liên quan
         const allBooks = await getAllBooks();
         const related = allBooks
           .filter(
@@ -140,7 +147,7 @@ export const BookDetail = () => {
   }, [bookId]);
 
   /* ---------------------------
-   🧾 Xử lý format ngày
+   🧾 Format ngày
   --------------------------- */
   const formatDate = (dateString?: string | null) =>
     dateString
@@ -152,7 +159,7 @@ export const BookDetail = () => {
       : "Không rõ";
 
   /* ---------------------------
-   🛒 Thêm vào giỏ hàng (qua CartContext)
+   🛒 Thêm vào giỏ hàng
   --------------------------- */
   const handleAddToCart = async () => {
     if (!book) return;
@@ -167,30 +174,6 @@ export const BookDetail = () => {
       ),
     });
   };
-
-  /* ---------------------------
-   💳 Mua ngay
-  --------------------------- */
-  // const handleBuyNow = async () => {
-  //   if (!book) return;
-  //   try {
-  //     const order = await OrderService.createOrder("PENDING");
-  //     const orderId = Array.isArray(order) ? order[0].orderId : order.orderId;
-  //     await OrderService.addOrderDetail(orderId, book.bookId, 1, 15);
-  //     toast({
-  //       title: "Đơn hàng đang được xử lý",
-  //       description: `“${book.bookName}” đã được tạo đơn hàng.`,
-  //     });
-  //     navigate("/payment-status", { state: { order } });
-  //   } catch (error) {
-  //     console.error(error);
-  //     toast({
-  //       title: "Không thể mua ngay",
-  //       description: "Có lỗi khi tạo đơn hàng.",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
 
   /* ---------------------------
    ❤️ Yêu thích
@@ -292,7 +275,6 @@ export const BookDetail = () => {
                   <Button
                     size="lg"
                     className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white rounded-full px-6 py-3 cursor-pointer"
-                    // onClick={handleBuyNow}
                   >
                     Mua ngay
                   </Button>
@@ -322,31 +304,50 @@ export const BookDetail = () => {
           </div>
         </div>
 
-        {/* Reviews */}
+        {/* Reviews Section */}
         <div className="mt-12 border-t border-white/20 pt-8">
-          <h2 className="text-2xl font-bold text-white mb-6">
-            Đánh giá ({mockReviews.length})
-          </h2>
-          <div className="space-y-6">
-            {mockReviews.map((review) => (
-              <div key={review.id} className="bg-white/5 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="text-white font-semibold">
-                      {review.userName}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <StarRating rating={review.rating} />
-                      <span className="text-white/60 text-sm">
-                        {new Date(review.date).toLocaleDateString("vi-VN")}
-                      </span>
+          <h2 className="text-2xl font-bold text-white mb-2">Đánh giá</h2>
+
+          {/* ⭐ Filter & Summary */}
+          {feedbacks.length > 0 ? (
+            <div className="flex items-center gap-3 mb-6">
+              <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+              <span className="text-white text-lg font-semibold">
+                {averageRating.toFixed(1)} / 5
+              </span>
+              <span className="text-white/60 text-sm">
+                ({feedbacks.length} lượt đánh giá)
+              </span>
+            </div>
+          ) : (
+            <p className="text-white/60 mb-6">
+              Chưa có đánh giá nào cho cuốn sách này.
+            </p>
+          )}
+
+          {/* Danh sách feedback */}
+          {feedbacks.length > 0 && (
+            <div className="space-y-6">
+              {feedbacks.map((fb) => (
+                <div key={fb.feedbackId} className="bg-white/5 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="text-white font-semibold">
+                        {fb.userName}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <StarRating rating={parseInt(fb.rating)} />
+                        <span className="text-white/60 text-sm">
+                          {new Date(fb.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <p className="text-white/80 mt-2">{fb.content}</p>
                 </div>
-                <p className="text-white/80 mt-2">{review.comment}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Related Books */}

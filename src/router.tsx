@@ -33,6 +33,8 @@ import AdminDashboardPage from "./pages/admin/AdminDashboard";
 import CustomerLayout from "./layouts/CustomerLayout";
 import UserManagementPage from "./pages/admin/UserManagement";
 import OrderManagementPage from "./pages/admin/OrderManagement";
+import BookModerationPage from "./pages/moderator/ModeratorPage";
+import ModeratorBooksPage from "./pages/moderator/ModeratorPage";
 
 export default function AppRouter() {
   return (
@@ -69,6 +71,8 @@ export default function AppRouter() {
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />
       <Route path="/admin/orders" element={<OrderManagementPage />} />
+
+      <Route path="/moderator" element={<ModeratorBooksPage />} />
     </Routes>
   );
 }

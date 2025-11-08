@@ -9,19 +9,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
 import { useCart } from "@/context/CartContext";
@@ -32,6 +23,8 @@ import {
   PaymentService,
   type PaymentCheckoutResponse,
 } from "@/services/PaymentService";
+
+import { OrderService } from "@/services/OrderService";
 
 /* ============================ 🧾 VALIDATION ============================ */
 const schema = z.object({
@@ -74,13 +67,34 @@ function getUnit(b: Book): number {
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation() as {
-    state?: { 
+    state?: {
       orderId?: string;
-      buyNowLine?: { book: Book; qty: number; } };
+      buyNowLine?: { book: Book; qty: number; }
+    };
   };
   const { toast } = useToast();
   const { state: cartState } = useCart();
   const { user } = useAuth();
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    (async () => {
+      try {
+        const userRes = await getUserByEmail(user.email);
+        if (userRes?.userId) {
+          const list = await getAddressesByUserId(userRes.userId);
+          setAddresses(list);
+          const defaultAddr = list.find((a: any) => a.isDefault === true);
+          if (defaultAddr) setSelectedAddressId(defaultAddr.userAddressId);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi load danh sách địa chỉ:", err);
+      }
+    })();
+  }, [user?.email]);
+
 
   // const lines = cartState.lines;
   const isBuyNow = !!location.state?.buyNowLine;
@@ -94,21 +108,21 @@ export default function CheckoutPage() {
   );
 
   const effectiveSubtotal = subtotalLocal;
-  const shippingFeeMap = { standard: 20000, express: 40000 };
+  const shippingFeeMap = { standard: 0, express: 0 };
 
   const orderId = location.state?.orderId;
 
-useEffect(() => {
-  if (!orderId) {
-    toast({
-      variant: "destructive",
-      title: "Không tìm thấy mã đơn hàng",
-      description: "Vui lòng quay lại giỏ hàng và thử lại.",
-    });
-  }
-}, [orderId]);
+  useEffect(() => {
+    if (!orderId) {
+      toast({
+        variant: "destructive",
+        title: "Không tìm thấy mã đơn hàng",
+        description: "Vui lòng quay lại giỏ hàng và thử lại.",
+      });
+    }
+  }, [orderId]);
 
-  
+
 
   /* ============================ 📝 FORM ============================ */
   const form = useForm<FormValues>({
@@ -132,80 +146,7 @@ useEffect(() => {
     [effectiveSubtotal, shippingFee]
   );
 
-  /* ============================ 🗺️ LOAD ADDRESS ============================ */
-  const [provinces, setProvinces] = useState<any[]>([]);
-  const [districts, setDistricts] = useState<any[]>([]);
-  const [wards, setWards] = useState<any[]>([]);
-
-  useEffect(() => {
-    const cached = localStorage.getItem("vn_provinces");
-    if (cached) {
-      setProvinces(JSON.parse(cached));
-    } else {
-      fetch("https://provinces.open-api.vn/api/?depth=3")
-        .then((res) => res.json())
-        .then((data) => {
-          setProvinces(data);
-          localStorage.setItem("vn_provinces", JSON.stringify(data));
-        });
-    }
-  }, []);
-
-  const handleProvinceChange = (provinceName: string) => {
-    form.setValue("province", provinceName);
-    const selected = provinces.find((p) => p.name === provinceName);
-    setDistricts(selected?.districts || []);
-    setWards([]);
-    form.setValue("district", "");
-    form.setValue("ward", "");
-  };
-
-  const handleDistrictChange = (districtName: string) => {
-    form.setValue("district", districtName);
-    const selected = districts.find((d) => d.name === districtName);
-    setWards(selected?.wards || []);
-    form.setValue("ward", "");
-  };
-
-  /* ============================ 👤 AUTOFILL USER INFO ============================ */
-  useEffect(() => {
-    async function autoFillUserInfo() {
-      try {
-        if (!user?.email) return;
-        const res = await getUserByEmail(user.email);
-        if (res) {
-          form.setValue("fullName", res.fullName || "");
-          form.setValue("phone", res.phoneNumber || "");
-          form.setValue("email", res.email || "");
-        }
-
-        if (res?.userId) {
-          const addresses = await getAddressesByUserId(res.userId);
-          if (addresses?.length) {
-            const addr =
-              addresses.find((a: any) => a.isActived === "ACTIVE") ||
-              addresses[0];
-            if (addr?.addressInfor) {
-              const parts = addr.addressInfor
-                .split(",")
-                .map((s: string) => s.trim());
-              const province = parts.at(-1) || "";
-              const district = parts.at(-2) || "";
-              const ward = parts.at(-3) || "";
-              const detail = parts.slice(0, -3).join(", ") || "";
-              form.setValue("province", province);
-              form.setValue("district", district);
-              form.setValue("ward", ward);
-              form.setValue("address", detail);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("❌ Autofill user info failed:", err);
-      }
-    }
-    autoFillUserInfo();
-  }, [user, form]);
+  
 
   /* ============================ 💰 PAYOS HANDLER ============================ */
   async function handlePayOS(orderId: string) {
@@ -215,8 +156,18 @@ useEffect(() => {
         description: "Vui lòng chờ trong giây lát.",
       });
 
+      const currentOrder = await OrderService.getOrderById(orderId);
+
+      const updatePayload = {
+      status: Number(currentOrder.status), 
+      userAddressId: selectedAddressId, 
+    };
+
+      await OrderService.updateOrder(orderId, updatePayload);
+      console.log("✅ Đã cập nhật order với địa chỉ giao hàng:", updatePayload);
+
       const response: PaymentCheckoutResponse =
-      await PaymentService.createPaymentCheckout(orderId);
+        await PaymentService.createPaymentCheckout(orderId);
       localStorage.setItem("lastOrder", JSON.stringify(orderId));
       const checkoutUrl = response?.checkoutUrl;
 
@@ -257,130 +208,50 @@ useEffect(() => {
 
             <CardContent>
               <form className="space-y-6" noValidate>
-                {/* =================== LIÊN HỆ =================== */}
+
+                {/* =================== SỔ ĐỊA CHỈ =================== */}
                 <section className="space-y-4">
                   <h3 className="text-lg font-semibold text-white">
-                    Thông tin liên hệ
+                    Chọn địa chỉ giao hàng
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <Label htmlFor="fullName" className="text-white">
-                        Họ và tên
-                      </Label>
-                      <Input
-                        {...form.register("fullName")}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
 
+                  {addresses.length === 0 ? (
+                    <p className="text-white/60 text-sm">
+                      Bạn chưa có địa chỉ nào. Vui lòng thêm trong hồ sơ cá nhân.
+                    </p>
+                  ) : (
                     <div className="space-y-3">
-                      <Label htmlFor="phone" className="text-white">
-                        Số điện thoại
-                      </Label>
-                      <Input
-                        {...form.register("phone")}
-                        className="bg-white/5 border-white/20 text-white"
-                      />
+                      {addresses.map((addr) => (
+                        <label
+                          key={addr.userAddressId}
+                          className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition ${selectedAddressId === addr.userAddressId
+                            ? "border-blue-500 bg-blue-50/10"
+                            : "border-white/10 hover:bg-white/5"
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="address"
+                            value={addr.userAddressId}
+                            checked={selectedAddressId === addr.userAddressId}
+                            onChange={() => setSelectedAddressId(addr.userAddressId)}
+                          />
+                          <div className="text-white">
+                            <p className="font-medium">{addr.fullName}</p>
+                            <p className="text-sm text-white/70">{addr.phoneNumber}</p>
+                            <p className="text-sm text-white/80">{addr.addressInfor}</p>
+                            {addr.isDefault && (
+                              <span className="text-xs text-blue-400 font-semibold">
+                                Mặc định
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      ))}
                     </div>
-
-                    <div className="md:col-span-2 space-y-3">
-                      <Label htmlFor="email" className="text-white">
-                        Email
-                      </Label>
-                      <Input
-                        {...form.register("email")}
-                        type="email"
-                        className="bg-white/5 border-white/20 text-white"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </section>
 
-                <Separator className="bg-white/10" />
-
-                {/* =================== ĐỊA CHỈ =================== */}
-                <section className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">
-                    Địa chỉ giao hàng
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-white">Tỉnh/TP</Label>
-                      <Select
-                        onValueChange={handleProvinceChange}
-                        value={form.watch("province")}
-                      >
-                        <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                          <SelectValue placeholder="Chọn Tỉnh/TP" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1f2a44] text-white border-white/10 max-h-64 overflow-auto">
-                          {provinces.map((p) => (
-                            <SelectItem key={p.code} value={p.name}>
-                              {p.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-white">Quận/Huyện</Label>
-                      <Select
-                        onValueChange={handleDistrictChange}
-                        value={form.watch("district")}
-                      >
-                        <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                          <SelectValue placeholder="Chọn Quận/Huyện" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1f2a44] text-white border-white/10 max-h-64 overflow-auto">
-                          {districts.map((d) => (
-                            <SelectItem key={d.code} value={d.name}>
-                              {d.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label className="text-white">Phường/Xã</Label>
-                      <Select
-                        onValueChange={(v) => form.setValue("ward", v)}
-                        value={form.watch("ward")}
-                      >
-                        <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                          <SelectValue placeholder="Chọn Phường/Xã" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1f2a44] text-white border-white/10 max-h-64 overflow-auto">
-                          {wards.map((w) => (
-                            <SelectItem key={w.code} value={w.name}>
-                              {w.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-white">Địa chỉ chi tiết</Label>
-                    <Input
-                      {...form.register("address")}
-                      placeholder="Số nhà, tên đường..."
-                      className="bg-white/5 border-white/20 text-white"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-white">Ghi chú</Label>
-                    <Textarea
-                      {...form.register("note")}
-                      rows={3}
-                      placeholder="Ghi chú cho shipper…"
-                      className="bg-white/5 border-white/20 text-white"
-                    />
-                  </div>
-                </section>
 
                 <Separator className="bg-white/10" />
 
@@ -419,7 +290,17 @@ useEffect(() => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
                       <Button
                         type="button"
-                        onClick={() => handlePayOS(orderId!)}
+                        onClick={() => {
+                          if (!selectedAddressId) {
+                            toast({
+                              variant: "destructive",
+                              title: "Chưa chọn địa chỉ!",
+                              description: "Vui lòng chọn địa chỉ giao hàng trước khi thanh toán.",
+                            });
+                            return;
+                          }
+                          handlePayOS(orderId!);
+                        }}
                         className="bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-2 rounded-lg hover:opacity-90"
                       >
                         💳 Thanh toán qua PayOS

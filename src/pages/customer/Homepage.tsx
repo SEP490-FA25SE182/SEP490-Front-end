@@ -81,20 +81,28 @@ export default function Homepage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const data = await getAllBooks();
-        console.log("📚 Dữ liệu trả về từ API:", data);
-        setBooks(data);
-      } catch (error) {
-        console.error("❌ Lỗi khi fetch sách:", error);
-        setBooks([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBooks();
-  }, []);
+  const fetchBooks = async () => {
+    try {
+      const data = await getAllBooks();
+
+      // 🔹 Lọc chỉ sách có publicationStatus = "1"
+      const publishedBooks = data.filter(
+        (book: Book) => book.publicationStatus === 1
+      );
+
+      console.log("📚 Sách đã xuất bản:", publishedBooks);
+      setBooks(publishedBooks);
+    } catch (error) {
+      console.error("❌ Lỗi khi fetch sách:", error);
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchBooks();
+}, []);
+
+
 
   // 🧠 Xử lý phân loại sách
   const newestBooks = [...books]
@@ -105,11 +113,11 @@ export default function Homepage() {
     .slice(0, 4);
 
   const recommendedBooks = [...books]
-    .filter((b) => b.publicationStatus === "PUBLISHED" || b.isActived === "ACTIVE")
+    .filter((b) => b.publicationStatus === 1 || b.isActived === "ACTIVE")
     .slice(0, 4);
 
   const categoryBooks = [...books]
-    .filter((b) => b.progressStatus === "COMPLETED")
+    .filter((b) => b.progressStatus === 0)
     .slice(0, 4);
 
   return (

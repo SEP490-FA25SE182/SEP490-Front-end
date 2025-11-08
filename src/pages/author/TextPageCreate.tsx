@@ -8,64 +8,63 @@ import { useToast } from "@/components/ui/use-toast";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import { useGetPageById, useUpdatePage } from "@/services/BookManageService";
-import { useCreatePageAudio, useGetAudios } from "@/services/AIService";
+import { useCreatePageAudio, useSearchAudios } from "@/services/AIService";
 
-export default function TextPageEdit() {
+export default function TextPageCreate() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chapterId, setChapterId] = useState<string>("");
   const { pageId } = useParams<{ pageId?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // === Dữ liệu trang ===
+  // === Lấy thông tin trang ===
   const { data: pageData, isLoading } = useGetPageById(pageId || "");
   const updatePage = useUpdatePage();
 
-  // === Audio liên kết ===
+  // === Audio ===
   const createPageAudio = useCreatePageAudio();
 
   // === State form ===
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [content, setContent] = useState<string>("");
   const [showAudioForm, setShowAudioForm] = useState(false);
-  const [audioList, setAudioList] = useState<
-    { id: string; name: string; url: string }[]
-  >([]);
+  const [audioList, setAudioList] = useState<{ id: string; name: string; url: string }[]>([]);
   const [selectedAudio, setSelectedAudio] = useState<string>("");
 
-  // ===== Lấy dữ liệu trang ban đầu =====
+  // === Lấy user hiện tại ===
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  // === Gọi API tìm audio của user ===
+  const { data: audiosData } = useSearchAudios({
+    userId: user.userId,
+    isActived: "ACTIVE",
+  });
+
   useEffect(() => {
     if (pageData) {
-      console.log("📘 Page data nhận được:", pageData);
       setPageNumber(pageData.pageNumber);
       setContent(pageData.content);
       if (pageData.chapterId) setChapterId(pageData.chapterId);
     }
   }, [pageData]);
 
-  // ===== Lấy danh sách audio theo user =====
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const { data: audios = [] } = useGetAudios({ userId: user.userId });
-
   useEffect(() => {
-    if (audios.length > 0) {
-      setAudioList(
-        audios
-          .filter((a) => a.isActived === "ACTIVE" && !!a.audioId) // <- loại bỏ item không có audioId
-          .map((a) => ({
-            id: a.audioId as string, // giờ đây TypeScript biết a.audioId tồn tại
-            name: a.title,
-            url: a.audioUrl,
-          }))
-      );
-    } else {
-      setAudioList([]); // đảm bảo reset khi không có audio
-    }
-  }, [audios]);
+    const audioItems = audiosData ?? [];
 
-  // ===== Submit update =====
+    const activeList = (audioItems as any[])
+      .filter((a) => a.isActived === "ACTIVE" && a.audioId)
+      .map((a) => ({
+        id: a.audioId as string,
+        name: a.title || "Audio không tên",
+        url: a.audioUrl,
+      }));
+
+    setAudioList(activeList);
+  }, [audiosData]);
+
+  // === Submit update ===
   const handleSubmit = async () => {
-    if (!pageId || !content) {
+    if (!pageId || !content.trim()) {
       toast({
         title: "Thiếu thông tin",
         description: "Vui lòng nhập nội dung trước khi lưu.",
@@ -86,12 +85,12 @@ export default function TextPageEdit() {
         },
       });
 
-      // 2️⃣ Gắn audio nếu có chọn
+      // 2️⃣ Liên kết audio nếu có chọn
       if (showAudioForm && selectedAudio) {
         await createPageAudio.mutateAsync([
           {
             pageId,
-            audioId: selectedAudio, // ✅ Gửi ID thật
+            audioId: selectedAudio,
           },
         ]);
       }
@@ -111,8 +110,9 @@ export default function TextPageEdit() {
     }
   };
 
-  if (isLoading)
+  if (isLoading) {
     return <div className="p-8 text-white">Đang tải dữ liệu...</div>;
+  }
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -121,6 +121,7 @@ export default function TextPageEdit() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
         <header className="bg-[#1a2332] border-b border-white/10 shadow-lg">
           <div className="flex items-center justify-between px-6 py-4">
             <Button
@@ -138,11 +139,9 @@ export default function TextPageEdit() {
         {/* Form */}
         <div className="flex-1 overflow-auto p-8 bg-[#1a2332]">
           <div className="mx-auto bg-white rounded-xl shadow-xl p-8 max-w-4xl">
-            {/* Page number */}
+            {/* Số trang */}
             <div className="mb-5">
-              <label className="block text-gray-700 mb-2 text-sm font-medium">
-                Số trang
-              </label>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Số trang</label>
               <Input
                 type="number"
                 value={pageNumber}
@@ -151,11 +150,9 @@ export default function TextPageEdit() {
               />
             </div>
 
-            {/* Content */}
+            {/* Nội dung */}
             <div className="mb-6">
-              <label className="block text-gray-700 mb-2 text-sm font-medium">
-                Nội dung
-              </label>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Nội dung</label>
               <div className="border border-gray-300 rounded-lg overflow-hidden">
                 <ReactQuill
                   theme="snow"
@@ -167,11 +164,9 @@ export default function TextPageEdit() {
               </div>
             </div>
 
-            {/* Add Audio */}
+            {/* Audio form */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-800">
-                Audio kèm theo (tuỳ chọn)
-              </h2>
+              <h2 className="text-lg font-medium text-gray-800">Audio kèm theo (tuỳ chọn)</h2>
               <Button
                 variant="outline"
                 size="sm"
@@ -190,7 +185,6 @@ export default function TextPageEdit() {
               </Button>
             </div>
 
-            {/* Audio form */}
             {showAudioForm && (
               <div className="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50 space-y-4">
                 <label className="block text-gray-700 mb-1 text-sm font-medium">
@@ -209,13 +203,10 @@ export default function TextPageEdit() {
                   ))}
                 </select>
 
-                {/* ✅ Hiển thị audio preview */}
                 {selectedAudio && (
                   <audio
                     controls
-                    src={
-                      audioList.find((f) => f.id === selectedAudio)?.url || ""
-                    }
+                    src={audioList.find((f) => f.id === selectedAudio)?.url || ""}
                     className="w-full mt-2"
                   />
                 )}

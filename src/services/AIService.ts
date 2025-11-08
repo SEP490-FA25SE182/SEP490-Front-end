@@ -245,6 +245,58 @@ export const getAllAIGenerations = async (): Promise<AIGeneration[]> => {
   return response.data;
 };
 
+/**
+ * Lấy danh sách tất cả illustrations
+ */
+export const getAllIllustrations = async (params?: { userId?: string }): Promise<Illustration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations`, { params });
+  return response.data;
+};
+
+/**
+ * Lấy chi tiết một illustration theo ID
+ */
+export const getIllustrationById = async (id: string): Promise<Illustration> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations/${id}`);
+  return response.data;
+};
+
+/**
+ * Search for audios with filters
+ */
+export const searchAudios = async (params?: {
+  voice?: string;
+  query?: string;
+  format?: string;
+  language?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<Audio[]> => {
+  const response = await axios.get(`${API_BASE_URL}/audios/search`, { params });
+  return response.data?.content ?? [];
+};
+
+/**
+ * Search for illustrations with filters
+ */
+export const searchIllustrations = async (params?: {
+  style?: string;
+  format?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<Illustration[]> => {
+  const response = await axios.get(`${API_BASE_URL}/illustrations/search`, { params });
+  return response.data?.content ?? [];
+};
+
 /* ====================== HOOKS ====================== */
 
 /** Hook: Gọi AI sinh ảnh */
@@ -367,5 +419,55 @@ export const useGetAllAIGenerations = () => {
     queryKey: ["aiGenerations"],
     queryFn: () => getAllAIGenerations(),
     staleTime: 5 * 60 * 1000, // Dữ liệu giữ trong 5 phút trước khi stale
+  });
+};
+
+/** Hook: Lấy tất cả illustrations */
+export const useGetAllIllustrations = (params?: { userId?: string }) => {
+  return useQuery({
+    queryKey: ["illustrations", params],
+    queryFn: () => getAllIllustrations(params),
+  });
+};
+
+/** Hook: Lấy illustration theo ID */
+export const useGetIllustrationById = () => {
+  return useMutation({
+    mutationFn: (id: string) => getIllustrationById(id),
+  });
+};
+/** Hook: Search for audios */
+export const useSearchAudios = (params?: {
+  voice?: string;
+  query?: string;
+  format?: string;
+  language?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["audios", "search", params],
+    queryFn: () => searchAudios(params),
+  });
+};
+
+/** Hook: Search for illustrations */
+export const useSearchIllustrations = (params?: {
+  style?: string;
+  format?: string;
+  title?: string;
+  isActived?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["illustrations", "search", params],
+    queryFn: () => searchIllustrations(params),
   });
 };

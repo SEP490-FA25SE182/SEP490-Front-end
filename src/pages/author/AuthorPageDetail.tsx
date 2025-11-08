@@ -99,7 +99,7 @@ const AuthorPageDetail = () => {
                         Tạo nội dung chữ
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => navigate(`/author/pages/${pageId}/create-image`)}
+                        onClick={() => navigate(`/author/pages/${pageId}/edit-image`)}
                       >
                         Tạo nội dung ảnh
                       </DropdownMenuItem>

@@ -77,11 +77,13 @@ export interface Audio {
 }
 
 export interface PageAudio {
+  pageAudioId?: string;
   pageId: string;
   audioId: string;
 }
 
 export interface PageIllustration {
+  pageIllustrationId?: string;
   pageId: string;
   illustrationId: string;
 }
@@ -297,6 +299,96 @@ export const searchIllustrations = async (params?: {
   return response.data?.content ?? [];
 };
 
+/**
+ * Search for page-audios with filters
+ */
+export const searchPageAudios = async (params?: {
+  pageId?: string;
+  audioId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<{
+  content: PageAudio[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: string[];
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  size: number;
+  number: number;
+  sort: string[];
+  numberOfElements: number;
+  first: boolean;
+  empty: boolean;
+}> => {
+  const response = await axios.get(`${API_BASE_URL}/page-audios/search`, { params });
+  return response.data;
+};
+
+/**
+ * Search for page-illustrations with filters
+ */
+export const searchPageIllustrations = async (params?: {
+  pageId?: string;
+  illustrationId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}): Promise<{
+  content: PageIllustration[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: string[];
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  size: number;
+  number: number;
+  sort: string[];
+  numberOfElements: number;
+  first: boolean;
+  empty: boolean;
+}> => {
+  const response = await axios.get(`${API_BASE_URL}/page-illustrations/search`, { params });
+  return response.data;
+};
+
+/**
+ * Update page-audio relationship by ID
+ */
+export const updatePageAudio = async (
+  id: string,
+  data: PageAudio
+): Promise<PageAudio> => {
+  const response = await axios.put(`${API_BASE_URL}/page-audios/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Update page-illustration relationship by ID
+ */
+export const updatePageIllustration = async (
+  id: string,
+  data: PageIllustration
+): Promise<PageIllustration> => {
+  const response = await axios.put(`${API_BASE_URL}/page-illustrations/${id}`, data);
+  return response.data;
+};
+
 /* ====================== HOOKS ====================== */
 
 /** Hook: Gọi AI sinh ảnh */
@@ -469,5 +561,61 @@ export const useSearchIllustrations = (params?: {
   return useQuery({
     queryKey: ["illustrations", "search", params],
     queryFn: () => searchIllustrations(params),
+  });
+};
+
+/** Hook: Search for page-audios */
+export const useSearchPageAudios = (params?: {
+  pageId?: string;
+  audioId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["pageAudios", "search", params],
+    queryFn: () => searchPageAudios(params),
+  });
+};
+
+/** Hook: Search for page-illustrations */
+export const useSearchPageIllustrations = (params?: {
+  pageId?: string;
+  illustrationId?: string;
+  userId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}) => {
+  return useQuery({
+    queryKey: ["pageIllustrations", "search", params],
+    queryFn: () => searchPageIllustrations(params),
+  });
+};
+
+/** Hook: Update page-audio */
+export const useUpdatePageAudio = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: PageAudio;
+    }) => updatePageAudio(id, data),
+  });
+};
+
+/** Hook: Update page-illustration */
+export const useUpdatePageIllustration = () => {
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: PageIllustration;
+    }) => updatePageIllustration(id, data),
   });
 };

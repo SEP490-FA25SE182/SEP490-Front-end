@@ -123,6 +123,16 @@ const AuthorPageList = () => {
     return words.slice(0, wordLimit).join(' ') + '...';
   };
 
+  // Hàm xử lý chuyển đến trang edit phù hợp
+  const handleEdit = (page: Page) => {
+    const isImage = isFirebaseImageUrl(page.content);
+    if (isImage) {
+      navigate(`/author/pages/${page.pageId}/image-edit`);
+    } else {
+      navigate(`/author/pages/${page.pageId}/text-edit`);
+    }
+  };
+
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
@@ -280,7 +290,7 @@ const AuthorPageList = () => {
                           <DropdownMenuItem onClick={() => navigate(`/author/page/${page.pageId}`)}>
                             <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/author/page/${page.pageId}/edit`)}>
+                          <DropdownMenuItem onClick={() => handleEdit(page)}>
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem

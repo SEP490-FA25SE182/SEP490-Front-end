@@ -25,6 +25,8 @@ import ImageCreate from "./pages/author/ImageCreate";
 import AudioCreate from "./pages/author/AudioCreate";
 import AuthorPageDetail from "./pages/author/AuthorPageDetail";
 import ImagePageCreate from "./pages/author/ImagePageCreate";
+import TextPageEdit from "./pages/author/TextPageEdit";
+import ImagePageEdit from "./pages/author/ImagePageEdit";
 
 import AdminDashboardPage from "./pages/admin/AdminDashboard";
 
@@ -58,6 +60,8 @@ export default function AppRouter() {
       <Route path="/author/chapters/:chapterId/pages" element={<AuthorPageList />} />
       <Route path="/author/pages/:pageId/edit-text" element={<TextPageCreate />} />
       <Route path="/author/pages/:pageId/edit-image" element={<ImagePageCreate />} />
+      <Route path="/author/pages/:pageId/text-edit" element={<TextPageEdit />} />
+      <Route path="/author/pages/:pageId/image-edit" element={<ImagePageEdit />} />
       <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImageCreate />} />
       <Route path="/author/chapters/:chapterId/pages/create-audio" element={<AudioCreate />} />
       <Route path="/author/page/:pageId" element={<AuthorPageDetail />} />

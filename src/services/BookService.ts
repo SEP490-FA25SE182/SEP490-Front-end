@@ -86,13 +86,18 @@ export const getBooks = async (
     ...AUTH_HEADER(),
   });
 
-    const books = res.data.content || [];
-    const converted = await Promise.all(
-      books.map(async (b) => ({
-        ...b,
-        coverUrl: await resolveFirebaseUrl(b.coverUrl),
-      }))
-    );
+  const books = res.data.content || [];
+
+  // 🔥 Convert toàn bộ coverUrl nếu là gs://
+  const converted = await Promise.all(
+    books.map(async (book) => ({
+      ...book,
+      coverUrl: await resolveFirebaseUrl(book.coverUrl),
+    }))
+  );
+
+  return { ...res.data, content: converted };
+};
 
   return { ...res.data, content: converted };
 };

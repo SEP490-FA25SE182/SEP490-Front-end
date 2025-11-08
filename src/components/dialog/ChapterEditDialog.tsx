@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useUpdateChapter } from "@/services/BookManageService";
+import { useUpdateChapter, useGetAllChapters } from "@/services/BookManageService";
 import { useToast } from "@/components/ui/use-toast";
 import type { Chapter } from "@/services/BookManageService";
 
@@ -22,6 +22,11 @@ export const ChapterEditDialog: React.FC<Props> = ({ isOpen, onClose, chapter, o
   const updateChapter = useUpdateChapter();
   const { toast } = useToast();
 
+  // Add this to fetch all chapters for checking duplicates
+  const { data: chaptersResp } = useGetAllChapters(
+    chapter?.bookId ? { bookId: chapter.bookId } : undefined
+  );
+
   useEffect(() => {
     if (isOpen && chapter) {
       setChapterName(chapter.chapterName || "");
@@ -38,7 +43,32 @@ export const ChapterEditDialog: React.FC<Props> = ({ isOpen, onClose, chapter, o
   const handleSave = async () => {
     if (!chapter) return;
     if (!chapterName.trim() || chapterNumber === "") {
-      toast({ title: "Thiếu thông tin", description: "Vui lòng nhập tên chương và số chương.", variant: "destructive" });
+      toast({
+        title: "Thiếu thông tin",
+        description: "Vui lòng nhập tên chương và số chương.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for duplicate chapter numbers - exclude current chapter
+    const chapters = Array.isArray(chaptersResp)
+      ? chaptersResp
+      : Array.isArray((chaptersResp as any)?.content)
+        ? (chaptersResp as any).content
+        : [];
+
+    const duplicate = chapters.some(
+      (c: any) =>
+        Number(c.chapterNumber) === Number(chapterNumber) && c.chapterId !== chapter.chapterId && c.isActived !== "INACTIVE"
+    );
+
+    if (duplicate) {
+      toast({
+        title: "Trùng số thứ tự",
+        description: `Đã tồn tại chương số ${chapterNumber} trong sách này. Vui lòng chọn số khác.`,
+        variant: "destructive",
+      });
       return;
     }
 

@@ -9,8 +9,15 @@ import { CartProvider } from "./context/CartContext";
 import { FavoriteProvider } from '@/context/FavoriteContext';
 import { PaymentProvider } from "@/context/PaymentContext";
 import { AuthProvider } from "./context/AuthContext";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { bookService } from "@/services/BookService";
 
 const queryClient = new QueryClient();
+
+const uid = getCurrentUserId();
+if (uid) {
+  bookService.setUserId(uid);
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>

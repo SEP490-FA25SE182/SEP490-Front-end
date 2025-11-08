@@ -1,6 +1,10 @@
+
 import axios , { AxiosError, type AxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "@/config";
 import { resolveFirebaseUrl } from "@/firebase";
+import { API_BASE_URL } from "@/config";
+import { getToken, getCurrentUserId } from "@/utils/authStorage";
+
 
 /* =======================================================
    🧩 INTERFACES
@@ -36,20 +40,30 @@ export interface GetBooksParams {
   size?: number;
   sort?: string[];
   q?: string;
+
   authorId?: string;
   publicationStatus?: number;     // ✅ đổi sang number
   progressStatus?: number;
+
   isActived?: string;
   genreId?: string;
   bookshelfId?: string;
   [key: string]: any;
 }
 
-const AUTH_HEADER = () => ({
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-  },
+// Axios instance: tự gắn Authorization + X-User-Id nếu có
+const api = axios.create({ baseURL: API_BASE_URL });
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  // const uid = getCurrentUserId();  // ❌ tắt tạm để test
+  config.headers = {
+    ...(config.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // ...(uid ? { "X-User-Id": uid } : {}), // ❌ comment tạm
+  };
+  return config;
 });
+
 
 /* =======================================================
    🧩 HÀM CHUẨN HÓA DỮ LIỆU TRƯỚC KHI GỬI

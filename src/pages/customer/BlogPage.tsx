@@ -35,7 +35,7 @@ import {
 } from "@/services/BlogService";
 import { TagService, type Tag } from "@/services/BlogService";
 import { getAllBooks, type Book } from "@/services/BookService";
-import { UploadService } from "@/services/UploadService";
+import { UploadService } from "@/services/FirebaseService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { getUserById, type User } from "@/services/UserService";

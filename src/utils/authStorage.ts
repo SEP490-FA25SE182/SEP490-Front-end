@@ -48,3 +48,17 @@ export function clearAuth() {
   safeRemove(CURRENT_USER_ID_KEY);
   safeRemove(CURRENT_USER_KEY);
 }
+
+
+
+export function getUserRole(): string | null {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  
+  if (user.roleId) {
+    return user.roleId.toLowerCase();
+  }
+
+  return null;
+}

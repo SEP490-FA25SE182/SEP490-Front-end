@@ -10,6 +10,20 @@ import "react-quill-new/dist/quill.snow.css";
 import { useGetPageById, useUpdatePage } from "@/services/BookManageService";
 import { useCreatePageAudio, useSearchAudios } from "@/services/AIService";
 
+/** Helper: chuyển gs://bucket/path -> https download url cho audio preview */
+function gsToHttp(url: string) {
+  if (!url) return "";
+  if (!url.startsWith("gs://")) return url;
+  const withoutGs = url.replace("gs://", "");
+  const parts = withoutGs.split("/");
+  const bucket = parts.shift();
+  const path = parts.join("/");
+  if (!bucket || !path) return url;
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+    path
+  )}?alt=media`;
+}
+
 export default function TextPageCreate() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chapterId, setChapterId] = useState<string>("");
@@ -56,7 +70,8 @@ export default function TextPageCreate() {
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
-        url: a.audioUrl,
+        // convert gs:// -> https so browser can fetch it
+        url: gsToHttp(a.audioUrl),
       }));
 
     setAudioList(activeList);
@@ -187,28 +202,46 @@ export default function TextPageCreate() {
 
             {showAudioForm && (
               <div className="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50 space-y-4">
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
-                  Chọn audio
-                </label>
-                <select
-                  className="w-full border-gray-300 rounded p-2"
-                  value={selectedAudio}
-                  onChange={(e) => setSelectedAudio(e.target.value)}
-                >
-                  <option value="">-- Chọn file audio --</option>
-                  {audioList.map((file) => (
-                    <option key={file.id} value={file.id}>
-                      {file.name}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chọn audio
+                  </label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 focus:ring-2 focus:ring-purple-500"
+                    value={selectedAudio}
+                    onChange={(e) => setSelectedAudio(e.target.value)}
+                  >
+                    <option value="">-- Chọn file audio --</option>
+                    {audioList.map((file) => (
+                      <option key={file.id} value={file.id}>
+                        {file.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {selectedAudio && (
-                  <audio
-                    controls
-                    src={audioList.find((f) => f.id === selectedAudio)?.url || ""}
-                    className="w-full mt-2"
-                  />
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nghe thử
+                    </label>
+                    <audio
+                      key={selectedAudio}
+                      controls
+                      className="w-full"
+                      preload="metadata"
+                    >
+                      <source
+                        src={audioList.find((f) => f.id === selectedAudio)?.url || ""}
+                        type="audio/mpeg"
+                      />
+                      <source
+                        src={audioList.find((f) => f.id === selectedAudio)?.url || ""}
+                        type="audio/wav"
+                      />
+                      Trình duyệt không hỗ trợ phát audio.
+                    </audio>
+                  </div>
                 )}
               </div>
             )}

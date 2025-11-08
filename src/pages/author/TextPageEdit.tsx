@@ -65,6 +65,20 @@ export default function TextPageEdit() {
     }
   }, [pageData]);
 
+  /** Helper: chuyển gs://bucket/path -> https download url cho audio preview */
+  function gsToHttp(url: string) {
+    if (!url) return "";
+    if (!url.startsWith("gs://")) return url;
+    const withoutGs = url.replace("gs://", "");
+    const parts = withoutGs.split("/");
+    const bucket = parts.shift();
+    const path = parts.join("/");
+    if (!bucket || !path) return url;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+      path
+    )}?alt=media`;
+  }
+
   useEffect(() => {
     const audioItems = audiosData ?? [];
 
@@ -73,7 +87,8 @@ export default function TextPageEdit() {
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
-        url: a.audioUrl,
+        // convert gs:// -> https so browser can fetch it
+        url: gsToHttp(a.audioUrl),
       }));
 
     setAudioList(activeList);
@@ -228,7 +243,9 @@ export default function TextPageEdit() {
 
                 {selectedAudio && (
                   <audio
+                    key={selectedAudio}
                     controls
+                    preload="metadata"
                     src={audioList.find((f) => f.id === selectedAudio)?.url || ""}
                     className="w-full mt-2"
                   />

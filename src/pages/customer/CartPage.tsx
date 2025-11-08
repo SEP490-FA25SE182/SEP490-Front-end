@@ -17,20 +17,21 @@ export default function CartPage() {
 
  const handleCheckout = async () => {
   console.log("🟢 handleCheckout bắt đầu");
+
   try {
-    // 🔹 1. Kiểm tra giỏ hàng
+    // 🔹 1. Kiểm tra giỏ hàng hợp lệ
     if (!state?.cartId) {
       toast.error("Không tìm thấy giỏ hàng hiện tại.");
       return;
     }
 
-    // 🔹 2. Lấy thông tin người dùng từ AuthContext
+    // 🔹 2. Kiểm tra người dùng
     if (!user?.email) {
       toast.error("Không tìm thấy thông tin người dùng.");
       return;
     }
 
-    // 🧩 Lấy userId từ email
+    // 🔹 3. Lấy userId từ email
     const userRes = await getUserByEmail(user.email);
     const userId = userRes?.userId;
     if (!userId) {
@@ -38,7 +39,7 @@ export default function CartPage() {
       return;
     }
 
-    // 🪙 3. Lấy ví người dùng theo userId
+    // 🔹 4. Lấy ví người dùng theo userId
     const walletRes = await getWalletByUserId(userId);
     const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
 
@@ -47,33 +48,28 @@ export default function CartPage() {
       return;
     }
 
-    // 💰 4. Tính toán tổng tiền
-    const totalPrice = state.lines.reduce(
-      (sum, line) => sum + (line.price || 0) * line.qty,
-      0
-    );
+    // 🪙 5. (Tuỳ chọn) Hỏi người dùng có muốn dùng điểm xu để giảm giá không
+    // 👉 Tạm thời đặt mặc định là false, bạn có thể thay bằng checkbox hoặc dialog xác nhận
+    const usePoints = false;
 
-    // 🧾 5. Chuẩn bị payload
-    const orderPayload = {
-      amount: state.lines.length,
-      totalPrice,
-      status: 1, // PENDING
+    // 🚀 6. Gọi API tạo order từ cart
+    console.log("📦 Gọi API tạo order từ cart:", {
       cartId: state.cartId,
       walletId: wallet.walletId,
-    };
+      usePoints,
+    });
 
-    console.log("📦 Payload tạo order:", orderPayload);
-
-    // 🚀 6. Gọi API tạo order
-    const order = await OrderService.createOrder(orderPayload);
-    const orderId = order?.orderId;
-
-    if (!orderId) {
+    const order = await OrderService.createOrderFromCart(
+      state.cartId,
+      wallet.walletId,
+      usePoints
+    );
+    
+    if (!order?.orderId) {
       throw new Error("Không nhận được orderId từ backend.");
     }
 
     console.log("✅ Order tạo thành công:", order);
-
     toast.success("Đơn hàng đã được tạo thành công!");
 
     // 🔁 7. Điều hướng sang trang Checkout
@@ -90,6 +86,7 @@ export default function CartPage() {
     toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
   }
 };
+
 
 
   return (

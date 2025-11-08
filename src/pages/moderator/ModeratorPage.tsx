@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getAllBooks, updateBook, type Book } from "@/services/BookService";
+import { getAllBooks, updateBookStatusFull, type Book } from "@/services/BookService";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
@@ -32,34 +32,40 @@ export default function ModeratorBooksPage() {
   };
 
   /* ✅ Hàm xử lý duyệt / từ chối (FE clone JSON đầy đủ, chỉ đổi status) */
-  const handleModerate = async (book: Book, newStatus: number) => {
-  const message = reasons[book.bookId] || "";
+  const handleModerate = async (
+  book: Book,
+  newStatus: number,
+  options?: {
+    reasons?: Record<string, string>;
+    setBooks?: React.Dispatch<React.SetStateAction<Book[]>>;
+  }
+) => {
+  const { reasons = {}, setBooks } = options ?? {};
+  const message = reasons[book.bookId] ?? "";
   const action = newStatus === 1 ? "Duyệt" : "Từ chối";
 
-  if (!confirm(`Bạn có chắc chắn muốn ${action.toLowerCase()} sách "${book.bookName}" không?`)) {
+  if (
+    !window.confirm(
+      `Bạn có chắc chắn muốn ${action.toLowerCase()} sách "${book.bookName}" không?`
+    )
+  ) {
     return;
   }
 
   try {
-    // 🧩 Gửi đúng "gs://" vì backend cần URL gốc
-    const updatedBook = {
-      bookName: book.bookName || "Không có tên",
-      coverUrl: book.coverUrl, // giữ nguyên gs://
-      decription: book.decription || "",
-      authorId: book.authorId || "00000000-0000-0000-0000-000000000000",
-      price: book.price !== null && book.price !== undefined ? book.price : 0.0,
-      progressStatus: Number(book.progressStatus ?? 0),
-      publicationStatus: Number(newStatus),
-      publishedDate: book.publishedDate || new Date().toISOString(),
-    };
-
+    // Log gọn: không còn body, chỉ gửi query param
     console.groupCollapsed(
-      `📤 Payload gửi lên khi ${action.toLowerCase()} "${book.bookName}"`
+      `📤 Gọi PATCH khi ${action.toLowerCase()} "${book.bookName}"`
     );
-    console.table(updatedBook);
+    console.table({
+      endpoint: `/api/rookie/users/books/${book.bookId}/publication-status`,
+      publicationStatus: newStatus,
+      note: "Gửi dạng query param; không có request body",
+      uiMessage: message || "(không gửi lên BE)",
+    });
     console.groupEnd();
 
-    await updateBook(book.bookId, updatedBook);
+    await updateBookStatusFull(book, newStatus, message);
 
     toast.success(
       newStatus === 1
@@ -67,17 +73,19 @@ export default function ModeratorBooksPage() {
         : `🚫 Đã từ chối "${book.bookName}".`
     );
 
-    setBooks((prev) => prev.filter((b) => b.bookId !== book.bookId));
+    if (setBooks) {
+      setBooks((prev) => prev.filter((b) => b.bookId !== book.bookId));
+    }
   } catch (error: any) {
     console.error("❌ Lỗi khi cập nhật:", error);
-    if (error.response) {
+    if (error?.response) {
       console.error("📥 BE trả về:", error.response.data);
     }
     toast.error(
       error?.response?.data?.message || "Cập nhật thất bại. Vui lòng thử lại."
     );
   }
-};
+  };
 
 
 

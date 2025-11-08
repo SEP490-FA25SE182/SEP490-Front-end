@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios , { AxiosError, type AxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "@/config";
 import { resolveFirebaseUrl } from "@/firebase";
 
@@ -11,8 +11,8 @@ export interface Book {
   coverUrl: string;
   decription: string;
   authorId: string | null;
-  progressStatus: number;          // ✅ đổi sang number
-  publicationStatus: number;       // ✅ đổi sang number (đúng với BE enum byte)
+  progressStatus: number;         
+  publicationStatus: number;
   isActived: string;
   createdAt: string;
   updatedAt: string;
@@ -158,22 +158,59 @@ export const deleteBook = async (id: string): Promise<void> => {
 export const updateBookStatusFull = async (
   book: Book,
   newStatus: number,
-  message?: string
+  _message?: string
 ): Promise<Book> => {
-  // 🧠 FE sẽ gửi toàn bộ JSON đầy đủ như BookRequestDTO yêu cầu
-  const updatedBook = {
-    ...book,
-    publicationStatus: newStatus,
-    updatedAt: new Date().toISOString(),
-    message: message || "",
+  if (!book?.bookId?.trim()) throw new Error("book.bookId is required");
+  if (!Number.isFinite(newStatus)) throw new Error("publicationStatus must be a number");
+
+  const url = `${API_BASE_URL}/users/books/${book.bookId}/publication-status`;
+
+  // Only query params (no body)
+  const config: AxiosRequestConfig = {
+    ...AUTH_HEADER(),
+    params: { publicationStatus: newStatus },
   };
 
-  const res = await axios.put(
-    `${API_BASE_URL}/users/books/${book.bookId}`,
-    updatedBook,
-    AUTH_HEADER()
-  );
-
-  return res.data;
+  try {
+    const res = await axios.patch<Book>(url, undefined, config);
+    return res.data;
+  } catch (err) {
+    const e = err as AxiosError<unknown>;
+    // Why: bật mí chi tiết lỗi từ server để debug nhanh
+    const detail =
+      e.response?.data ?? { message: e.message, status: e.response?.status };
+    throw new Error(
+      `PATCH publication status failed (bookId=${book.bookId}): ${JSON.stringify(detail)}`
+    );
+  }
 };
 
+/* =======================================================
+   🧩 TÌM SÁCH THEO TÊN (DÙNG CHO GỢI Ý HASHTAG)
+======================================================= */
+export const searchByTitle = async (keyword: string): Promise<Book[]> => {
+  if (!keyword.trim()) return [];
+
+  try {
+    // Gọi API gốc, backend có param q hoặc bookName tùy bạn map
+    const res = await axios.get<PagedResponse<Book>>(`${API_BASE_URL}/users/books`, {
+      params: { q: keyword, size: 10 },
+      ...AUTH_HEADER(),
+    });
+
+    const books = res.data.content || [];
+
+    // Chuyển đổi URL Firebase (nếu có)
+    const converted = await Promise.all(
+      books.map(async (book) => ({
+        ...book,
+        coverUrl: await resolveFirebaseUrl(book.coverUrl),
+      }))
+    );
+
+    return converted;
+  } catch (err) {
+    console.error("❌ Lỗi khi tìm sách:", err);
+    return [];
+  }
+};

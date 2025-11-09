@@ -13,6 +13,7 @@ export interface User {
   roleId: string;
   isActived: string;
   createdAt?: string;
+  royalty?: number;
 }
 
 export interface CreateUserRequest {

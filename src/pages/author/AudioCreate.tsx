@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -8,6 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useGenerateTTS } from "@/services/AIService";
+import { useAuth } from "@/context/AuthContext";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { getUserByEmail } from "@/services/UserService";
 
 const VOICE_OPTIONS = [
   { name: "Zephyr",        desc: "Sáng, tông cao" },
@@ -63,7 +66,40 @@ export default function AudioCreate() {
   const { chapterId } = useParams<{ chapterId?: string }>();
   const generateTTS = useGenerateTTS();
 
-  const getUserId = () => localStorage.getItem("userId") || "1";
+  // --- NEW: lấy authorId tương tự BookCreationWizard / ImageCreate ---
+  const { user } = useAuth();
+  const [authorId, setAuthorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAuthorId = async () => {
+      try {
+        const uidFromStorage = getCurrentUserId();
+        if (uidFromStorage) {
+          setAuthorId(uidFromStorage);
+          return;
+        }
+
+        if (user?.userId) {
+          setAuthorId(user.userId);
+          return;
+        }
+
+        if (user?.email) {
+          const currentUser = await getUserByEmail(user.email);
+          if (currentUser?.userId) {
+            setAuthorId(currentUser.userId);
+            return;
+          }
+        }
+
+        // Không lấy được thì authorId sẽ null -> khi submit sẽ báo
+      } catch (error) {
+        console.error("❌ Lỗi khi xác định authorId:", error);
+      }
+    };
+
+    fetchAuthorId();
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!audioData.text.trim()) {
@@ -75,9 +111,18 @@ export default function AudioCreate() {
       return;
     }
 
+    if (!authorId) {
+      toast({
+        title: "Không tìm thấy tác giả",
+        description: "Không thể xác định authorId. Vui lòng đăng nhập lại.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await generateTTS.mutateAsync({
-        userId: getUserId(),
+        userId: authorId,
         meta: {
           text: audioData.text,
           voiceName: audioData.voiceName,

@@ -9,6 +9,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
 
 export default function BookCreationWizard() {
+  // --- limits
+  const MAX_TITLE = 50;
+  const MAX_COVER = 100;
+  const MAX_DESC = 250;
+
   const [book, setBook] = useState({
     bookName: "",
     coverUrl: "",
@@ -27,32 +32,33 @@ export default function BookCreationWizard() {
       try {
         // 1) Ưu tiên lấy từ localStorage (authStorage)
         const uidFromStorage = getCurrentUserId();
-    if (uidFromStorage) {
-      setBook(prev => ({ ...prev, authorId: uidFromStorage }));
-      return;
-    }
+        if (uidFromStorage) {
+          setBook((prev) => ({ ...prev, authorId: uidFromStorage }));
+          return;
+        }
 
-    // 2) từ AuthContext
-    if (user?.userId) {
-      const uid: string = user.userId;   // 👈 thu hẹp kiểu tại đây
-      setBook(prev => ({ ...prev, authorId: uid }));
-      return;
-    }
+        // 2) từ AuthContext
+        if (user?.userId) {
+          const uid: string = user.userId; // 👈 thu hẹp kiểu tại đây
+          setBook((prev) => ({ ...prev, authorId: uid }));
+          return;
+        }
 
-    // 3) fallback theo email
-    if (user?.email) {
-      const currentUser = await getUserByEmail(user.email);
-      if (currentUser?.userId) {
-        const uid: string = currentUser.userId; // 👈 cũng thu hẹp
-        setBook(prev => ({ ...prev, authorId: uid }));
-        return;
-      }
-    }
+        // 3) fallback theo email
+        if (user?.email) {
+          const currentUser = await getUserByEmail(user.email);
+          if (currentUser?.userId) {
+            const uid: string = currentUser.userId; // 👈 cũng thu hẹp
+            setBook((prev) => ({ ...prev, authorId: uid }));
+            return;
+          }
+        }
 
         // Không tìm được authorId
         toast({
           title: "Không tìm thấy tác giả",
-          description: "Không xác định được tài khoản hiện tại. Vui lòng đăng nhập lại.",
+          description:
+            "Không xác định được tài khoản hiện tại. Vui lòng đăng nhập lại.",
           variant: "destructive",
         });
       } catch (error) {
@@ -69,11 +75,37 @@ export default function BookCreationWizard() {
     // chỉ phụ thuộc vào user (không còn roles)
   }, [user, toast]);
 
+  const validateLengths = () => {
+    const errors: string[] = [];
+    if ((book.bookName ?? "").length > MAX_TITLE) {
+      errors.push(`Tên sách (max ${MAX_TITLE} ký tự)`);
+    }
+    if ((book.coverUrl ?? "").length > MAX_COVER) {
+      errors.push(`Link ảnh bìa (max ${MAX_COVER} ký tự)`);
+    }
+    if ((book.decription ?? "").length > MAX_DESC) {
+      errors.push(`Mô tả (max ${MAX_DESC} ký tự)`);
+    }
+    return errors;
+  };
+
   const handleCreateBook = async () => {
     if (!book.bookName?.trim() || !book.decription?.trim()) {
       toast({
         title: "Thiếu thông tin",
         description: "Vui lòng nhập tên sách và mô tả.",
+      });
+      return;
+    }
+
+    const lengthErrors = validateLengths();
+    if (lengthErrors.length > 0) {
+      toast({
+        title: "Vượt giới hạn ký tự",
+        description: `Các trường sau vượt giới hạn: ${lengthErrors.join(
+          ", "
+        )}.`,
+        variant: "destructive",
       });
       return;
     }
@@ -106,6 +138,17 @@ export default function BookCreationWizard() {
     }
   };
 
+  const titleTooLong = (book.bookName ?? "").length > MAX_TITLE;
+  const coverTooLong = (book.coverUrl ?? "").length > MAX_COVER;
+  const descTooLong = (book.decription ?? "").length > MAX_DESC;
+
+  const disableSave =
+    !book.bookName?.trim() ||
+    !book.decription?.trim() ||
+    titleTooLong ||
+    coverTooLong ||
+    descTooLong;
+
   return (
     <div>
       <div className="mb-4 flex justify-between items-center">
@@ -119,6 +162,21 @@ export default function BookCreationWizard() {
           onChange={(e) => setBook({ ...book, bookName: e.target.value })}
           className="bg-transparent border-white/20 text-white"
         />
+        <div className="flex justify-between text-xs mt-1">
+          <div
+            className={`text-gray-400 ${
+              titleTooLong ? "text-red-400" : ""
+            }`}
+          >
+            {" "}
+            {(book.bookName ?? "").length} / {MAX_TITLE}
+          </div>
+          {titleTooLong && (
+            <div className="text-red-400">
+              Vượt tối đa {MAX_TITLE} ký tự
+            </div>
+          )}
+        </div>
 
         <Input
           placeholder="Link ảnh bìa (coverUrl)"
@@ -126,6 +184,21 @@ export default function BookCreationWizard() {
           onChange={(e) => setBook({ ...book, coverUrl: e.target.value })}
           className="bg-transparent border-white/20 text-white"
         />
+        <div className="flex justify-between text-xs mt-1">
+          <div
+            className={`text-gray-400 ${
+              coverTooLong ? "text-red-400" : ""
+            }`}
+          >
+            {" "}
+            {(book.coverUrl ?? "").length} / {MAX_COVER}
+          </div>
+          {coverTooLong && (
+            <div className="text-red-400">
+              Vượt tối đa {MAX_COVER} ký tự
+            </div>
+          )}
+        </div>
 
         {book.coverUrl && (
           <div className="flex justify-center">
@@ -148,8 +221,27 @@ export default function BookCreationWizard() {
           onChange={(e) => setBook({ ...book, decription: e.target.value })}
           className="bg-transparent border-white/20 text-white"
         />
+        <div className="flex justify-between text-xs mt-1">
+          <div
+            className={`text-gray-400 ${
+              descTooLong ? "text-red-400" : ""
+            }`}
+          >
+            {" "}
+            {(book.decription ?? "").length} / {MAX_DESC}
+          </div>
+          {descTooLong && (
+            <div className="text-red-400">
+              Vượt tối đa {MAX_DESC} ký tự
+            </div>
+          )}
+        </div>
 
-        <Button onClick={handleCreateBook} className="bg-purple-600 hover:bg-purple-700 w-full">
+        <Button
+          onClick={handleCreateBook}
+          className="bg-purple-600 hover:bg-purple-700 w-full"
+          disabled={disableSave}
+        >
           Lưu
         </Button>
       </div>

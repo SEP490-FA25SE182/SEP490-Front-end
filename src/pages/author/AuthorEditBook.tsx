@@ -3,10 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getBookById, updateBook, deleteBook } from "@/services/BookService";
+import { getBookById, updateBook } from "@/services/BookService";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Trash2 } from "lucide-react";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogDescription } from "@/components/ui/alert-dialog";
+import { ArrowLeft } from "lucide-react";
 
 export default function AuthorEditBook() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -22,8 +21,6 @@ export default function AuthorEditBook() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
-  const [openDeleteAlert, setOpenDeleteAlert] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!bookId) return;
@@ -90,29 +87,6 @@ export default function AuthorEditBook() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!bookId) return;
-    setIsDeleting(true);
-    try {
-      await deleteBook(bookId);
-      toast({
-        title: "Xóa thành công",
-        description: `Sách "${book.bookName}" đã được xóa.`,
-      });
-      navigate("/author/authorbooklist");
-    } catch (err) {
-      console.error("Xóa thất bại:", err);
-      toast({
-        title: "Lỗi",
-        description: "Không thể xóa sách.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setOpenDeleteAlert(false);
-    }
-  };
-
   return (
     <div className="flex h-screen bg-[#1a1a2e] text-white">
       <AuthorSidebar isOpen={sidebarOpen} />
@@ -129,11 +103,8 @@ export default function AuthorEditBook() {
             </Button>
             <h1 className="text-xl font-semibold text-white">Chỉnh sửa sách</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="destructive" onClick={() => setOpenDeleteAlert(true)}>
-              <Trash2 className="w-4 h-4 mr-2" /> Xóa
-            </Button>
-          </div>
+
+          {/* header right removed - back button moved to footer */}
         </header>
 
         <div className="flex flex-1">
@@ -201,37 +172,29 @@ export default function AuthorEditBook() {
                     {descTooLong && <div className="text-red-400">Vượt tối đa {MAX_DESC} ký tự</div>}
                   </div>
 
-                  <Button
-                    onClick={handleSave}
-                    className="bg-purple-600 hover:bg-purple-700 w-full"
-                    disabled={disableSave || isSaving}
-                  >
-                    {isSaving ? "Đang lưu..." : "Lưu"}
-                  </Button>
+                  {/* Footer buttons — same layout as ImageCreate (Hủy | Upload) */}
+                  <div className="flex gap-4 mt-8">
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-gray-600 hover:bg-gray-100"
+                      onClick={() => navigate("/author/authorbooklist")}
+                    >
+                      Quay về
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                      disabled={disableSave || isSaving}
+                    >
+                      {isSaving ? "Đang lưu..." : "Lưu"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Delete confirmation */}
-      <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa sách</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn xóa sách "{book?.bookName}"? Hành động này không thể hoàn tác.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>Huỷ</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Đang xóa..." : "Xóa"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

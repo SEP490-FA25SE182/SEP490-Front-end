@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Menu, X, Eye, Edit, Trash2, Search, MoreVertical } from "lucide-react";
+import { Menu, X, Eye, Edit, Trash2, Search, MoreVertical, Image, AudioLines, Box, StickyNote, Plus } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,10 +34,15 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { PageCreateDialog } from "@/components/dialog/PageCreateDialog";
+import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
+import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(undefined);
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -178,18 +183,21 @@ const AuthorPageList = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                    + Tạo trang mới
+                    <Plus className="w-4 h-4 mr-2" /> Các thao tác
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setOpenCreateDialog(true)}>
-                    Tạo trang trống
+                    <StickyNote className="w-4 h-4 mr-2" /> Tạo trang trống
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
-                    Tạo ảnh
+                    <Image className="w-4 h-4 mr-2" /> Tạo ảnh
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-audio`)}>
-                    Tạo audio
+                    <AudioLines className="w-4 h-4 mr-2" /> Tạo audio
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMarkerDialogOpen(true)}>
+                    <Box className="w-4 h-4 mr-2" /> Tạo model 3D
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -356,6 +364,32 @@ const AuthorPageList = () => {
         chapterId={chapterId}
         onCreated={async () => {
           await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+        }}
+      />
+
+      {/* Marker create dialog (opened from dropdown) */}
+      <MarkerCreateDialog
+        isOpen={markerDialogOpen}
+        onClose={() => setMarkerDialogOpen(false)}
+        onCreated={async (created) => {
+          await queryClient.invalidateQueries({ queryKey: ["markers", "all"] });
+          setMarkerDialogOpen(false);
+          // open 3D asset dialog with created markerId
+          if (created?.markerId) {
+            setSelectedMarkerId(created.markerId);
+            setAssetDialogOpen(true);
+          }
+        }}
+      />
+
+      {/* 3D asset create dialog */}
+      <Asset3DCreateDialog
+        isOpen={assetDialogOpen}
+        onClose={() => setAssetDialogOpen(false)}
+        markerId={selectedMarkerId}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["asset3d", "search"] });
+          setAssetDialogOpen(false);
         }}
       />
 

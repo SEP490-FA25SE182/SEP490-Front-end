@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetPageById } from "@/services/BookManageService";
 import { useState } from "react";
-import { Menu, X, ArrowLeft } from "lucide-react";
+import { Menu, X, ArrowLeft, Image, CaseSensitive, Plus } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,19 +89,19 @@ const AuthorPageDetail = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                        + Tạo nội dung trang
+                        <Plus className="w-4 h-4 mr-2" /> Tạo nội dung trang
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => navigate(`/author/pages/${pageId}/edit-text`)}
                       >
-                        Tạo nội dung chữ
+                        <CaseSensitive className="w-4 h-4 mr-2" /> Tạo nội dung chữ
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => navigate(`/author/pages/${pageId}/edit-image`)}
                       >
-                        Tạo nội dung ảnh
+                        <Image className="w-4 h-4 mr-2" /> Tạo nội dung ảnh
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

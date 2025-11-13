@@ -28,12 +28,14 @@ import AuthorPageDetail from "./pages/author/AuthorPageDetail";
 import ImagePageCreate from "./pages/author/ImagePageCreate";
 import TextPageEdit from "./pages/author/TextPageEdit";
 import ImagePageEdit from "./pages/author/ImagePageEdit";
+import AuthorModelView from "./pages/author/AuthorModelView";
 
 import AdminDashboardPage from "./pages/admin/AdminDashboard";
 
 import CustomerLayout from "./layouts/CustomerLayout";
 import UserManagementPage from "./pages/admin/UserManagement";
 import OrderManagementPage from "./pages/admin/OrderManagement";
+
 import ModeratorBooksPage from "./pages/moderator/ModeratorPage";
 
 export default function AppRouter() {
@@ -68,6 +70,7 @@ export default function AppRouter() {
       <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImageCreate />} />
       <Route path="/author/chapters/:chapterId/pages/create-audio" element={<AudioCreate />} />
       <Route path="/author/page/:pageId" element={<AuthorPageDetail />} />
+      <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
 
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />

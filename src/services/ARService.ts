@@ -10,8 +10,11 @@ export interface Marker {
   markerCode: string;
   markerType: string;
   imageUrl?: string;
-  // API response example doesn't include isActived/userId/updatedAt — keep optional fields minimal
+  physicalWidthM?: number;      // new
+  printablePdfUrl?: string;     // new
+  isActived?: string;           // new (e.g. "ACTIVE")
   createdAt?: string;
+  updatedAt?: string;           // new
 }
 
 export interface MarkerSearchParams {
@@ -164,6 +167,8 @@ export interface Asset3D {
   fileSize?: number;
   scale?: number | null;
   createdAt?: string;
+  isActived?: string;           // new (e.g. "ACTIVE")
+  updatedAt?: string;           // optional, added for completeness
 }
 
 export interface Asset3DSearchParams {
@@ -335,5 +340,205 @@ export const useGetLatestAsset3D = (markerId?: string, limit: number = 3) => {
     queryKey: ["asset3d", "latest", markerId, limit],
     queryFn: () => getLatestAsset3D(markerId as string, limit),
     enabled: !!markerId,
+  });
+};
+
+/* ====================== AR SCENES (ar-scenes) ====================== */
+
+export interface ARScene {
+  arSceneId?: string;
+  markerId?: string;
+  name?: string;
+  description?: string;
+  version?: number;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ARSceneSearchParams {
+  markerId?: string;
+  status?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}
+
+/** POST /ar-scenes */
+export const createARScene = async (data: ARScene): Promise<ARScene> => {
+  const response = await axios.post(`${API_BASE_URL}/ar-scenes`, data);
+  return response.data;
+};
+
+/** GET /ar-scenes/{id} */
+export const getARSceneById = async (id: string): Promise<ARScene> => {
+  const response = await axios.get(`${API_BASE_URL}/ar-scenes/${id}`);
+  return response.data;
+};
+
+/** PUT /ar-scenes/{id} */
+export const updateARScene = async (id: string, data: ARScene): Promise<ARScene> => {
+  const response = await axios.put(`${API_BASE_URL}/ar-scenes/${id}`, data);
+  return response.data;
+};
+
+/** DELETE /ar-scenes/{id} */
+export const deleteARScene = async (id: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/ar-scenes/${id}`);
+};
+
+/** GET /ar-scenes/search */
+export const searchARScenes = async (
+  params?: ARSceneSearchParams
+): Promise<PagedResponse<ARScene>> => {
+  const response = await axios.get(`${API_BASE_URL}/ar-scenes/search`, { params });
+  return response.data;
+};
+
+/* ====================== REACT QUERY HOOKS FOR AR SCENES ====================== */
+
+export const useCreateARScene = () => {
+  return useMutation({
+    mutationFn: (data: ARScene) => createARScene(data),
+  });
+};
+
+export const useGetARSceneById = (id?: string) => {
+  return useQuery({
+    queryKey: ["ar-scenes", id],
+    queryFn: () => getARSceneById(id as string),
+    enabled: !!id,
+  });
+};
+
+export const useUpdateARScene = () => {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ARScene }) =>
+      updateARScene(id, data),
+  });
+};
+
+export const useDeleteARScene = () => {
+  return useMutation({
+    mutationFn: (id: string) => deleteARScene(id),
+  });
+};
+
+export const useSearchARScenes = (params?: ARSceneSearchParams) => {
+  return useQuery({
+    queryKey: ["ar-scenes", "search", params],
+    queryFn: () => searchARScenes(params),
+  });
+};
+
+/* ====================== AR SCENE ITEMS (ar-scene-items) ====================== */
+
+export interface ARSceneItem {
+  id?: string;
+  sceneId?: string;
+  asset3DId?: string;
+  orderIndex?: number;
+  posX?: number;
+  posY?: number;
+  posZ?: number;
+  rotX?: number;
+  rotY?: number;
+  rotZ?: number;
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  behaviorJson?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ARSceneItemSearchParams {
+  sceneId?: string;
+  asset3dId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}
+
+/** POST /ar-scenes/ar-scene-items  (bulk create) */
+export const createARSceneItems = async (
+  items: ARSceneItem[]
+): Promise<ARSceneItem[]> => {
+  const response = await axios.post(
+    `${API_BASE_URL}/ar-scenes/ar-scene-items`,
+    items
+  );
+  return response.data;
+};
+
+/** GET /ar-scenes/ar-scene-items/{id} */
+export const getARSceneItemById = async (id: string): Promise<ARSceneItem> => {
+  const response = await axios.get(
+    `${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`
+  );
+  return response.data;
+};
+
+/** PUT /ar-scenes/ar-scene-items/{id} */
+export const updateARSceneItem = async (
+  id: string,
+  data: ARSceneItem
+): Promise<ARSceneItem> => {
+  const response = await axios.put(
+    `${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`,
+    data
+  );
+  return response.data;
+};
+
+/** DELETE /ar-scenes/ar-scene-items/{id} */
+export const deleteARSceneItem = async (id: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`);
+};
+
+/** GET /ar-scenes/ar-scene-items/search */
+export const searchARSceneItems = async (
+  params?: ARSceneItemSearchParams
+): Promise<PagedResponse<ARSceneItem>> => {
+  const response = await axios.get(
+    `${API_BASE_URL}/ar-scenes/ar-scene-items/search`,
+    { params }
+  );
+  return response.data;
+};
+
+/* ====================== REACT QUERY HOOKS FOR AR SCENE ITEMS ====================== */
+
+export const useCreateARSceneItems = () => {
+  return useMutation({
+    mutationFn: (items: ARSceneItem[]) => createARSceneItems(items),
+  });
+};
+
+export const useGetARSceneItemById = (id?: string) => {
+  return useQuery({
+    queryKey: ["ar-scene-items", id],
+    queryFn: () => getARSceneItemById(id as string),
+    enabled: !!id,
+  });
+};
+
+export const useUpdateARSceneItem = () => {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ARSceneItem }) =>
+      updateARSceneItem(id, data),
+  });
+};
+
+export const useDeleteARSceneItem = () => {
+  return useMutation({
+    mutationFn: (id: string) => deleteARSceneItem(id),
+  });
+};
+
+export const useSearchARSceneItems = (params?: ARSceneItemSearchParams) => {
+  return useQuery({
+    queryKey: ["ar-scene-items", "search", params],
+    queryFn: () => searchARSceneItems(params),
   });
 };

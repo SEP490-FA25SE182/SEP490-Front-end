@@ -1,88 +1,95 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useCreateMarker, useGetAllMarkers, type Marker } from "@/services/ARService";
 import { useToast } from "@/components/ui/use-toast";
+import { UploadService } from "@/services/FirebaseService";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  // onCreated now provides created marker so caller can open 3D dialog automatically
+  // kept for compatibility but not used to open 3D dialog anymore
   onCreated?: (marker?: Marker) => void;
 }
 
-const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
+const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const [markerCode, setMarkerCode] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const createMarker = useCreateMarker();
   const { data: markers } = useGetAllMarkers();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setMarkerCode("");
-      setImageUrl("");
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setUploading(false);
     }
   }, [isOpen]);
+
+  // revoke object URL when preview changes to avoid memory leak
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        try { URL.revokeObjectURL(previewUrl); } catch {}
+      }
+    };
+  }, [previewUrl]);
 
   const normalizeCode = (code: string) =>
     code
       .trim()
-      .replace(/\s+/g, "-") // spaces -> hyphens
-      .replace(/[^a-zA-Z0-9\-]/g, "") // remove invalid chars
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9\-]/g, "")
       .toLowerCase();
 
-  // Kiểm tra URL có chứa "qr code" theo nhiều dạng (qrcode, qr-code, qr_code, "qr code", ...)
-  const containsQrText = (url: string) => {
-    if (!url) return false;
-    return /qr[\s\-_]?code|qrcode/i.test(url);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      return;
+    }
+    setSelectedFile(file);
+    try {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    } catch {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleChooseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveFile = () => {
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async () => {
-    // length validation
+    // basic validations
     if (markerCode.trim().length > 50) {
-      toast({
-        title: "Marker code quá dài",
-        description: "Marker code tối đa 50 ký tự.",
-        variant: "destructive",
-      });
+      toast({ title: "Marker code quá dài", description: "Marker code tối đa 50 ký tự.", variant: "destructive" });
       return;
     }
-    if (imageUrl.trim().length > 300) {
-      toast({
-        title: "URL ảnh quá dài",
-        description: "Image URL tối đa 300 ký tự.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!markerCode.trim()) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Vui lòng nhập markerCode.",
-        variant: "destructive",
-      });
+      toast({ title: "Thiếu thông tin", description: "Vui lòng nhập markerCode.", variant: "destructive" });
       return;
     }
-    if (!imageUrl.trim()) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Vui lòng nhập imageUrl.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Yêu cầu url phải có chuỗi "qr code" (bất kỳ định dạng)
-    if (!containsQrText(imageUrl.trim())) {
-      toast({
-        title: "URL không hợp lệ",
-        description: "URL ảnh phải chứa chữ 'qr code' (ví dụ: qrcode, qr-code, qr_code, 'qr code').",
-        variant: "destructive",
-      });
+    if (!selectedFile) {
+      toast({ title: "Thiếu ảnh", description: "Vui lòng chọn file ảnh để làm marker.", variant: "destructive" });
       return;
     }
 
@@ -93,36 +100,29 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => 
       : undefined;
 
     if (existing) {
-      toast({
-        title: "Trùng markerCode",
-        description: `Marker với mã "${normalized}" đã tồn tại.`,
-        variant: "destructive",
-      });
+      toast({ title: "Trùng markerCode", description: `Marker với mã "${normalized}" đã tồn tại.`, variant: "destructive" });
       return;
     }
 
     try {
-      const created = await createMarker.mutateAsync({
+      setUploading(true);
+      // upload to firebase under folder "marker"
+      const gsUrl = await UploadService.uploadImageToFirebase(selectedFile, "marker");
+
+      // create marker with returned gs:// url
+      await createMarker.mutateAsync({
         markerCode: normalized,
-        markerType: "fiducial", // hidden default as requested
-        imageUrl: imageUrl.trim(),
+        markerType: "fiducial",
+        imageUrl: gsUrl,
       });
 
-      toast({
-        title: "Tạo marker thành công",
-        description: `Marker “${normalized}” đã được tạo.`,
-      });
-
-      // provide created marker to caller so it can auto-open 3D dialog and pass markerId
-      onCreated?.(created);
+      toast({ title: "Tạo marker thành công", description: `Marker "${normalized}" đã được tạo.` });
       onClose();
     } catch (err) {
       console.error("Tạo marker thất bại:", err);
-      toast({
-        title: "Tạo marker thất bại",
-        description: "Đã xảy ra lỗi. Vui lòng thử lại.",
-        variant: "destructive",
-      });
+      toast({ title: "Tạo marker thất bại", description: "Đã xảy ra lỗi. Vui lòng thử lại.", variant: "destructive" });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -136,28 +136,53 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => 
         <div className="space-y-3 mt-2">
           <div>
             <Label className="mb-2">Marker Code (dùng gạch ngang thay space)</Label>
-            <Input
-              value={markerCode}
-              onChange={(e) => setMarkerCode(e.target.value)}
-              placeholder="ví dụ: book-1"
-            />
+            <Input value={markerCode} onChange={(e) => setMarkerCode(e.target.value)} placeholder="ví dụ: book-1" />
           </div>
 
           <div>
-            <Label className="mb-2">URL Ảnh</Label>
-            <Input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="URL ảnh (ảnh của QR code)"
-            />
-          </div>
+            <Label className="mb-2">Ảnh Marker (upload từ máy)</Label>
 
-          {/* markerType is hidden and defaulted to 'fiducial' */}
+            {/* hidden native input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {/* visible prominent button */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleChooseClick}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Chọn ảnh marker
+              </Button>
+
+              {selectedFile && (
+                <Button variant="ghost" onClick={handleRemoveFile} className="text-red-400">
+                  Bỏ
+                </Button>
+              )}
+            </div>
+
+            {/* preview */}
+            {previewUrl && (
+              <div className="mt-3">
+                <div className="w-40 h-24 rounded overflow-hidden border">
+                  <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={onClose} className="mr-2">Huỷ</Button>
-          <Button onClick={handleSubmit}>Tạo marker</Button>
+          <Button onClick={handleSubmit} disabled={uploading || createMarker.isPending} className="bg-purple-600 hover:bg-purple-700 text-white">
+            {uploading || createMarker.isPending ? "Đang xử lý..." : "Tạo marker"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

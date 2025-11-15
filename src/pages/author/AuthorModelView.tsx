@@ -5,12 +5,19 @@ import { Unity, useUnityContext } from "react-unity-webgl";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { useGetMarkerById, useUploadAsset3D, useCreateARScene, useCreateARSceneItems } from "@/services/ARService";
+import {
+  useGetMarkerById,
+  useUploadAsset3D,
+  useCreateARScene,
+  useCreateARSceneItems,
+} from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [leftToolPanel, setLeftToolPanel] = useState<null | "image" | "model">(null);
+  const [leftToolPanel, setLeftToolPanel] = useState<null | "image" | "model">(
+    null
+  );
   const [activeTab, setActiveTab] = useState<"marker" | "model">("marker");
   const [assetDialogOpenLocal, setAssetDialogOpenLocal] = useState(false);
 
@@ -42,7 +49,8 @@ export default function AuthorModelView() {
   const { toast } = useToast();
 
   // fetch marker detail (will run if markerId exists)
-  const { data: markerDetail, isLoading: loadingMarker } = useGetMarkerById(markerId);
+  const { data: markerDetail, isLoading: loadingMarker } =
+    useGetMarkerById(markerId);
 
   // upload + scene hooks
   const uploadMut = useUploadAsset3D();
@@ -54,14 +62,20 @@ export default function AuthorModelView() {
     "https://firebasestorage.googleapis.com/v0/b/YOUR_BUCKET/o/models%2Fcharacter1.glb?alt=media";
 
   // Cấu hình Unity build
-  const { unityProvider, sendMessage, isLoaded, addEventListener, removeEventListener } = useUnityContext({
-    loaderUrl: "/build/webgl/RookieAr.loader.js",
-    dataUrl: "/build/webgl/RookieAr.data.unityweb",
-    frameworkUrl: "/build/webgl/RookieAr.framework.js.unityweb",
-    codeUrl: "/build/webgl/RookieAr.wasm.unityweb",
+  const {
+    unityProvider,
+    sendMessage,
+    isLoaded,
+    addEventListener,
+    removeEventListener,
+  } = useUnityContext({
+    loaderUrl: "/build/webgl/Build.loader.js",
+    dataUrl: "/build/webgl/Build.data.br",
+    frameworkUrl: "/build/webgl/Build.framework.js.br",
+    codeUrl: "/build/webgl/Build.wasm.br",
   });
 
-  // Khi Unity đã load xong thì gửi URL model vào Unity
+  // Khi Unity đã load xong thì gửi URL model vào Unity (demo)
   useEffect(() => {
     if (isLoaded && modelUrl) {
       try {
@@ -77,7 +91,8 @@ export default function AuthorModelView() {
     const onSelect = (payload: any) => {
       // payload expected: { localId, asset3DId, pos:{x,y,z}, rot:{x,y,z}, scale:{x,y,z} }
       try {
-        const data = typeof payload === "string" ? JSON.parse(payload) : payload;
+        const data =
+          typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!data || !data.localId) return;
         // upsert into sceneObjects
         setSceneObjects((prev) => {
@@ -113,7 +128,8 @@ export default function AuthorModelView() {
     const onSync = (payload: any) => {
       // payload expected: array of objects like above
       try {
-        const data = typeof payload === "string" ? JSON.parse(payload) : payload;
+        const data =
+          typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!Array.isArray(data)) return;
         const mapped = data.map((d: any, i: number) => ({
           localId: d.localId ?? `u-${i}`,
@@ -155,18 +171,34 @@ export default function AuthorModelView() {
   }, [addEventListener, removeEventListener]);
 
   // helper: currently-selected object
-  const selectedObject = sceneObjects.find((s) => s.localId === selectedLocalId) ?? null;
+  const selectedObject =
+    sceneObjects.find((s) => s.localId === selectedLocalId) ?? null;
 
   // Apply transform changes: send to Unity and update local state
-  const applyTransformToObject = (localId: string, transform: Partial<typeof sceneObjects[number]>) => {
-    setSceneObjects((prev) => prev.map((it) => (it.localId === localId ? { ...it, ...transform } : it)));
-    // notify Unity - payload should be JSON string (Unity side should parse)
-    try {
-      const payload = JSON.stringify({ localId, transform });
-      sendMessage("SceneManager", "UpdateObjectTransform", payload);
-    } catch (e) {
-      // ignore
-    }
+  const applyTransformToObject = (
+    localId: string,
+    transform: Partial<(typeof sceneObjects)[number]>
+  ) => {
+    setSceneObjects((prev) => {
+      const next = prev.map((it) =>
+        it.localId === localId ? { ...it, ...transform } : it
+      );
+      const obj = next.find((x) => x.localId === localId)!;
+
+      try {
+        const payload = JSON.stringify({
+          localId,
+          pos: { x: obj.posX ?? 0, y: obj.posY ?? 0, z: obj.posZ ?? 0 },
+          rot: { x: obj.rotX ?? 0, y: obj.rotY ?? 0, z: obj.rotZ ?? 0 },
+          scale: { x: obj.scaleX ?? 1, y: obj.scaleY ?? 1, z: obj.scaleZ ?? 1 },
+        });
+        sendMessage("SceneManager", "UpdateObjectTransform", payload);
+      } catch (e) {
+        /* empty */
+      }
+
+      return next;
+    });
   };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,26 +227,43 @@ export default function AuthorModelView() {
 
   // Scene creation (save/publish)
   const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
-  const [sceneDialogMode, setSceneDialogMode] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const [sceneDialogMode, setSceneDialogMode] = useState<"DRAFT" | "PUBLISHED">(
+    "DRAFT"
+  );
 
-  const handleCreateScene = async (payload: { name?: string; description?: string; status?: "DRAFT" | "PUBLISHED" }) => {
-    if (!markerId) {
-      toast({ title: "Lỗi", description: "Marker chưa chọn/không tồn tại." });
+  /**
+   * Hàm thực sự gọi backend để lưu scene.
+   * exportDto là JSON Unity gửi qua event OnSceneExport.
+   */
+  const saveSceneToBackend = async (
+    exportDto: any,
+    status: "DRAFT" | "PUBLISHED"
+  ) => {
+    const effectiveMarkerId = exportDto?.markerId || markerId;
+    if (!effectiveMarkerId) {
+      toast({
+        title: "Lỗi",
+        description: "Marker chưa chọn/không tồn tại.",
+      });
       return;
     }
+
     try {
-      const status = payload.status ?? "DRAFT";
       const sceneReq = {
-        markerId,
-        name: payload.name || "Untitled Scene",
-        description: payload.description || "",
+        markerId: effectiveMarkerId,
+        name: exportDto?.name || "Untitled Scene",
+        description: exportDto?.description || "",
         version: 1,
         status,
       };
+
       const scene = await createSceneMut.mutateAsync(sceneReq);
-      const sceneId = (scene as any).arSceneId ?? (scene as any).id;
-      // prepare items from sceneObjects
-      const items = sceneObjects.map((it, idx) => ({
+      const sceneId =
+        (scene as any).arSceneId ||
+        (scene as any).sceneId ||
+        (scene as any).id;
+
+      const items = (exportDto?.items || []).map((it: any, idx: number) => ({
         sceneId,
         asset3DId: it.asset3DId,
         orderIndex: it.orderIndex ?? idx,
@@ -227,15 +276,100 @@ export default function AuthorModelView() {
         scaleX: it.scaleX ?? 1,
         scaleY: it.scaleY ?? 1,
         scaleZ: it.scaleZ ?? 1,
+        // nếu backend hỗ trợ:
+        behaviorJson: it.behaviorJson ?? null,
       }));
+
       if (items.length) {
         await createSceneItemsMut.mutateAsync(items);
-        toast({ title: "Scene saved", description: `Scene ${sceneId} và ${items.length} item(s) đã lưu` });
+        toast({
+          title: "Scene saved",
+          description: `Scene ${sceneId} và ${items.length} item(s) đã lưu`,
+        });
       } else {
-        toast({ title: "Scene saved", description: `Scene ${sceneId} đã lưu (không có item)` });
+        toast({
+          title: "Scene saved",
+          description: `Scene ${sceneId} đã lưu (không có item)`,
+        });
       }
     } catch (err: any) {
-      toast({ title: "Lỗi khi tạo scene", description: err?.message || "Unknown error" });
+      toast({
+        title: "Lỗi khi lưu scene",
+        description: err?.message || "Unknown error",
+      });
+    }
+  };
+
+  /**
+   * Lắng nghe event OnSceneExport từ Unity.
+   * Unity gọi Application.ExternalCall("OnSceneExport", json)
+   */
+  useEffect(() => {
+    const onSceneExport = (payload: any) => {
+      try {
+        const data =
+          typeof payload === "string" ? JSON.parse(payload) : payload;
+        const status = sceneDialogMode || "DRAFT";
+        saveSceneToBackend(data, status);
+      } catch (err) {
+        console.error("OnSceneExport parse error", err);
+        toast({
+          title: "Lỗi",
+          description: "Không đọc được dữ liệu scene từ Unity",
+        });
+      }
+    };
+
+    try {
+      addEventListener?.("OnSceneExport", onSceneExport);
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      try {
+        removeEventListener?.("OnSceneExport", onSceneExport);
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [addEventListener, removeEventListener, sceneDialogMode]);
+
+  /**
+   * Khi user bấm Lưu / Publish và confirm trong dialog:
+   * -> gửi meta (markerId, name, description) sang Unity
+   * -> Unity build JSON scene, bắn lại qua OnSceneExport
+   * -> useEffect ở trên nhận và gọi saveSceneToBackend()
+   */
+  const handleCreateScene = async (payload: {
+    name?: string;
+    description?: string;
+    status?: "DRAFT" | "PUBLISHED";
+  }) => {
+    if (!markerId) {
+      toast({ title: "Lỗi", description: "Marker chưa chọn/không tồn tại." });
+      return;
+    }
+
+    const status = payload.status ?? "DRAFT";
+    setSceneDialogMode(status);
+
+    const metaForUnity = {
+      sceneId: null, // hoặc id hiện có nếu là cập nhật
+      markerId,
+      name: payload.name || "Untitled Scene",
+      description: payload.description || "",
+    };
+
+    try {
+      const json = JSON.stringify(metaForUnity);
+      sendMessage("SceneManager", "ExportScene", json);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description:
+          err?.message || "Không gửi được yêu cầu ExportScene sang Unity",
+      });
     } finally {
       setSceneDialogOpen(false);
     }
@@ -255,10 +389,16 @@ export default function AuthorModelView() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </Button>
 
-            <h2 className="ml-4 text-white text-lg font-medium">Xem nhân vật 3D (Unity)</h2>
+            <h2 className="ml-4 text-white text-lg font-medium">
+              Xem nhân vật 3D (Unity)
+            </h2>
 
             <div className="ml-auto flex items-center gap-3">
               <Button
@@ -312,7 +452,9 @@ export default function AuthorModelView() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setLeftToolPanel(leftToolPanel === "image" ? null : "image");
+                    setLeftToolPanel(
+                      leftToolPanel === "image" ? null : "image"
+                    );
                   }}
                   className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
                   title="Add Image"
@@ -323,7 +465,9 @@ export default function AuthorModelView() {
 
               {/* 3D Model card */}
               <div
-                className={`bg-white/5 hover:bg-white/10 rounded-lg p-2 flex items-center justify-between border border-white/10 ${activeTab === "model" ? "ring-2 ring-purple-600/40" : ""}`}
+                className={`bg-white/5 hover:bg-white/10 rounded-lg p-2 flex items-center justify-between border border-white/10 ${
+                  activeTab === "model" ? "ring-2 ring-purple-600/40" : ""
+                }`}
                 onClick={() => setActiveTab("model")}
               >
                 <div className="flex items-center gap-3">
@@ -336,7 +480,9 @@ export default function AuthorModelView() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setLeftToolPanel(leftToolPanel === "model" ? null : "model");
+                    setLeftToolPanel(
+                      leftToolPanel === "model" ? null : "model"
+                    );
                   }}
                   className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
                   title="Add 3D Model"
@@ -348,10 +494,16 @@ export default function AuthorModelView() {
 
             {/* quick marker info */}
             <div className="p-2 text-sm text-gray-300">
-              {loadingMarker ? "Đang tải marker..." : markerDetail ? (
+              {loadingMarker ? (
+                "Đang tải marker..."
+              ) : markerDetail ? (
                 <>
-                  <div className="font-medium text-white truncate">{markerDetail.markerCode}</div>
-                  <div className="text-xs text-gray-400">{markerDetail.markerType}</div>
+                  <div className="font-medium text-white truncate">
+                    {markerDetail.markerCode}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {markerDetail.markerType}
+                  </div>
                 </>
               ) : (
                 <div className="text-gray-400">Không có marker</div>
@@ -453,41 +605,145 @@ export default function AuthorModelView() {
           <aside className="w-80 bg-[#0f172a] border-l border-white/6 p-4 text-white">
             <h3 className="text-sm font-semibold mb-3">Properties</h3>
             {!selectedObject ? (
-              <div className="text-gray-400">Chọn một object trong scene để chỉnh sửa (Position / Rotation / Scale)</div>
+              <div className="text-gray-400">
+                Chọn một object trong scene để chỉnh sửa (Position / Rotation /
+                Scale)
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className="text-xs text-gray-300">Asset ID</div>
-                <div className="text-sm text-white truncate">{selectedObject.asset3DId ?? "local:" + selectedObject.localId}</div>
+                <div className="text-sm text-white truncate">
+                  {selectedObject.asset3DId ??
+                    "local:" + selectedObject.localId}
+                </div>
 
                 <div className="border-t border-white/6 pt-3">
                   <div className="text-xs text-gray-300 mb-1">Position</div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.posX ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { posX: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.posY ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { posY: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.posZ ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { posZ: Number(e.target.value) })} />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.posX ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          posX: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.posY ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          posY: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.posZ ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          posZ: Number(e.target.value),
+                        })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="border-t border-white/6 pt-3">
-                  <div className="text-xs text-gray-300 mb-1">Rotation (deg)</div>
+                  <div className="text-xs text-gray-300 mb-1">
+                    Rotation (deg)
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="1" value={selectedObject.rotX ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { rotX: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="1" value={selectedObject.rotY ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { rotY: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="1" value={selectedObject.rotZ ?? 0} onChange={(e)=> applyTransformToObject(selectedObject.localId, { rotZ: Number(e.target.value) })} />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="1"
+                      value={selectedObject.rotX ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          rotX: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="1"
+                      value={selectedObject.rotY ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          rotY: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="1"
+                      value={selectedObject.rotZ ?? 0}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          rotZ: Number(e.target.value),
+                        })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="border-t border-white/6 pt-3">
                   <div className="text-xs text-gray-300 mb-1">Scale</div>
                   <div className="grid grid-cols-3 gap-2">
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.scaleX ?? 1} onChange={(e)=> applyTransformToObject(selectedObject.localId, { scaleX: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.scaleY ?? 1} onChange={(e)=> applyTransformToObject(selectedObject.localId, { scaleY: Number(e.target.value) })} />
-                    <input className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm" type="number" step="0.01" value={selectedObject.scaleZ ?? 1} onChange={(e)=> applyTransformToObject(selectedObject.localId, { scaleZ: Number(e.target.value) })} />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.scaleX ?? 1}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          scaleX: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.scaleY ?? 1}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          scaleY: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
+                      type="number"
+                      step="0.01"
+                      value={selectedObject.scaleZ ?? 1}
+                      onChange={(e) =>
+                        applyTransformToObject(selectedObject.localId, {
+                          scaleZ: Number(e.target.value),
+                        })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="ghost" onClick={() => setSelectedLocalId(null)} className="text-white">Unselect</Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setSelectedLocalId(null)}
+                    className="text-white"
+                  >
+                    Unselect
+                  </Button>
                 </div>
               </div>
             )}
@@ -511,7 +767,9 @@ export default function AuthorModelView() {
             isOpen={sceneDialogOpen}
             initialStatus={sceneDialogMode}
             onClose={() => setSceneDialogOpen(false)}
-            onSave={(name, description, status) => handleCreateScene({ name, description, status })}
+            onSave={(name, description, status) =>
+              handleCreateScene({ name, description, status })
+            }
           />
         )}
       </div>
@@ -520,11 +778,20 @@ export default function AuthorModelView() {
 }
 
 /* Inline scene create modal */
-function SceneCreateModal({ isOpen, initialStatus, onClose, onSave }: {
+function SceneCreateModal({
+  isOpen,
+  initialStatus,
+  onClose,
+  onSave,
+}: {
   isOpen: boolean;
   initialStatus: "DRAFT" | "PUBLISHED";
   onClose: () => void;
-  onSave: (name?: string, description?: string, status?: "DRAFT" | "PUBLISHED") => void;
+  onSave: (
+    name?: string,
+    description?: string,
+    status?: "DRAFT" | "PUBLISHED"
+  ) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -534,14 +801,33 @@ function SceneCreateModal({ isOpen, initialStatus, onClose, onSave }: {
     <div className="fixed inset-0 z-[10000] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-[#0f172a] border border-white/10 rounded p-4 text-white">
-        <h3 className="text-lg font-semibold mb-2">Tạo Scene ({status === "DRAFT" ? "Lưu nháp" : "Xuất bản"})</h3>
+        <h3 className="text-lg font-semibold mb-2">
+          Tạo Scene ({status === "DRAFT" ? "Lưu nháp" : "Xuất bản"})
+        </h3>
         <label className="text-sm text-gray-300">Tên</label>
-        <input className="w-full mt-1 mb-3 p-2 bg-[#061026] border border-white/10 rounded text-white" value={name} onChange={(e)=>setName(e.target.value)} placeholder="Tên scene" />
+        <input
+          className="w-full mt-1 mb-3 p-2 bg-[#061026] border border-white/10 rounded text-white"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Tên scene"
+        />
         <label className="text-sm text-gray-300">Mô tả</label>
-        <textarea className="w-full mt-1 mb-3 p-2 bg-[#061026] border border-white/10 rounded text-white" value={description} onChange={(e)=>setDescription(e.target.value)} placeholder="Mô tả ngắn" />
+        <textarea
+          className="w-full mt-1 mb-3 p-2 bg-[#061026] border border-white/10 rounded text-white"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Mô tả ngắn"
+        />
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} className="text-white">Huỷ</Button>
-          <Button onClick={() => onSave(name, description, status)} className="bg-purple-600 hover:bg-purple-700 text-white">Lưu</Button>
+          <Button variant="ghost" onClick={onClose} className="text-white">
+            Huỷ
+          </Button>
+          <Button
+            onClick={() => onSave(name, description, status)}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            Lưu
+          </Button>
         </div>
       </div>
     </div>

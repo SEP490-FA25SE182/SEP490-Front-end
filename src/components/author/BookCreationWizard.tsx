@@ -7,6 +7,7 @@ import { getUserByEmail } from "@/services/UserService";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
+import { UploadService } from "@/services/FirebaseService";
 
 export default function BookCreationWizard() {
   // --- limits
@@ -20,6 +21,10 @@ export default function BookCreationWizard() {
     decription: "",
     authorId: "", // sẽ được set tự động
   });
+
+  const [selectedCoverPreview, setSelectedCoverPreview] = useState<string | null>(null);
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
   const createBook = useCreateBook();
   const { user } = useAuth();
@@ -75,6 +80,17 @@ export default function BookCreationWizard() {
     // chỉ phụ thuộc vào user (không còn roles)
   }, [user, toast]);
 
+  const getDisplayImageUrl = (url: string | undefined | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    return url;
+  };
+
   const validateLengths = () => {
     const errors: string[] = [];
     if ((book.bookName ?? "").length > MAX_TITLE) {
@@ -119,13 +135,35 @@ export default function BookCreationWizard() {
       return;
     }
 
+    // If user selected a cover file, upload it first to Firebase (folder: book)
+    let payload = { ...book };
+    if (selectedCoverFile) {
+      setIsUploadingCover(true);
+      try {
+        toast({ title: "Đang upload ảnh bìa..." });
+        const gsUrl = await UploadService.uploadImageToFirebase(selectedCoverFile, "book");
+        payload = { ...payload, coverUrl: gsUrl };
+        toast({ title: "Upload ảnh bìa thành công" });
+      } catch (err) {
+        console.error("Upload cover failed:", err);
+        toast({ title: "Upload thất bại", description: "Không thể upload ảnh bìa.", variant: "destructive" });
+        setIsUploadingCover(false);
+        return;
+      } finally {
+        setIsUploadingCover(false);
+      }
+    }
+
     try {
-      const res = await createBook.mutateAsync(book);
+      const res = await createBook.mutateAsync(payload);
       toast({
         title: "Tạo sách thành công",
         description: `“${book.bookName}” đã được tạo.`,
       });
       if (res) {
+        // clear selection
+        setSelectedCoverFile(null);
+        setSelectedCoverPreview(null);
         navigate("/author/authorbooklist");
       }
     } catch (err) {
@@ -147,7 +185,8 @@ export default function BookCreationWizard() {
     !book.decription?.trim() ||
     titleTooLong ||
     coverTooLong ||
-    descTooLong;
+    descTooLong ||
+    isUploadingCover;
 
   return (
     <div>
@@ -178,32 +217,52 @@ export default function BookCreationWizard() {
           )}
         </div>
 
-        <Input
-          placeholder="Link ảnh bìa (coverUrl)"
-          value={book.coverUrl}
-          onChange={(e) => setBook({ ...book, coverUrl: e.target.value })}
-          className="bg-transparent border-white/20 text-white"
-        />
-        <div className="flex justify-between text-xs mt-1">
-          <div
-            className={`text-gray-400 ${
-              coverTooLong ? "text-red-400" : ""
-            }`}
+        {/* Cover uploader (upload to Firebase storage -> gs://) */}
+        <div className="flex items-center gap-4">
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center"
+            onClick={() => document.getElementById("coverFileInput")?.click()}
+            disabled={isUploadingCover}
           >
-            {" "}
-            {(book.coverUrl ?? "").length} / {MAX_COVER}
-          </div>
-          {coverTooLong && (
-            <div className="text-red-400">
-              Vượt tối đa {MAX_COVER} ký tự
-            </div>
-          )}
+            Chọn ảnh bìa
+          </Button>
+
+          <input
+            type="file"
+            id="coverFileInput"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              if (f) {
+                setSelectedCoverFile(f);
+                setSelectedCoverPreview(URL.createObjectURL(f));
+              }
+            }}
+          />
         </div>
 
-        {book.coverUrl && (
+        <div className="flex justify-between text-xs mt-1">
+          <div className={`text-gray-400 ${coverTooLong ? "text-red-400" : ""}`}>
+            {(book.coverUrl ?? "").length} / {MAX_COVER}
+          </div>
+          {coverTooLong && <div className="text-red-400">Vượt tối đa {MAX_COVER} ký tự</div>}
+        </div>
+
+        {selectedCoverPreview && (
           <div className="flex justify-center">
             <img
-              src={book.coverUrl}
+              src={selectedCoverPreview}
+              alt="Selected cover"
+              className="w-40 h-56 object-cover rounded-lg border border-gray-600"
+            />
+          </div>
+        )}
+
+        {book.coverUrl && !selectedCoverPreview && (
+          <div className="flex justify-center">
+            <img
+              src={getDisplayImageUrl(book.coverUrl)}
               alt="Book Cover"
               className="w-40 h-56 object-cover rounded-lg border border-gray-600"
               onError={(e) => {

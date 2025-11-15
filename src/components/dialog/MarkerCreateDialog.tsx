@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useCreateMarker, useGetAllMarkers, type Marker } from "@/services/ARService";
 import { useToast } from "@/components/ui/use-toast";
-import { UploadService } from "@/services/FirebaseService";
+import { useSearchIllustrations } from "@/services/AIService";
 
 interface Props {
   isOpen: boolean;
@@ -16,31 +16,24 @@ interface Props {
 
 const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const [markerCode, setMarkerCode] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const createMarker = useCreateMarker();
   const { data: markers } = useGetAllMarkers();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // --- user illustrations (like ImagePageCreate) ---
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?.userId;
+  const { data: illustrations = [] } = useSearchIllustrations({ userId });
+  const [selectedIllustrationId, setSelectedIllustrationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setMarkerCode("");
-      setSelectedFile(null);
       setPreviewUrl(null);
-      setUploading(false);
+      setSelectedIllustrationId(null);
     }
   }, [isOpen]);
-
-  // revoke object URL when preview changes to avoid memory leak
-  useEffect(() => {
-    return () => {
-      if (previewUrl && previewUrl.startsWith("blob:")) {
-        try { URL.revokeObjectURL(previewUrl); } catch {}
-      }
-    };
-  }, [previewUrl]);
 
   const normalizeCode = (code: string) =>
     code
@@ -49,34 +42,30 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       .replace(/[^a-zA-Z0-9\-]/g, "")
       .toLowerCase();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) {
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      return;
-    }
-    setSelectedFile(file);
-    try {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    } catch {
-      setPreviewUrl(null);
-    }
+  // helper: convert gs:// -> https for preview (same as ImagePageCreate)
+  const gsToHttp = (url?: string | null) => {
+    if (!url) return "";
+    if (!url.startsWith("gs://")) return url;
+    const withoutGs = url.replace("gs://", "");
+    const parts = withoutGs.split("/");
+    const bucket = parts.shift();
+    const path = parts.join("/");
+    if (!bucket || !path) return url;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+      path
+    )}?alt=media`;
   };
 
-  const handleChooseClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleRemoveFile = () => {
-    if (previewUrl && previewUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(previewUrl); } catch {}
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  // map illustrations for UI
+  const illustrationsList = Array.isArray(illustrations)
+    ? illustrations
+        .filter((it: any) => it.isActived === "ACTIVE")
+        .map((it: any) => ({
+          id: it.illustrationId,
+          title: it.title,
+          url: it.imageUrl,
+        }))
+    : [];
 
   const handleSubmit = async () => {
     // basic validations
@@ -88,8 +77,9 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       toast({ title: "Thiếu thông tin", description: "Vui lòng nhập markerCode.", variant: "destructive" });
       return;
     }
-    if (!selectedFile) {
-      toast({ title: "Thiếu ảnh", description: "Vui lòng chọn file ảnh để làm marker.", variant: "destructive" });
+    // ensure an existing illustration is selected
+    if (!selectedIllustrationId) {
+      toast({ title: "Chưa chọn ảnh", description: "Vui lòng chọn một ảnh có sẵn để làm marker.", variant: "destructive" });
       return;
     }
 
@@ -105,15 +95,15 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     }
 
     try {
-      setUploading(true);
-      // upload to firebase under folder "marker"
-      const gsUrl = await UploadService.uploadImageToFirebase(selectedFile, "marker");
+      const found = illustrationsList.find((i) => i.id === selectedIllustrationId);
+      const imageUrl = found?.url;
+      if (!imageUrl) throw new Error("Không lấy được url ảnh để tạo marker.");
 
-      // create marker with returned gs:// url
+      // create marker with the selected illustration url
       await createMarker.mutateAsync({
         markerCode: normalized,
         markerType: "fiducial",
-        imageUrl: gsUrl,
+        imageUrl,
       });
 
       toast({ title: "Tạo marker thành công", description: `Marker "${normalized}" đã được tạo.` });
@@ -121,8 +111,6 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     } catch (err) {
       console.error("Tạo marker thất bại:", err);
       toast({ title: "Tạo marker thất bại", description: "Đã xảy ra lỗi. Vui lòng thử lại.", variant: "destructive" });
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -139,49 +127,44 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
             <Input value={markerCode} onChange={(e) => setMarkerCode(e.target.value)} placeholder="ví dụ: book-1" />
           </div>
 
+          {/* existing illustrations (user) */}
           <div>
-            <Label className="mb-2">Ảnh Marker (upload từ máy)</Label>
-
-            {/* hidden native input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            {/* visible prominent button */}
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleChooseClick}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Chọn ảnh marker
-              </Button>
-
-              {selectedFile && (
-                <Button variant="ghost" onClick={handleRemoveFile} className="text-red-400">
-                  Bỏ
-                </Button>
-              )}
+            <Label className="mb-2">Chọn ảnh đã tạo (ảnh của bạn)</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {illustrationsList.length === 0 && <div className="text-sm text-gray-500 col-span-full">Không có ảnh.</div>}
+              {illustrationsList.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedIllustrationId(it.id);
+                    setPreviewUrl(gsToHttp(it.url));
+                  }}
+                  className={`rounded border p-0 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id ? "ring-2 ring-purple-300 border-purple-500" : "border-white/10 hover:border-gray-300"}`}
+                >
+                  <div className="w-20 h-20 bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <img src={gsToHttp(it.url)} alt={it.title} className="w-full h-full object-cover" />
+                  </div>
+                </button>
+              ))}
             </div>
-
-            {/* preview */}
-            {previewUrl && (
-              <div className="mt-3">
-                <div className="w-40 h-24 rounded overflow-hidden border">
-                  <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* preview (small) */}
+          {previewUrl && (
+            <div>
+              <Label className="mb-2">Preview</Label>
+              <div className="w-36 h-24 rounded overflow-hidden border">
+                <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={onClose} className="mr-2">Huỷ</Button>
-          <Button onClick={handleSubmit} disabled={uploading || createMarker.isPending} className="bg-purple-600 hover:bg-purple-700 text-white">
-            {uploading || createMarker.isPending ? "Đang xử lý..." : "Tạo marker"}
+          <Button onClick={handleSubmit} disabled={!selectedIllustrationId || createMarker.isPending} className="bg-purple-600 hover:bg-purple-700 text-white">
+            {createMarker.isPending ? "Đang xử lý..." : "Tạo marker"}
           </Button>
         </DialogFooter>
       </DialogContent>

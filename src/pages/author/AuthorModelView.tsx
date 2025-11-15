@@ -357,18 +357,6 @@ export default function AuthorModelView() {
                 <div className="text-gray-400">Không có marker</div>
               )}
             </div>
-
-            {/* Tab-specific action area */}
-            <div className="mt-2">
-              {activeTab === "model" && (
-                <Button
-                  className="w-full bg-pink-500 hover:bg-pink-600 text-white"
-                  onClick={() => setAssetDialogOpenLocal(true)}
-                >
-                  Tạo 3D Model với AI
-                </Button>
-              )}
-            </div>
           </aside>
 
           {/* slide panel (unchanged but + upload input) */}
@@ -506,22 +494,16 @@ export default function AuthorModelView() {
           </aside>
         </div>
 
-        {assetDialogOpenLocal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">           
-            {/* container để đặt dialog lên trên cùng */}
-            <div className="relative z-10 w-full max-w-3xl pointer-events-auto">
-              <Asset3DCreateDialog
-                isOpen={assetDialogOpenLocal}
-                onClose={() => setAssetDialogOpenLocal(false)}
-                markerId={markerId}
-                onCreated={() => {
-                  toast({ title: "Yêu cầu tạo 3D model đã gửi" });
-                  setAssetDialogOpenLocal(false);
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Render Dialog directly — let Dialog handle portal & overlay */}
+        <Asset3DCreateDialog
+          isOpen={assetDialogOpenLocal}
+          onClose={() => setAssetDialogOpenLocal(false)}
+          markerId={markerId}
+          onCreated={() => {
+            toast({ title: "Yêu cầu tạo 3D model đã gửi" });
+            setAssetDialogOpenLocal(false);
+          }}
+        />
 
         {/* Scene create dialog */}
         {sceneDialogOpen && (

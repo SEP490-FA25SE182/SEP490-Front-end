@@ -42,6 +42,20 @@ export default function AuthorChapterList() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // convert firebase gs:// url to public https url (same approach as AuthorBookList)
+  const getDisplayImageUrl = (url: string | undefined | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
+    }
+    return url;
+  };
+
   // fetch book detail and chapters
   const { data: book, isLoading: loadingBook } = useGetBookById(paramBookId);
   const bookId = book?.bookId ?? paramBookId;
@@ -150,7 +164,7 @@ export default function AuthorChapterList() {
             <div className="flex gap-6 items-start">
               {book?.coverUrl && (
                 <img
-                  src={book.coverUrl}
+                  src={getDisplayImageUrl(book?.coverUrl)}
                   alt={book.bookName}
                   className="w-28 h-36 rounded-md object-cover border shadow-lg"
                   onError={(e) => {

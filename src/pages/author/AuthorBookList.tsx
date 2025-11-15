@@ -81,6 +81,17 @@ export default function AuthorBookList() {
     fetchBooks();
   }, [user]);
 
+  const getDisplayImageUrl = (url: string | undefined | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    return url;
+  };
+
   // helper: map publicationStatus -> label + class
   const getPublicationLabel = (publication: any) => {
     const p = String(publication ?? "").toUpperCase();
@@ -287,6 +298,7 @@ export default function AuthorBookList() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {currentBooks.map((book) => {
               const cover = book.coverUrl ?? book.cover_url;
+              const coverSrc = getDisplayImageUrl(cover);
               const name = book.bookName ?? book.book_name;
               const id = book.bookId ?? book.book_id;
               const publication = book.publicationStatus ?? book.publication_status;
@@ -338,7 +350,7 @@ export default function AuthorBookList() {
                     <div className="flex flex-col items-center space-y-2">
                       <div className="relative w-24 h-32 rounded overflow-hidden bg-white/5 shadow-lg">
                         <img
-                          src={cover}
+                          src={coverSrc}
                           alt={name}
                           className="w-full h-full object-cover"
                           onError={(e) => {

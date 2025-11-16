@@ -10,11 +10,8 @@ import {
   useUploadAsset3D,
   useCreateARScene,
   useCreateARSceneItems,
-  useSearchAsset3D, // { changed code }
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
-import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -44,25 +41,12 @@ export default function AuthorModelView() {
   >([]);
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
 
-  // NEW: sceneId hiện tại (nếu đã có scene cho marker này)
-  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
-
   const navigate = useNavigate();
   const params = useParams<{ markerId?: string }>();
   const location = useLocation();
   const markerId = params.markerId || (location.state as any)?.marker?.markerId;
 
   const { toast } = useToast();
-
-  // current userId
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user.userId;
-
-  // fetch user's 3D assets (useSearchAsset3D from ARService)
-  const { data: asset3DResp, isLoading: assetsLoading } = useSearchAsset3D({
-    userId,
-  }); // { changed code }
-  const assets: any[] = asset3DResp?.content ?? [];
 
   // fetch marker detail (will run if markerId exists)
   const { data: markerDetail, isLoading: loadingMarker } =
@@ -73,6 +57,10 @@ export default function AuthorModelView() {
   const createSceneMut = useCreateARScene();
   const createSceneItemsMut = useCreateARSceneItems();
 
+  // Giả sử bạn có model URL (lấy từ DB, hoặc tạm thời hardcode)
+  const modelUrl =
+    "https://firebasestorage.googleapis.com/v0/b/YOUR_BUCKET/o/models%2Fcharacter1.glb?alt=media";
+
   // Cấu hình Unity build
   const {
     unityProvider,
@@ -81,22 +69,22 @@ export default function AuthorModelView() {
     addEventListener,
     removeEventListener,
   } = useUnityContext({
-    loaderUrl: "/build/webgl/ar_rookie_build.loader.js",
-    dataUrl: "/build/webgl/ar_rookie_build.data.unityweb",
-    frameworkUrl: "/build/webgl/ar_rookie_build.framework.js.unityweb",
-    codeUrl: "/build/webgl/ar_rookie_build.wasm.unityweb",
+    loaderUrl: "/build/webgl/Build.loader.js",
+    dataUrl: "/build/webgl/Build.data.br",
+    frameworkUrl: "/build/webgl/Build.framework.js.br",
+    codeUrl: "/build/webgl/Build.wasm.br",
   });
 
-  // ❌ BỎ DEMO LoadModelFromUrl – mình sẽ load scene thật từ backend thay vì model demo
-  // useEffect(() => {
-  //   if (isLoaded && modelUrl) {
-  //     try {
-  //       sendMessage("SceneManager", "LoadModelFromUrl", modelUrl);
-  //     } catch (e) {
-  //       // ignore if message target not present
-  //     }
-  //   }
-  // }, [isLoaded, modelUrl, sendMessage]);
+  // Khi Unity đã load xong thì gửi URL model vào Unity (demo)
+  useEffect(() => {
+    if (isLoaded && modelUrl) {
+      try {
+        sendMessage("SceneManager", "LoadModelFromUrl", modelUrl);
+      } catch (e) {
+        // ignore if message target not present
+      }
+    }
+  }, [isLoaded, modelUrl, sendMessage]);
 
   // Register Unity events: selection and scene sync
   useEffect(() => {
@@ -181,83 +169,6 @@ export default function AuthorModelView() {
       }
     };
   }, [addEventListener, removeEventListener]);
-
-  // 🔥 NEW: Khi Unity đã load & có markerId → gọi backend để load scene hiện tại của marker vào Unity
-  useEffect(() => {
-    const loadInitialScene = async () => {
-      if (!markerId || !isLoaded) return;
-
-      // reset state React
-      setSceneObjects([]);
-      setSelectedLocalId(null);
-
-      // Clear Unity editor
-      try {
-        sendMessage("SceneManager", "ClearAll", "");
-      } catch (e) {
-        // ignore
-      }
-
-      // TODO: chỉnh URL & shape JSON theo backend thực tế của bạn
-      // Ví dụ backend trả:
-      // {
-      //   sceneId, markerId, name, description,
-      //   items: [ { asset3DId, assetUrl, orderIndex, posX, ... } ]
-      // }
-      try {
-        const res = await fetch(`/api/markers/${markerId}/active-scene`);
-        if (!res.ok) {
-          // không có scene nào cho marker này → để trống
-          setCurrentSceneId(null);
-          return;
-        }
-
-        const scene = await res.json();
-        if (!scene) {
-          setCurrentSceneId(null);
-          return;
-        }
-
-        setCurrentSceneId(scene.sceneId);
-
-        const importDto = {
-          sceneId: scene.sceneId,
-          markerId: scene.markerId,
-          name: scene.name,
-          description: scene.description,
-          items: (scene.items || []).map((it: any) => ({
-            asset3DId: it.asset3DId,
-            assetUrl: it.assetUrl,
-            orderIndex: it.orderIndex,
-            posX: it.posX,
-            posY: it.posY,
-            posZ: it.posZ,
-            rotX: it.rotX,
-            rotY: it.rotY,
-            rotZ: it.rotZ,
-            scaleX: it.scaleX,
-            scaleY: it.scaleY,
-            scaleZ: it.scaleZ,
-            behaviorJson: it.behaviorJson,
-          })),
-        };
-
-        try {
-          sendMessage(
-            "SceneManager",
-            "LoadSceneFromJson",
-            JSON.stringify(importDto)
-          );
-        } catch (e) {
-          // ignore
-        }
-      } catch (error) {
-        console.error("Load initial scene error", error);
-      }
-    };
-
-    loadInitialScene();
-  }, [markerId, isLoaded, sendMessage]);
 
   // helper: currently-selected object
   const selectedObject =
@@ -346,13 +257,11 @@ export default function AuthorModelView() {
         status,
       };
 
-      // Hiện tại luôn tạo mới scene (create)
-      // Nếu sau này muốn update, bạn có thể check exportDto.sceneId ở đây.
       const scene = await createSceneMut.mutateAsync(sceneReq);
       const sceneId =
-        (scene as any).arSceneId || (scene as any).sceneId || (scene as any).id;
-
-      setCurrentSceneId(sceneId); // lưu lại id scene vừa tạo
+        (scene as any).arSceneId ||
+        (scene as any).sceneId ||
+        (scene as any).id;
 
       const items = (exportDto?.items || []).map((it: any, idx: number) => ({
         sceneId,
@@ -428,7 +337,7 @@ export default function AuthorModelView() {
 
   /**
    * Khi user bấm Lưu / Publish và confirm trong dialog:
-   * -> gửi meta (markerId, name, description, sceneId hiện tại nếu có) sang Unity
+   * -> gửi meta (markerId, name, description) sang Unity
    * -> Unity build JSON scene, bắn lại qua OnSceneExport
    * -> useEffect ở trên nhận và gọi saveSceneToBackend()
    */
@@ -446,7 +355,7 @@ export default function AuthorModelView() {
     setSceneDialogMode(status);
 
     const metaForUnity = {
-      sceneId: currentSceneId, // hiện tại Unity chỉ dùng để echo lại, backend vẫn create mới
+      sceneId: null, // hoặc id hiện có nếu là cập nhật
       markerId,
       name: payload.name || "Untitled Scene",
       description: payload.description || "",
@@ -466,13 +375,6 @@ export default function AuthorModelView() {
     }
   };
 
-  // --------- TIÊU ĐỀ PROJECT + markerCode ----------
-  const projectTitle = loadingMarker
-    ? "Project (đang tải marker...)"
-    : markerDetail?.markerCode
-    ? `Project ${markerDetail.markerCode}`
-    : "Project";
-
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
@@ -485,7 +387,7 @@ export default function AuthorModelView() {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg:white/10"
+              className="text-white hover:bg-white/10"
             >
               {sidebarOpen ? (
                 <X className="w-6 h-6" />
@@ -494,9 +396,8 @@ export default function AuthorModelView() {
               )}
             </Button>
 
-            {/* ĐỔI TÊN Ở ĐÂY */}
             <h2 className="ml-4 text-white text-lg font-medium">
-              {projectTitle}
+              Xem nhân vật 3D (Unity)
             </h2>
 
             <div className="ml-auto flex items-center gap-3">
@@ -570,7 +471,7 @@ export default function AuthorModelView() {
                 onClick={() => setActiveTab("model")}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg:white/6 rounded flex items-center justify-center text-white">
+                  <div className="w-10 h-10 bg-white/6 rounded flex items-center justify-center text-white">
                     <Box className="w-5 h-5" />
                   </div>
                   <div className="text-sm text-white">3D Model</div>
@@ -626,100 +527,27 @@ export default function AuthorModelView() {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+
                 <div className="text-sm text-gray-300 mb-4">
                   {leftToolPanel === "model"
                     ? "Chọn cách thêm mô hình 3D vào scene."
                     : "Chọn cách thêm ảnh marker vào scene."}
                 </div>
+
                 {/* hidden file input - opened by the Upload Model button */}
                 {leftToolPanel === "model" && (
                   <input
                     ref={fileInputRef}
-                    id="upload-glb"
                     type="file"
                     accept=".glb"
                     className="hidden"
-                    title="Upload 3D model (.glb)"
-                    aria-label="Upload 3D model file"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) handleUploadGlb(f);
+                      // reset so same file can be picked again
                       if (e.currentTarget) e.currentTarget.value = "";
                     }}
                   />
-                )}
-                {/* Models list (only user's assets) */}
-                {leftToolPanel === "model" && (
-                  <div className="mt-4">
-                    <div className="text-sm text-gray-300 mb-2">
-                      Models của bạn
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 max-h-56 overflow-auto">
-                      {assetsLoading ? (
-                        <div className="text-sm text-gray-400 col-span-full">
-                          Đang tải models...
-                        </div>
-                      ) : assets.length === 0 ? (
-                        <div className="text-sm text-gray-500 col-span-full">
-                          Không có model 3D.
-                        </div>
-                      ) : (
-                        assets.map((a: any) => {
-                          const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
-                          const assetUrl =
-                            typeof rawUrl === "string" ? rawUrl : "";
-                          const isGlb = assetUrl.toLowerCase().includes(".glb");
-
-                          return (
-                            <button
-                              key={a.asset3DId ?? a.id}
-                              type="button"
-                              onClick={() => {
-                                try {
-                                  const payload = JSON.stringify({
-                                    asset3DId: a.asset3DId ?? a.id,
-                                    assetUrl,
-                                  });
-                                  sendMessage(
-                                    "SceneManager",
-                                    "AddAssetFromUrl",
-                                    payload
-                                  );
-                                  toast({
-                                    title: "Đã thêm model vào scene",
-                                    description: a.title || "",
-                                  });
-                                } catch (e) {
-                                  /* ignore */
-                                }
-                              }}
-                              className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
-                            >
-                              <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
-                                {assetUrl && isGlb ? (
-                                  <div className="w-full h-full">
-                                    {/* PREVIEW GLB BẰNG three.js */}
-                                    <GLBThumbnail url={assetUrl} />
-                                  </div>
-                                ) : assetUrl && !isGlb ? (
-                                  <div className="text-[10px] text-gray-500 p-2 text-center">
-                                    File không phải .glb
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-gray-400 p-2">
-                                    No preview
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-xs mt-2 text-left text-gray-200 truncate">
-                                {a.title ?? a.fileName ?? a.asset3DId ?? a.id}
-                              </div>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
                 )}
               </div>
 
@@ -804,7 +632,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text-white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="0.01"
                       value={selectedObject.posY ?? 0}
@@ -815,7 +643,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="0.01"
                       value={selectedObject.posZ ?? 0}
@@ -834,7 +662,7 @@ export default function AuthorModelView() {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="1"
                       value={selectedObject.rotX ?? 0}
@@ -845,7 +673,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="1"
                       value={selectedObject.rotY ?? 0}
@@ -856,7 +684,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="1"
                       value={selectedObject.rotZ ?? 0}
@@ -869,11 +697,11 @@ export default function AuthorModelView() {
                   </div>
                 </div>
 
-                <div className="border-t border:white/6 pt-3">
+                <div className="border-t border-white/6 pt-3">
                   <div className="text-xs text-gray-300 mb-1">Scale</div>
                   <div className="grid grid-cols-3 gap-2">
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="0.01"
                       value={selectedObject.scaleX ?? 1}
@@ -884,7 +712,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="0.01"
                       value={selectedObject.scaleY ?? 1}
@@ -895,7 +723,7 @@ export default function AuthorModelView() {
                       }
                     />
                     <input
-                      className="p-2 bg-[#061026] border border:white/10 rounded text:white text-sm"
+                      className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                       type="number"
                       step="0.01"
                       value={selectedObject.scaleZ ?? 1}
@@ -1003,100 +831,5 @@ function SceneCreateModal({
         </div>
       </div>
     </div>
-  );
-}
-
-/* GLBThumbnail component (preview .glb bằng three.js) */
-function GLBThumbnail({ url, size = 160 }: { url?: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!url || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-
-    // --- Renderer ---
-    const DPR = Math.min(window.devicePixelRatio || 1, 2);
-    const w = size;
-    const h = Math.round(size * 0.75);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
-    });
-    renderer.setPixelRatio(DPR);
-    renderer.setSize(w, h, false);
-    renderer.setClearColor(0x000000, 0); // trong suốt, nhìn thấy bg của thẻ cha
-
-    // --- Scene & camera ---
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, w / h, 0.01, 1000);
-    camera.position.set(0, 1.2, 2.4);
-    camera.lookAt(0, 0, 0);
-
-    // --- Lights ---
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(5, 10, 7.5);
-    scene.add(dir);
-
-    // --- Load GLB ---
-    const loader = new GLTFLoader();
-    let model: THREE.Object3D | null = null;
-    let frameId: number;
-
-    loader.load(
-      url,
-      (gltf) => {
-        model = gltf.scene || (gltf as any);
-
-        // scale model cho vừa khung
-        const box = new THREE.Box3().setFromObject(model);
-        const sizeBox = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(sizeBox.x, sizeBox.y, sizeBox.z) || 1;
-        const scale = (1.0 / maxDim) * 1.2;
-        model.scale.setScalar(scale);
-
-        // đưa model về tâm (0,0,0)
-        box.getCenter(model.position).multiplyScalar(-1);
-
-        scene.add(model);
-      },
-      undefined,
-      (error) => {
-        console.error("Lỗi load GLB thumbnail:", error);
-      }
-    );
-
-    // --- Animation loop ---
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      if (model) {
-        model.rotation.y += 0.01;
-      }
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // Cleanup
-    return () => {
-      cancelAnimationFrame(frameId);
-      renderer.dispose();
-      canvas
-        .getContext("webgl2")
-        ?.getExtension("WEBGL_lose_context")
-        ?.loseContext();
-    };
-  }, [url, size]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={size}
-      height={Math.round(size * 0.75)}
-      className="w-full h-full block"
-    />
   );
 }

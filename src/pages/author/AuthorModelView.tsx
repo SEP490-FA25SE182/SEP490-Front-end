@@ -14,7 +14,7 @@ import {
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -532,7 +532,7 @@ export default function AuthorModelView() {
         {/* Main area: left small tool column, center Unity, right properties */}
         <div className="flex-1 flex overflow-hidden">
           {/* LEFT: Image / 3D Model (card style with plus) */}
-          <aside className="w-72 bg-[#0b1220] border-r border-white/6 p-3 flex flex-col gap-3">
+          <aside className="w-60 bg-[#0b1220] border-r border-white/6 p-3 flex flex-col gap-3">
             <div className="text-white font-semibold px-1">Content</div>
 
             <div className="flex flex-col gap-3">
@@ -1049,8 +1049,10 @@ function GLBThumbnail({ url, size = 160 }: { url?: string; size?: number }) {
 
     loader.load(
       url,
-      (gltf) => {
+      (gltf: { scene: any; }) => {
         model = gltf.scene || (gltf as any);
+
+        if (!model) return;
 
         // scale model cho vừa khung
         const box = new THREE.Box3().setFromObject(model);
@@ -1065,7 +1067,7 @@ function GLBThumbnail({ url, size = 160 }: { url?: string; size?: number }) {
         scene.add(model);
       },
       undefined,
-      (error) => {
+      (error: any) => {
         console.error("Lỗi load GLB thumbnail:", error);
       }
     );

@@ -17,13 +17,11 @@ import BlogPage from "./pages/customer/BlogPage";
 
 import AuthorIncome from "./pages/author/AuthorIncome";
 import AuthorBookList from "./pages/author/AuthorBookList";
-import AuthorCreateBook from "./pages/author/AuthorCreateBook";
 import AuthorEditBook from "./pages/author/AuthorEditBook";
 import AuthorChapterList from "./pages/author/AuthorChapterList";
 import AuthorPageList from "./pages/author/AuthorPageList";
 import TextPageCreate from "./pages/author/TextPageCreate";
 import ImageCreate from "./pages/author/ImageCreate";
-import AudioCreate from "./pages/author/AudioCreate";
 import AuthorPageDetail from "./pages/author/AuthorPageDetail";
 import ImagePageCreate from "./pages/author/ImagePageCreate";
 import TextPageEdit from "./pages/author/TextPageEdit";
@@ -59,7 +57,6 @@ export default function AppRouter() {
 
       <Route path="/author/authorincome" element={<AuthorIncome />} />
       <Route path="/author/authorbooklist" element={<AuthorBookList />} />
-      <Route path="/author/authorcreatebook" element={<AuthorCreateBook />} />
       <Route path="/author/authoreditbook/:bookId" element={<AuthorEditBook />} />
       <Route path="/author/books/:bookId/chapters" element={<AuthorChapterList />} />
       <Route path="/author/chapters/:chapterId/pages" element={<AuthorPageList />} />
@@ -68,7 +65,6 @@ export default function AppRouter() {
       <Route path="/author/pages/:pageId/text-edit" element={<TextPageEdit />} />
       <Route path="/author/pages/:pageId/image-edit" element={<ImagePageEdit />} />
       <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImageCreate />} />
-      <Route path="/author/chapters/:chapterId/pages/create-audio" element={<AudioCreate />} />
       <Route path="/author/page/:pageId" element={<AuthorPageDetail />} />
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
 

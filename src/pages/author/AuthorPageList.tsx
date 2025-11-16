@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Menu, X, Eye, Edit, Trash2, Search, MoreVertical, Image, AudioLines, StickyNote, Plus } from "lucide-react";
+import { Menu, X, Edit, Trash2, Search, MoreVertical, Image, AudioLines, StickyNote, Plus } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PageCreateDialog } from "@/components/dialog/PageCreateDialog";
 import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
+import CreateAudioDialog from "@/components/dialog/CreateAudioDialog";
 import { useGetAllMarkers, type Marker, getMarkerById } from "@/services/ARService";
 
 const AuthorPageList = () => {
@@ -43,6 +44,7 @@ const AuthorPageList = () => {
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
+  const [openAudioDialog, setOpenAudioDialog] = useState(false);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(undefined);
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
@@ -207,7 +209,7 @@ const AuthorPageList = () => {
                     <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
                       <Image className="w-4 h-4 mr-2" /> Tạo ảnh
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-audio`)}>
+                    <DropdownMenuItem onClick={() => setOpenAudioDialog(true)}>
                       <AudioLines className="w-4 h-4 mr-2" /> Tạo audio
                     </DropdownMenuItem>
                     {/* removed create 3D model from this dropdown per request */}
@@ -257,7 +259,38 @@ const AuthorPageList = () => {
                 const isImage = isFirebaseImageUrl(page.content);
                 return (
                   <div key={page.pageId} className="group relative">
-                    <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20">
+                    {/* whole card clickable -> go to page detail */}
+                    <div
+                      className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
+                      onClick={() => navigate(`/author/page/${page.pageId}`)}
+                    >
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              onClick={(e) => e.stopPropagation()}
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                            >
+                              <MoreVertical className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            {/* removed 'Xem chi tiết' from menu - whole card is clickable */}
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(page); }}>
+                              <Edit className="mr-2 h-4 w-4" /> Sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); handleConfirmDelete(page); }}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
                       <div className="flex flex-col items-center space-y-2">
                         <div className="relative w-16 h-20 flex items-center justify-center rounded overflow-hidden bg-white/5">
                           {isImage ? (
@@ -290,37 +323,9 @@ const AuthorPageList = () => {
                           {isImage ? 'Trang Ảnh' : 'Trang Chữ'}
                         </div>
                       </div>
-
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
-                            >
-                              <MoreVertical className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={() => navigate(`/author/page/${page.pageId}`)}>
-                              <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(page)}>
-                              <Edit className="mr-2 h-4 w-4" /> Sửa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleConfirmDelete(page)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
                     </div>
                   </div>
-                );
+                 );
               })}
             </div>
 
@@ -489,6 +494,15 @@ const AuthorPageList = () => {
         onCreated={async () => {
           await queryClient.invalidateQueries({ queryKey: ["asset3d", "search"] });
           setAssetDialogOpen(false);
+        }}
+      />
+
+      <CreateAudioDialog
+        isOpen={openAudioDialog}
+        onClose={() => setOpenAudioDialog(false)}
+        chapterId={chapterId}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
         }}
       />
 

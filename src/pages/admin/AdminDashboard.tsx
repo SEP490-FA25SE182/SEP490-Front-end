@@ -1,5 +1,15 @@
-import { useState, useEffect } from "react";
-import { Menu, X, DollarSign, Users, ShoppingBag, Cpu } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+    Menu,
+    X,
+    DollarSign,
+    Users,
+    ShoppingBag,
+    Cpu,
+    TrendingUp,
+    Star,
+    MessageCircle,
+} from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,230 +35,429 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { getAllBooks } from "@/services/BookService";
+
+import { getAllBooks, type Book } from "@/services/BookService";
 import { useGetAllAIGenerations } from "@/services/AIService";
-import { OrderService } from "@/services/OrderService";
-import { CartItemService } from "@/services/CartItemService";
-import { getBookById } from "@/services/BookService";
+import { OrderService, type OrderResponse } from "@/services/OrderService";
 import { getUserById } from "@/services/UserService";
+import { FeedbackService, type Feedback } from "@/services/FeedbackService";
+import { OrderDetailService } from "@/services/OrderDetailService";
+
+
+
+/* =========================================================
+        🔢 TYPES & HELPERS
+========================================================= */
+
+type RevenueFilter = "day" | "week" | "month" | "quarter" | "year";
+
+type BookStats = {
+    bookId: string;
+    book?: Book;
+    totalQty: number;
+    totalRevenue: number;
+    feedbackCount: number;
+};
+
+const USD_TO_VND = 25000;
+const HOST_COST_MONTH = 4_000_000;
+
+const COLORS = ["#667EEA", "#764BA2", "#FFB830", "#F87171"];
+
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(isNaN(value) ? 0 : value);
+
+const normalizeRoyalty = (raw: unknown): number => {
+    const royaltyRaw = Number(raw ?? 0);
+    if (royaltyRaw <= 0) return 0;
+    let r = royaltyRaw > 1 ? royaltyRaw / 100 : royaltyRaw;
+    if (r > 1) r = 1;
+    return r;
+};
+
+/* =========================================================
+  🔥 BUILD CHART THEO THỜI GIAN (REAL ORDER TIMELINE)
+========================================================= */
+
+const buildSalesSeries = (
+    orders: OrderResponse[],
+    filter: RevenueFilter
+): { time: string; revenue: number }[] => {
+    const now = new Date();
+
+    const parseDate = (o: OrderResponse) => {
+        if (!o.createdAt) return null;
+        const d = new Date(o.createdAt);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
+    const result: Record<string, number> = {};
+
+    switch (filter) {
+        case "day": {
+            const labels = ["0–4h", "4–8h", "8–12h", "12–16h", "16–20h", "20–24h"];
+            labels.forEach((l) => (result[l] = 0));
+
+            for (const o of orders) {
+                const d = parseDate(o);
+                if (!d) continue;
+                if (now.getTime() - d.getTime() > 24 * 3600 * 1000) continue;
+
+                const h = d.getHours();
+                let label = "0–4h";
+                if (h >= 4 && h < 8) label = "4–8h";
+                else if (h >= 8 && h < 12) label = "8–12h";
+                else if (h >= 12 && h < 16) label = "12–16h";
+                else if (h >= 16 && h < 20) label = "16–20h";
+                else if (h >= 20) label = "20–24h";
+
+                result[label] += o.totalPrice || 0;
+            }
+
+            return labels.map((l) => ({ time: l, revenue: result[l] }));
+        }
+
+        case "week": {
+            const labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+            labels.forEach((l) => (result[l] = 0));
+
+            for (const o of orders) {
+                const d = parseDate(o);
+                if (!d) continue;
+
+                if (now.getTime() - d.getTime() > 7 * 24 * 3600 * 1000) continue;
+
+                const wd = d.getDay();
+                const label = wd === 0 ? "CN" : `T${wd + 1}`;
+                result[label] += o.totalPrice || 0;
+            }
+
+            return labels.map((l) => ({ time: l, revenue: result[l] }));
+        }
+
+        case "month": {
+            const labels = ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
+            labels.forEach((l) => (result[l] = 0));
+
+            for (const o of orders) {
+                const d = parseDate(o);
+                if (!d) continue;
+
+                if (now.getTime() - d.getTime() > 30 * 24 * 3600 * 1000) continue;
+
+                const diffDays = Math.floor(
+                    (now.getTime() - d.getTime()) / (24 * 3600 * 1000)
+                );
+                let idx = 3 - Math.floor(diffDays / 7);
+                if (idx < 0) idx = 0;
+
+                result[labels[idx]] += o.totalPrice || 0;
+            }
+
+            return labels.map((l) => ({ time: l, revenue: result[l] }));
+        }
+
+        case "quarter": {
+            const labels = ["Tháng -2", "Tháng -1", "Tháng này"];
+            labels.forEach((l) => (result[l] = 0));
+
+            for (const o of orders) {
+                const d = parseDate(o);
+                if (!d) continue;
+
+                const monthDiff =
+                    (now.getFullYear() - d.getFullYear()) * 12 +
+                    (now.getMonth() - d.getMonth());
+
+                if (monthDiff >= 0 && monthDiff <= 2) {
+                    const label =
+                        monthDiff === 2 ? "Tháng -2" : monthDiff === 1 ? "Tháng -1" : "Tháng này";
+                    result[label] += o.totalPrice || 0;
+                }
+            }
+
+            return labels.map((l) => ({ time: l, revenue: result[l] }));
+        }
+
+        case "year": {
+            const labels = [
+                "Th1",
+                "Th2",
+                "Th3",
+                "Th4",
+                "Th5",
+                "Th6",
+                "Th7",
+                "Th8",
+                "Th9",
+                "Th10",
+                "Th11",
+                "Th12",
+            ];
+            labels.forEach((l) => (result[l] = 0));
+
+            for (const o of orders) {
+                const d = parseDate(o);
+                if (!d) continue;
+                if (d.getFullYear() !== now.getFullYear()) continue;
+
+                const label = labels[d.getMonth()];
+                result[label] += o.totalPrice || 0;
+            }
+
+            return labels.map((l) => ({ time: l, revenue: result[l] }));
+        }
+
+        default:
+            return [];
+    }
+};
+/* =========================================================
+    🔥 BUILD CƠ CẤU DOANH THU (STRUCTURE)
+========================================================= */
+
+const buildRevenueStructure = (
+    totalRevenue: number,
+    authorRevenue: number,
+    aiCost: number,
+    filter: RevenueFilter
+) => {
+    let factor = 1;
+    switch (filter) {
+        case "day":
+            factor = 1 / 30;
+            break;
+        case "week":
+            factor = 7 / 30;
+            break;
+        case "month":
+            factor = 1;
+            break;
+        case "quarter":
+            factor = 3;
+            break;
+        case "year":
+            factor = 12;
+            break;
+    }
+
+    return [
+        { name: "Đơn hàng", value: totalRevenue * factor },
+        { name: "Doanh thu tác giả", value: authorRevenue * factor },
+        { name: "Chi phí host", value: HOST_COST_MONTH * factor },
+        { name: "Chi phí AI", value: aiCost * factor },
+    ];
+};
+
+/* =========================================================
+          🧠 MAIN COMPONENT
+========================================================= */
 
 export default function AdminDashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [bookCount, setBookCount] = useState<number>(0);
-    const [totalRevenue, setTotalRevenue] = useState<number>(0);
-    const [totalOrders, setTotalOrders] = useState<number>(0);
-    const [aiCost, setAiCost] = useState<number>(0);
-    const [authorRevenue, setAuthorRevenue] = useState<number>(0); // <-- dùng state, không dùng tổng * 0.7 cứng
-    const [revenueFilter, setRevenueFilter] = useState<string>("month");
-    const [structureFilter, setStructureFilter] = useState<string>("month");
-    
+    const [orders, setOrders] = useState<OrderResponse[]>([]);
+    const [bookCount, setBookCount] = useState(0);
+
+    const [totalRevenue, setTotalRevenue] = useState(0);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const [aiCost, setAiCost] = useState(0);
+    const [authorRevenue, setAuthorRevenue] = useState(0);
+
+    const [revenueFilter, setRevenueFilter] =
+        useState<RevenueFilter>("month");
+    const [structureFilter, setStructureFilter] =
+        useState<RevenueFilter>("month");
+
+    const [bookStatsMap, setBookStatsMap] = useState<
+        Map<string, BookStats>
+    >(new Map());
+
+    const [loading, setLoading] = useState(true);
+
     const aiHook = useGetAllAIGenerations();
     const { data: aiResp } = aiHook;
 
-    const USD_TO_VND = 25000; // Tỷ giá USD -> VND
-
+    /* =========================================================
+        🔥 LOAD DASHBOARD DATA (BOOKS + ORDERS + ITEMS + FEEDBACK)
+    ========================================================== */
     useEffect(() => {
-        const fetchBooks = async () => {
+        const loadDashboard = async () => {
             try {
-                const res = await getAllBooks();
-                const list = Array.isArray(res)
-                    ? res
-                    : Array.isArray((res as any)?.content)
-                        ? (res as any).content
-                        : [];
-                setBookCount(list.length);
-            } catch (error) {
-                console.error("Lỗi khi tải danh sách sách:", error);
-            }
-        };
-        fetchBooks();
-    }, []);
+                setLoading(true);
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const orders = await OrderService.getAllOrders();
-                setTotalOrders(orders.length);
-                const revenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
-                setTotalRevenue(revenue);
-            } catch (error) {
-                console.error("Lỗi khi tải đơn hàng:", error);
-            }
-        };
-        fetchOrders();
-    }, []);
+                // 1️⃣ Lấy danh sách SÁCH
+                const books: Book[] = await getAllBooks();
+                setBookCount(books.length);
 
-    // Tính doanh thu tác giả chính xác: duyệt orders -> cartItems -> book -> author -> royalty
-    useEffect(() => {
-        const computeAuthorRevenue = async () => {
-            try {
-                const orders = await OrderService.getAllOrders();
-                const bookCache = new Map<string, any>();
-                const userCache = new Map<string, any>();
-                let sumAuthor = 0;
+                const bookMap = new Map<string, Book>();
+                books.forEach(b => bookMap.set(b.bookId, b));
 
-                for (const order of orders) {
-                    if (!order.cartId) continue;
-                    const items = await CartItemService.getItemsByCartId(order.cartId);
-                    for (const it of items) {
-                        const itemTotal = (it.price || 0) * (it.quantity || 1);
+                // 2️⃣ Lấy tất cả đơn hàng (status = 4)
+                const orderRes = await OrderService.getAllOrders();
+                const successOrders = orderRes.filter(o => Number(o.status) === 4);
 
-                        // lấy book (cache)
-                        let book = bookCache.get(it.bookId);
-                        if (book === undefined) {
-                            try {
-                                book = await getBookById(it.bookId);
-                            } catch (e) {
-                                book = null;
-                            }
-                            bookCache.set(it.bookId, book);
-                        }
-                        const authorId = book?.authorId;
-                        if (!authorId) continue;
+                setOrders(successOrders);
+                setTotalOrders(successOrders.length);
 
-                        // lấy author user (cache)
-                        let user = userCache.get(authorId);
-                        if (user === undefined) {
-                            try {
-                                user = await getUserById(authorId);
-                            } catch (e) {
-                                user = null;
-                            }
-                            userCache.set(authorId, user);
-                        }
+                const totalRev = successOrders.reduce(
+                    (sum, o) => sum + (o.totalPrice || 0),
+                    0
+                );
+                setTotalRevenue(totalRev);
 
-                        const royaltyRaw = Number(user?.royalty ?? 0);
-                        // nếu royalty là số lớn (>1) coi là phần trăm (vd 70 => 0.7), nếu đã fraction (0.7) giữ nguyên
-                        const royalty = royaltyRaw > 1 ? royaltyRaw / 100 : royaltyRaw;
-                        sumAuthor += itemTotal * (royalty || 0);
+                // 3️⃣ Lấy tất cả orderDetails
+                const orderDetails = await OrderDetailService.getAllOrderDetails();
+                const successOrderIds = new Set(successOrders.map(o => o.orderId));
+
+                const details = orderDetails.filter(d =>
+                    successOrderIds.has(d.orderId)
+                );
+
+                // 4️⃣ Build thống kê sách
+                const stats = new Map<string, BookStats>();
+
+                for (const d of details) {
+                    const bookId = d.bookId;
+
+                    if (!stats.has(bookId)) {
+                        stats.set(bookId, {
+                            bookId,
+                            totalQty: 0,
+                            totalRevenue: 0,
+                            feedbackCount: 0,
+                            book: bookMap.get(bookId),
+                        });
                     }
+
+                    const s = stats.get(bookId)!;
+
+                    s.totalQty += d.quantity;
+                    s.totalRevenue += d.quantity * d.price;
                 }
 
-                setAuthorRevenue(sumAuthor);
+                // 5️⃣ Feedback (CHỈ CHẠY 1 LẦN — ngoài for)
+                const feedbacks = await FeedbackService.getAll();
+
+                for (const fb of feedbacks) {
+                    const st = stats.get(fb.bookId);
+                    if (st) st.feedbackCount += 1;
+                }
+
+                // 6️⃣ Set thống kê sách
+                setBookStatsMap(stats);
+
+                // 7️⃣ Tính doanh thu tác giả
+                let authorTotal = 0;
+
+                for (const s of stats.values()) {
+                    const book = s.book;
+                    if (!book?.authorId) continue;
+
+                    let royalty = 0;
+                    try {
+                        const user = await getUserById(book.authorId);
+                        const raw = Number(user?.royalty ?? 0);
+                        royalty = raw > 1 ? raw / 100 : raw;
+                    } catch {
+                        royalty = 0;
+                    }
+
+                    authorTotal += s.totalRevenue * royalty;
+                }
+
+                setAuthorRevenue(authorTotal);
+
             } catch (err) {
-                console.error("Lỗi khi tính doanh thu tác giả:", err);
-                setAuthorRevenue(0);
+                console.error("Dashboard error:", err);
+            } finally {
+                setLoading(false);
             }
         };
 
-        computeAuthorRevenue();
-    }, []); // chạy 1 lần, có thể thêm dependency nếu muốn cập nhật khi orders thay đổi
+        loadDashboard();
+    }, []);
 
-    const totalAIGenerations = Array.isArray(aiResp)
-        ? aiResp.length
-        : Array.isArray((aiResp as any)?.content)
-            ? (aiResp as any).content.length
-            : 0;
 
-    // Tính tiền AI: số lượt × 3 credits × 0.03 USD × tỷ giá
+    /* =========================================================
+        🔥 AI COST
+    ========================================================== */
+    const totalAIGenerations = useMemo(() => {
+        if (!aiResp) return 0;
+
+        if (Array.isArray(aiResp)) return aiResp.length;
+
+        const paged = aiResp as any;
+        if (typeof paged.totalElements === "number") return paged.totalElements;
+        if (Array.isArray(paged.content)) return paged.content.length;
+
+        return 0;
+    }, [aiResp]);
+
     useEffect(() => {
-        const totalCredits = totalAIGenerations * 3;
-        const totalUSD = totalCredits * 0.03;
-        const totalVND = totalUSD * USD_TO_VND;
-        setAiCost(totalVND);
+        const credits = totalAIGenerations * 3;
+        const usd = credits * 0.03;
+        const vnd = usd * USD_TO_VND;
+        setAiCost(vnd);
     }, [totalAIGenerations]);
 
-    /* ================================ 
-       🔹 DỮ LIỆU CƠ CẤU DOANH THU (HARDCODE)
-    ================================ */
-    const hostCost = 4000000; // Chi phí host cố định
+    /* =========================================================
+          🔥 CHART DATA
+    ========================================================== */
 
-    /* thay authorRevenue cũ (totalRevenue * 0.7) bằng state authorRevenue */
-    const revenueStructureData = {
-        day: [
-            { name: "Đơn hàng", value: totalRevenue * 0.05 },
-            { name: "Doanh thu tác giả", value: authorRevenue * 0.05 },
-            { name: "Chi phí host", value: hostCost / 30 },
-            { name: "Chi phí AI", value: aiCost / 30 },
-        ],
-        week: [
-            { name: "Đơn hàng", value: totalRevenue * 0.2 },
-            { name: "Doanh thu tác giả", value: authorRevenue * 0.2 },
-            { name: "Chi phí host", value: hostCost / 4 },
-            { name: "Chi phí AI", value: aiCost / 4 },
-        ],
-        month: [
-            { name: "Đơn hàng", value: totalRevenue },
-            { name: "Doanh thu tác giả", value: authorRevenue },
-            { name: "Chi phí host", value: hostCost },
-            { name: "Chi phí AI", value: aiCost },
-        ],
-        quarter: [
-            { name: "Đơn hàng", value: totalRevenue * 3 },
-            { name: "Doanh thu tác giả", value: authorRevenue * 3 },
-            { name: "Chi phí host", value: hostCost * 3 },
-            { name: "Chi phí AI", value: aiCost * 3 },
-        ],
-        year: [
-            { name: "Đơn hàng", value: totalRevenue * 12 },
-            { name: "Doanh thu tác giả", value: authorRevenue * 12 },
-            { name: "Chi phí host", value: hostCost * 12 },
-            { name: "Chi phí AI", value: aiCost * 12 },
-        ],
-    };
+    const currentRevenueStructure = useMemo(
+        () =>
+            buildRevenueStructure(
+                totalRevenue,
+                authorRevenue,
+                aiCost,
+                structureFilter
+            ),
+        [totalRevenue, authorRevenue, aiCost, structureFilter]
+    );
 
-    const COLORS = ["#667EEA", "#764BA2", "#FFB830", "#F87171"];
+    const currentSalesData = useMemo(
+        () => buildSalesSeries(orders, revenueFilter),
+        [orders, revenueFilter]
+    );
 
-    /* ================================ 
-       🔹 DỮ LIỆU DOANH THU THEO THỜI GIAN (HARDCODE)
-    ================================ */
-    const salesDataByPeriod = {
-        day: [
-            { time: "00:00", revenue: 500000 },
-            { time: "04:00", revenue: 800000 },
-            { time: "08:00", revenue: 1500000 },
-            { time: "12:00", revenue: 2500000 },
-            { time: "16:00", revenue: 3000000 },
-            { time: "20:00", revenue: 4000000 },
-        ],
-        week: [
-            { time: "T2", revenue: 8000000 },
-            { time: "T3", revenue: 10000000 },
-            { time: "T4", revenue: 12000000 },
-            { time: "T5", revenue: 15000000 },
-            { time: "T6", revenue: 18000000 },
-            { time: "T7", revenue: 20000000 },
-            { time: "CN", revenue: 22000000 },
-        ],
-        month: [
-            { time: "Tuần 1", revenue: totalRevenue * 0.2 },
-            { time: "Tuần 2", revenue: totalRevenue * 0.3 },
-            { time: "Tuần 3", revenue: totalRevenue * 0.25 },
-            { time: "Tuần 4", revenue: totalRevenue * 0.25 },
-        ],
-        quarter: [
-            { time: "Tháng 1", revenue: totalRevenue },
-            { time: "Tháng 2", revenue: totalRevenue * 1.1 },
-            { time: "Tháng 3", revenue: totalRevenue * 1.2 },
-        ],
-        year: [
-            { time: "Q1", revenue: totalRevenue * 3 },
-            { time: "Q2", revenue: totalRevenue * 3.2 },
-            { time: "Q3", revenue: totalRevenue * 3.5 },
-            { time: "Q4", revenue: totalRevenue * 3.8 },
-        ],
-    };
+    /* =========================================================
+          🔥 TOP BOOKS (best seller / interested / feedback)
+    ========================================================== */
+    const allStats = useMemo(() => Array.from(bookStatsMap.values()), [bookStatsMap]);
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat("vi-VN", {
-            style: "currency",
-            currency: "VND",
-        }).format(value);
+    const topSellingBooks = useMemo(
+        () =>
+            [...allStats]
+                .sort((a, b) => b.totalQty - a.totalQty)
+                .slice(0, 5),
+        [allStats]
+    );
 
-    const currentRevenueStructure = revenueStructureData[structureFilter as keyof typeof revenueStructureData];
-    const currentSalesData = salesDataByPeriod[revenueFilter as keyof typeof salesDataByPeriod];
 
-    /* ================================ 
-       🔹 GIAO DIỆN
-    ================================ */
+
+    const mostFeedbackBooks = useMemo(
+        () =>
+            [...allStats]
+                .sort((a, b) => b.feedbackCount - a.feedbackCount)
+                .slice(0, 5),
+        [allStats]
+    );
+
+    /* =========================================================
+                  🔥 RENDER UI
+    ========================================================== */
+
     return (
         <div className="flex h-screen bg-[#1a1a2e] text-white">
-            {/* Sidebar */}
             <AdminSidebar isOpen={sidebarOpen} />
 
-            {/* Main content */}
+            {/* MAIN */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
+
+                {/* HEADER */}
                 <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
                     <div className="flex items-center justify-between px-6 py-4">
                         <Button
@@ -259,14 +468,23 @@ export default function AdminDashboardPage() {
                         >
                             {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                         </Button>
-                        <h1 className="text-lg font-semibold">Thống kê tổng quan</h1>
+
+                        <h1 className="text-lg font-semibold">
+                            Thống kê tổng quan
+                            {loading && (
+                                <span className="text-xs text-white/60 ml-2">(Đang tải...)</span>
+                            )}
+                        </h1>
                     </div>
                 </header>
 
-                {/* Nội dung chính */}
+                {/* CONTENT */}
                 <div className="flex-1 p-6 overflow-auto space-y-8">
-                    {/* 🧾 Cards tổng quan */}
+
+                    {/* CARDS */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                        {/* Doanh thu */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -275,10 +493,11 @@ export default function AdminDashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                                <p className="text-white/70 text-sm">Tổng doanh thu từ đơn hàng</p>
+                                <p className="text-white/70 text-sm">Chỉ tính đơn thành công (status 4)</p>
                             </CardContent>
                         </Card>
 
+                        {/* Tổng đơn */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -287,10 +506,11 @@ export default function AdminDashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-2xl font-bold">{totalOrders}</p>
-                                <p className="text-white/70 text-sm">Số đơn hàng đã tạo</p>
+                                <p className="text-white/70 text-sm">Đơn thành công</p>
                             </CardContent>
                         </Card>
 
+                        {/* Số lượng sách */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -298,11 +518,11 @@ export default function AdminDashboardPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-2xl font-bold">{bookCount.toLocaleString()}</p>
-                                <p className="text-white/70 text-sm">Tổng số sách</p>
+                                <p className="text-2xl font-bold">{bookCount}</p>
                             </CardContent>
                         </Card>
 
+                        {/* Chi phí AI */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -318,13 +538,18 @@ export default function AdminDashboardPage() {
                         </Card>
                     </div>
 
-                    {/* 🔵🟢 Merge: Biểu đồ tròn + Biểu đồ cột */}
+                    {/* CHARTS: PIE + BAR */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* 🟢 Biểu đồ tròn: Cơ cấu doanh thu */}
+
+                        {/* Pie */}
                         <Card className="bg-[#1a2332] border border-white/10">
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="text-white">Cơ cấu doanh thu</CardTitle>
-                                <Select value={structureFilter} onValueChange={setStructureFilter}>
+
+                                <Select
+                                    value={structureFilter}
+                                    onValueChange={(v) => setStructureFilter(v as RevenueFilter)}
+                                >
                                     <SelectTrigger className="w-32 bg-[#1a1a2e] border-white/20 text-white">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -337,6 +562,7 @@ export default function AdminDashboardPage() {
                                     </SelectContent>
                                 </Select>
                             </CardHeader>
+
                             <CardContent className="h-80">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -345,19 +571,21 @@ export default function AdminDashboardPage() {
                                             cx="50%"
                                             cy="50%"
                                             labelLine={false}
-                                            outerRadius={100}
-                                            fill="#8884d8"
+                                            outerRadius={110}
                                             dataKey="value"
-                                            label={(data: any) =>
-                                                `${data.name} ${(data.percent * 100).toFixed(1)}%`
+                                            label={(d: any) =>
+                                                `${d.name} ${(d.percent * 100).toFixed(1)}%`
                                             }
+
+
                                         >
-                                            {currentRevenueStructure.map((_entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            {currentRevenueStructure.map((_, i) => (
+                                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                             ))}
                                         </Pie>
+
                                         <Tooltip
-                                            formatter={(value) => formatCurrency(Number(value))}
+                                            formatter={(v) => formatCurrency(Number(v))}
                                             contentStyle={{ backgroundColor: "#1a2332", border: "none" }}
                                         />
                                         <Legend />
@@ -366,11 +594,15 @@ export default function AdminDashboardPage() {
                             </CardContent>
                         </Card>
 
-                        {/* 🔵 Biểu đồ cột: Cơ cấu doanh thu theo thời gian */}
+                        {/* Bar */}
                         <Card className="bg-[#1a2332] border border-white/10">
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="text-white">Chi tiết cơ cấu</CardTitle>
-                                <Select value={structureFilter} onValueChange={setStructureFilter}>
+
+                                <Select
+                                    value={structureFilter}
+                                    onValueChange={(v) => setStructureFilter(v as RevenueFilter)}
+                                >
                                     <SelectTrigger className="w-32 bg-[#1a1a2e] border-white/20 text-white">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -383,15 +615,15 @@ export default function AdminDashboardPage() {
                                     </SelectContent>
                                 </Select>
                             </CardHeader>
+
                             <CardContent className="h-80">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={currentRevenueStructure}>
                                         <XAxis dataKey="name" stroke="#ccc" />
                                         <YAxis stroke="#ccc" />
                                         <Tooltip
-                                            formatter={(value) => formatCurrency(Number(value))}
+                                            formatter={(v) => formatCurrency(Number(v))}
                                             contentStyle={{ backgroundColor: "#1a2332", border: "none" }}
-                                            labelStyle={{ color: "#fff" }}
                                         />
                                         <Legend />
                                         <Bar dataKey="value" fill="#667EEA" radius={[6, 6, 0, 0]} />
@@ -401,11 +633,15 @@ export default function AdminDashboardPage() {
                         </Card>
                     </div>
 
-                    {/* 🔴 Biểu đồ đường: Doanh thu theo thời gian */}
+                    {/* LINE CHART */}
                     <Card className="bg-[#1a2332] border border-white/10">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-white">Doanh thu theo thời gian</CardTitle>
-                            <Select value={revenueFilter} onValueChange={setRevenueFilter}>
+
+                            <Select
+                                value={revenueFilter}
+                                onValueChange={(v) => setRevenueFilter(v as RevenueFilter)}
+                            >
                                 <SelectTrigger className="w-32 bg-[#1a1a2e] border-white/20 text-white">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -418,18 +654,21 @@ export default function AdminDashboardPage() {
                                 </SelectContent>
                             </Select>
                         </CardHeader>
+
                         <CardContent className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={currentSalesData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                                     <XAxis dataKey="time" stroke="#ccc" />
                                     <YAxis stroke="#ccc" />
+
                                     <Tooltip
-                                        formatter={(value) => formatCurrency(Number(value))}
-                                        contentStyle={{ backgroundColor: "#1a2332", border: "none" }}
-                                        labelStyle={{ color: "#fff" }}
+                                        formatter={(v) => formatCurrency(Number(v))}
+                                        contentStyle={{ backgroundColor: "#eaedf1ff", border: "none" }}
                                     />
+
                                     <Legend />
+
                                     <Line
                                         type="monotone"
                                         dataKey="revenue"
@@ -441,6 +680,83 @@ export default function AdminDashboardPage() {
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
+
+                    {/* TOP BOOKS */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                        {/* Bán chạy */}
+                        <Card className="bg-[#1a2332] border border-white/10">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-white">
+                                    <TrendingUp className="w-5 h-5" /> Sách bán chạy
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {topSellingBooks.length === 0 && (
+                                    <p className="text-sm text-white/60">Chưa có dữ liệu</p>
+                                )}
+                                {topSellingBooks.map((s, i) => (
+                                    <div
+                                        key={s.bookId}
+                                        className="flex items-center justify-between px-3 py-2 border border-white/10 rounded-lg"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-semibold text-white">
+                                                #{i + 1} {s.book?.bookName}
+                                            </span>
+                                            <span className="text-xs text-white/60">
+                                                Bán: {s.totalQty} – Doanh thu:{" "}
+                                                {formatCurrency(s.totalRevenue)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        {/* Nhiều người quan tâm */}
+                        <Card className="bg-[#1a2332] border border-white/10">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-white">
+                                    <Star className="w-5 h-5" /> Sách nhiều người quan tâm
+                                </CardTitle>
+                            </CardHeader>
+
+                            
+                        </Card>
+
+                        {/* Nhiều feedback */}
+                        <Card className="bg-[#1a2332] border border-white/10">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-white">
+                                    <MessageCircle className="w-5 h-5" /> Sách nhiều feedback
+                                </CardTitle>
+                            </CardHeader>
+
+                            <CardContent className="space-y-3">
+                                {mostFeedbackBooks.length === 0 && (
+                                    <p className="text-sm text-white/60">Chưa có dữ liệu</p>
+                                )}
+                                {mostFeedbackBooks.map((s, i) => (
+                                    <div
+                                        key={s.bookId}
+                                        className="flex items-center justify-between px-3 py-2 border border-white/10 rounded-lg"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-semibold text-white">
+                                                #{i + 1} {s.book?.bookName}
+                                            </span>
+                                            <span className="text-xs text-white/60">
+                                                Feedback: {s.feedbackCount} – Doanh thu:{" "}
+                                                {formatCurrency(s.totalRevenue)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,11 +1,12 @@
+// src/services/WalletService.ts
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
 
 export interface Wallet {
   walletId: string;
   userId: string;
-  balance: number;
-  currency: string;
+  balance: number;  // tiền thật VND
+  coin: number;     // xu
   isActived: string;
   createdAt: string;
   updatedAt: string;
@@ -13,94 +14,72 @@ export interface Wallet {
 
 export interface CreateWalletRequest {
   userId: string;
-  balance?: number;
-  currency?: string;
-  isActived?: string;
+  balance: number;
+  coin: number;
+  isActived: string;
 }
 
 export interface UpdateWalletRequest {
   balance?: number;
-  currency?: string;
+  coin?: number;
   isActived?: string;
 }
 
 /* ---------------------------------------------
-📦 Lấy tất cả ví
---------------------------------------------- */
-export const getAllWallets = async (): Promise<Wallet[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  });
-  return res.data;
-};
-
-/* ---------------------------------------------
-📦 Tạo mới ví
---------------------------------------------- */
-export const createWallet = async (
-  data: CreateWalletRequest
-): Promise<Wallet> => {
-  console.log("📤 Creating wallet:", data);
-  const res = await axios.post(`${API_BASE_URL}/users/wallets`, data, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  });
-  console.log("✅ Wallet created:", res.data);
-  return res.data;
-};
-
-/* ---------------------------------------------
-📦 Lấy ví theo id
+📌 Lấy ví theo ID
 --------------------------------------------- */
 export const getWalletById = async (id: string): Promise<Wallet> => {
   const res = await axios.get(`${API_BASE_URL}/users/wallets/${id}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   return res.data;
 };
 
 /* ---------------------------------------------
-📦 Cập nhật ví theo id
+📌 Lấy ví theo userId (1 ví duy nhất)
 --------------------------------------------- */
-export const updateWallet = async (
-  id: string,
-  data: UpdateWalletRequest
+export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
+  const res = await axios.get(`${API_BASE_URL}/users/wallets/user/${userId}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
+  return res.data;
+};
+
+/* ---------------------------------------------
+📌 Lấy tất cả ví (mảng)
+--------------------------------------------- */
+export const getAllWallets = async (): Promise<Wallet[]> => {
+  const res = await axios.get(`${API_BASE_URL}/users/wallets`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
+  return res.data;
+};
+
+/* ---------------------------------------------
+📌 Tạo ví mới
+--------------------------------------------- */
+export const createWallet = async (
+  body: CreateWalletRequest
 ): Promise<Wallet> => {
-  console.log("🛠 Updating wallet:", id, data);
-  const res = await axios.put(`${API_BASE_URL}/users/wallets/${id}`, data, {
+  const res = await axios.post(`${API_BASE_URL}/users/wallets`, [body], {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
   });
-  console.log("✅ Wallet updated:", res.data);
-  return res.data;
+  return res.data; // backend trả object
 };
 
 /* ---------------------------------------------
-📦 Xóa ví theo id
+📌 Cập nhật ví
 --------------------------------------------- */
-export const deleteWallet = async (id: string): Promise<void> => {
-  console.log("🗑 Deleting wallet:", id);
-  await axios.delete(`${API_BASE_URL}/users/wallets/${id}`, {
+export const updateWallet = async (
+  walletId: string,
+  body: UpdateWalletRequest
+): Promise<Wallet> => {
+  const res = await axios.put(`${API_BASE_URL}/users/wallets/${walletId}`, body, {
     headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  });
-};
-
-/* ---------------------------------------------
-📦 Lấy ví theo userId
---------------------------------------------- */
-export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/user/${userId}`, {
-    headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
   });
@@ -108,14 +87,20 @@ export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
 };
 
 /* ---------------------------------------------
-📦 Tìm kiếm ví (ví dụ: theo email, userId, hoặc trạng thái)
+📌 Xóa ví
+--------------------------------------------- */
+export const deleteWallet = async (walletId: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/users/wallets/${walletId}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
+};
+
+/* ---------------------------------------------
+📌 Search ví
 --------------------------------------------- */
 export const searchWallets = async (query: string): Promise<Wallet[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/search`, {
-    params: { q: query },
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
+  const res = await axios.get(`${API_BASE_URL}/users/wallets/search?q=${query}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   return res.data;
 };

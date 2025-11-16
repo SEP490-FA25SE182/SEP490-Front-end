@@ -1,61 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useState } from "react";
+import { getWalletByUserId, createWallet, type Wallet } from "@/services/WalletService";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { toast } from "sonner";
+import { formatVND } from "@/lib/money";
 
 export default function WalletPage() {
-  const [filterType, setFilterType] = useState<'all' | 'received' | 'used'>('all');
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const transactions = [
-    { id: 1, title: "Đăng nhập hằng ngày", desc: "Xu từ đăng nhập hằng ngày", date: "00:07 | 19-09-2025", amount: +300, type: "received" },
-    { id: 2, title: "Mua truyện", desc: "Thanh toán cho 'Kẻ cắp mặt trăng'", date: "09:30 | 18-09-2025", amount: -200, type: "used" },
-    { id: 3, title: "Đăng nhập hằng ngày", desc: "Xu từ đăng nhập hằng ngày", date: "00:05 | 18-09-2025", amount: +300, type: "received" },
-  ];
+  const userId = getCurrentUserId();
 
-  const filteredTransactions =
-    filterType === 'all' ? transactions : transactions.filter((t) => t.type === filterType);
+  useEffect(() => {
+    if (!userId) return;
+
+    const load = async () => {
+      try {
+        let w: Wallet;
+
+        try {
+          // 🔍 lấy ví theo user
+          w = await getWalletByUserId(userId);
+        } catch {
+          // ❗ chưa có ví → tạo ví mới
+          w = await createWallet({
+            userId,
+            balance: 0,
+            coin: 0,
+            isActived: "ACTIVE",
+          });
+
+          toast.success("🎉 Ví mới đã được tạo!");
+        }
+
+        setWallet(w);
+      } catch (err) {
+        console.error("❌ Lỗi khi tải ví:", err);
+        toast.error("Không thể tải ví!");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [userId]);
+
+  if (loading) return <p className="text-center py-10">Đang tải ví...</p>;
+
+  const balance = wallet?.balance ?? 0;
+  const coin = wallet?.coin ?? 0;
 
   return (
     <>
       <h1 className="text-xl font-bold text-gray-800 mb-8">VÍ CỦA TÔI</h1>
+
+      {/* 💰 Tiền thật */}
+      <div className="text-center mb-8">
+        <p className="text-gray-500 text-sm">Số dư (VND)</p>
+        <h2 className="text-3xl font-extrabold text-emerald-500">
+          {formatVND(balance)}
+        </h2>
+      </div>
+
+      {/* 🪙 Xu */}
       <div className="text-center mb-10">
-        <h2 className="text-3xl font-extrabold text-yellow-500">300 Xu</h2>
-        <p className="text-gray-500 text-sm mt-2">100 Xu sẽ hết vào ngày 19/09/2025</p>
+        <p className="text-gray-500 text-sm">Xu thưởng</p>
+        <h2 className="text-3xl font-extrabold text-yellow-500">
+          {coin} Xu
+        </h2>
       </div>
 
-      <div className="grid grid-cols-3 border-b border-gray-300 mb-6 text-gray-600 font-semibold text-center">
-        {['all', 'received', 'used'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setFilterType(tab as any)}
-            className={`py-2 transition-all duration-200 ${
-              filterType === tab
-                ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
-                : 'hover:text-purple-400'
-            }`}
-          >
-            {tab === 'all' ? 'Tất cả' : tab === 'received' ? 'Đã nhận' : 'Đã dùng'}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-4">
-        {filteredTransactions.map((item) => (
-          <div key={item.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow hover:shadow-md transition-all">
-            <div className="flex items-center gap-4">
-              <img src="/coin-x.png" alt="coin" className="w-12 h-12" />
-              <div>
-                <h3 className="font-bold text-gray-800">{item.title}</h3>
-                <p className="text-gray-500 text-sm">{item.desc}</p>
-                <p className="text-gray-400 text-xs mt-1">{item.date}</p>
-              </div>
-            </div>
-            <p className={`font-bold text-lg ${item.amount > 0 ? 'text-yellow-500' : 'text-red-500'}`}>
-              {item.amount > 0 ? `+${item.amount}` : item.amount}
-            </p>
-          </div>
-        ))}
-        {filteredTransactions.length === 0 && (
-          <p className="text-gray-400 text-center py-8 italic">Không có giao dịch nào.</p>
-        )}
-      </div>
+      <p className="text-center text-gray-400 italic">
+        Bạn chưa có giao dịch nào.
+      </p>
     </>
   );
 }

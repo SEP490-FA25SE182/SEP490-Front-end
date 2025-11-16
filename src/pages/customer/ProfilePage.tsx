@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Save, MapPin, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { getUserByEmail, updateUser, type User ,
+import {
+  getUserByEmail, updateUser, type User,
   getAddressesByUserId,
   createAddress,
   updateAddress,
@@ -218,8 +219,8 @@ export default function ProfilePage() {
                 {user.gender === "Male"
                   ? "Nam"
                   : user.gender === "Female"
-                  ? "Nữ"
-                  : "Khác"}
+                    ? "Nữ"
+                    : "Khác"}
               </p>
             )}
           </div>
@@ -233,139 +234,74 @@ export default function ProfilePage() {
         </div>
       </div>
 
-     {/* 🏠 SỔ ĐỊA CHỈ */}
-<div className="mt-8">
-  <div className="flex justify-between items-center mb-4">
-    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-      <MapPin className="w-5 h-5" /> Sổ địa chỉ
-    </h2>
+      {/* 🏠 SỔ ĐỊA CHỈ */}
+      <div className="mt-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <MapPin className="w-5 h-5" /> Sổ địa chỉ
+          </h2>
 
-    {/* ➕ Nút Thêm địa chỉ */}
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Thêm địa chỉ
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Thêm địa chỉ mới</DialogTitle>
-        </DialogHeader>
-        <AddOrEditAddressForm
-          userId={user.userId}
-          onSuccess={async () => {
-            const updated = await getAddressesByUserId(user.userId);
-            setAddresses(updated);
-          }}
-        />
-      </DialogContent>
-    </Dialog>
-  </div>
-
-  {/* 📋 Danh sách địa chỉ */}
-  <div className="space-y-4">
-    {addresses.length === 0 ? (
-      <p className="text-gray-500 italic">Chưa có địa chỉ nào.</p>
-    ) : (
-      <div className="space-y-3">
-        {addresses.map((addr) => (
-          <div
-            key={addr.userAddressId}
-            className={`p-4 rounded-xl border ${
-              addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
-            } flex justify-between items-start`}
-          >
-            <div className="flex flex-col gap-1">
-              <p className="text-gray-800">{addr.addressInfor}</p>
-
-              {addr.fullName && (
-                <p className="text-sm text-gray-600">👤 {addr.fullName}</p>
-              )}
-              {addr.phoneNumber && (
-                <p className="text-sm text-gray-600">📞 {addr.phoneNumber}</p>
-              )}
-              {addr.type && (
-                <p className="text-sm text-gray-500 italic">🏷️ {addr.type}</p>
-              )}
-
-              {addr.default && (
-                <span className="text-xs text-white bg-blue-500 px-2 py-0.5 rounded mt-1 w-fit">
-                  Mặc định
-                </span>
-              )}
-            </div>
-
-            {/* Nút hành động */}
-            <div className="flex items-center gap-2">
-              {/* 🔘 Radio: chọn làm mặc định */}
-              {!addr.default && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      // Gửi toàn bộ thông tin hiện tại, chỉ thêm default=true
-                      const payload = {
-                        addressInfor: addr.addressInfor,
-                        userId: addr.userId,
-                        isActived: "ACTIVE",
-                        phoneNumber: addr.phoneNumber || "",
-                        fullName: addr.fullName || "",
-                        type: addr.type || "",
-                        isDefault: true, // ✅ đây là key BE yêu cầu
-                      };
-                      console.log("📦 Payload gửi BE:", payload);
-                      await updateAddress(addr.userAddressId, payload);
-                      toast.success("✅ Đã đặt làm địa chỉ mặc định!");
-                      const updated = await getAddressesByUserId(user.userId);
-                      setAddresses(updated);
-                    } catch (error) {
-                      console.error(error);
-                      toast.error("Không thể đặt mặc định!");
-                    }
-                  }}
-                >
-                  🔘 Đặt mặc định
-                </Button>
-              )}
-
-              {/* ✏️ Sửa */}
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Edit2 className="w-4 h-4 text-blue-600" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Chỉnh sửa địa chỉ</DialogTitle>
-                  </DialogHeader>
-                  <AddOrEditAddressForm
-                    userId={user.userId}
-                    defaultAddress={addr}
-                    onSuccess={async () => {
-                      const updated = await getAddressesByUserId(user.userId);
-                      setAddresses(updated);
-                    }}
-                  />
-                </DialogContent>
-              </Dialog>
-
-              {/* 🗑️ Xóa */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDeleteAddress(addr.userAddressId)}
-              >
-                <Trash2 className="w-4 h-4 text-red-500" />
+          {/* ➕ Nút Thêm địa chỉ */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Thêm địa chỉ
               </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Thêm địa chỉ mới</DialogTitle>
+              </DialogHeader>
+              <AddOrEditAddressForm
+                userId={user.userId}
+                onSuccess={async () => {
+                  const updated = await getAddressesByUserId(user.userId);
+                  setAddresses(updated);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* 📋 Danh sách địa chỉ */}
+        <div className="space-y-4">
+          {addresses.length === 0 ? (
+            <p className="text-gray-500 italic">Chưa có địa chỉ nào.</p>
+          ) : (
+            <div className="space-y-3">
+              {addresses.map((addr) => (
+                <div
+                  key={addr.userAddressId}
+                  className={`p-4 rounded-xl border ${addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+                    } flex justify-between items-start`}
+                >
+                  <div className="flex flex-col gap-1">
+                    <p className="text-gray-800">{addr.addressInfor}</p>
+
+                    {addr.fullName && (
+                      <p className="text-sm text-gray-600">👤 {addr.fullName}</p>
+                    )}
+                    {addr.phoneNumber && (
+                      <p className="text-sm text-gray-600">📞 {addr.phoneNumber}</p>
+                    )}
+                    {addr.type && (
+                      <p className="text-sm text-gray-500 italic">🏷️ {addr.type}</p>
+                    )}
+
+                    {addr.default && (
+                      <span className="text-xs text-white bg-blue-500 px-2 py-0.5 rounded mt-1 w-fit">
+                        Mặc định
+                      </span>
+                    )}
+                  </div>
+
+
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
-    )}
-  </div>
-</div>
 
 
 
@@ -482,7 +418,7 @@ function AddOrEditAddressForm({
         type,
         default: isDefault,
       };
-      
+
 
       if (defaultAddress) {
         await updateAddress(defaultAddress.userAddressId, payload);
@@ -607,31 +543,6 @@ function AddOrEditAddressForm({
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Radio Mặc định */}
-      <div>
-        <Label>Đặt làm địa chỉ mặc định</Label>
-        <div className="flex gap-6 mt-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="isDefault"
-              checked={isDefault === true}
-              onChange={() => setIsDefault(true)}
-            />
-            <span>Có</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="isDefault"
-              checked={isDefault === false}
-              onChange={() => setIsDefault(false)}
-            />
-            <span>Không</span>
-          </label>
-        </div>
       </div>
 
       <DialogFooter>

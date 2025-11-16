@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, Eye } from 'lucide-react';
-import { getBooks } from "@/services/BookService";
+import { Menu, X, Search, Plus, Eye, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { getBooks, deleteBook as apiDeleteBook } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,22 @@ import {
 } from "@/components/ui/pagination";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/use-toast";
+import { updateBookStatusFull } from "@/services/BookService";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogFooter,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 
 export default function AuthorBookList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -31,9 +47,20 @@ export default function AuthorBookList() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [books, setBooks] = useState<any[]>([]);
   const [, setLoading] = useState(true);
+
+  // delete dialog state
+  const [openDeleteAlert, setOpenDeleteAlert] = useState(false);
+  const [deletingBook, setDeletingBook] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // send-for-review dialog state
+  const [openSendAlert, setOpenSendAlert] = useState(false);
+  const [sendReviewBook, setSendReviewBook] = useState<any | null>(null);
+  const [isSendingReview, setIsSendingReview] = useState(false);
 
   useEffect(() => {
     async function fetchBooks() {
@@ -53,6 +80,17 @@ export default function AuthorBookList() {
 
     fetchBooks();
   }, [user]);
+
+  const getDisplayImageUrl = (url: string | undefined | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    return url;
+  };
 
   // helper: map publicationStatus -> label + class
   const getPublicationLabel = (publication: any) => {
@@ -102,6 +140,84 @@ export default function AuthorBookList() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedStatus, selectedPublication]);
+
+  const handleSendForReviewConfirmed = async () => {
+    const book = sendReviewBook;
+    if (!book) return;
+    setIsSendingReview(true);
+
+    try {
+      await updateBookStatusFull({ ...book } as any, 3);
+
+      setBooks(prev => prev.map(b => {
+        const idB = b.bookId ?? b.book_id;
+        const id = book.bookId ?? book.book_id;
+        if (String(idB) === String(id)) {
+          return { ...b, publicationStatus: 3 };
+        }
+        return b;
+      }));
+
+      toast({
+        title: "Đã gửi duyệt",
+        description: `Sách "${book.bookName ?? book.book_name}" đã được gửi đi duyệt.`,
+      });
+    } catch (err) {
+      console.error("Gửi duyệt thất bại:", err);
+      toast({
+        title: "Gửi duyệt thất bại",
+        description: "Không thể gửi sách đi duyệt. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingReview(false);
+      setOpenSendAlert(false);
+      setSendReviewBook(null);
+    }
+  };
+
+  const confirmSendForReview = (book: any) => {
+    // nếu đã gửi rồi thì không mở dialog
+    const publication = book.publicationStatus ?? book.publication_status;
+    if (String(publication) === "3" || publication === 3) {
+      toast({
+        title: "Đã gửi duyệt",
+        description: "Quyển sách này đã được gửi đi duyệt trước đó.",
+      });
+      return;
+    }
+    setSendReviewBook(book);
+    setOpenSendAlert(true);
+  };
+
+  const confirmDeleteBook = (book: any) => {
+    setDeletingBook(book);
+    setOpenDeleteAlert(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingBook) return;
+    setIsDeleting(true);
+    try {
+      await apiDeleteBook(deletingBook.bookId ?? deletingBook.book_id);
+      setBooks(prev => prev.filter(b => String(b.bookId ?? b.book_id) !== String(deletingBook.bookId ?? deletingBook.book_id)));
+      toast({
+        title: "Xóa thành công",
+        description: `Đã xóa sách "${deletingBook.bookName ?? deletingBook.book_name}".`,
+      });
+    } catch (err) {
+      console.error("Xóa sách thất bại:", err);
+      toast({
+        title: "Xóa thất bại",
+        description: "Không thể xóa sách. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setOpenDeleteAlert(false);
+      setDeletingBook(null);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -182,19 +298,59 @@ export default function AuthorBookList() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {currentBooks.map((book) => {
               const cover = book.coverUrl ?? book.cover_url;
+              const coverSrc = getDisplayImageUrl(cover);
               const name = book.bookName ?? book.book_name;
               const id = book.bookId ?? book.book_id;
               const publication = book.publicationStatus ?? book.publication_status;
               const pubInfo = getPublicationLabel(publication);
+              const alreadySent = String(publication) === "3" || publication === 3;
 
               return (
                 <div key={id} className="group relative">
                   <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20">
+                    {/* Dropdown Menu Button - top-right like chapter list */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => navigate(`/author/books/${id}/chapters`)}>
+                            <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => navigate(`/author/authoreditbook/${id}`)}
+                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
+                          >
+                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => confirmSendForReview(book)}
+                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
+                          >
+                            <CircleCheck className="mr-2 h-4 w-4" />Đưa đi duyệt
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => confirmDeleteBook(book)}
+                            className={`${alreadySent ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
                     {/* Book Cover */}
                     <div className="flex flex-col items-center space-y-2">
                       <div className="relative w-24 h-32 rounded overflow-hidden bg-white/5 shadow-lg">
                         <img
-                          src={cover}
+                          src={coverSrc}
                           alt={name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -203,27 +359,16 @@ export default function AuthorBookList() {
                           }}
                         />
                       </div>
-                      
+
                       {/* Book Name */}
                       <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
                         {name}
                       </div>
-                      
+
                       {/* Status Badge */}
                       <div className={`text-[10px] px-2 py-0.5 rounded-full ${pubInfo.className}`}>
                         {pubInfo.text}
                       </div>
-
-                      {/* View Details Button */}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="w-full text-xs h-7 bg-purple-600 hover:bg-purple-700 text-white border-0"
-                        onClick={() => navigate(`/author/books/${id}/chapters`)}
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        Xem chi tiết
-                      </Button>
                     </div>
                   </div>
                 </div>
@@ -269,6 +414,54 @@ export default function AuthorBookList() {
           )}
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa sách</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa sách "{deletingBook?.bookName ?? deletingBook?.book_name}"? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setOpenDeleteAlert(false)}>
+              Huỷ
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Đang xóa..." : "Xóa"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send-for-review confirmation dialog */}
+      <AlertDialog open={openSendAlert} onOpenChange={setOpenSendAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gửi sách đi duyệt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn gửi sách "{sendReviewBook?.bookName ?? sendReviewBook?.book_name}" đi duyệt? Sau khi gửi, bạn sẽ không thể sửa hoặc xóa sách.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setOpenSendAlert(false)}>
+              Huỷ
+            </Button>
+            <Button
+              onClick={handleSendForReviewConfirmed}
+              disabled={isSendingReview}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isSendingReview ? "Đang gửi..." : "Gửi duyệt"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

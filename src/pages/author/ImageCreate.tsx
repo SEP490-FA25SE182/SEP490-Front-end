@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, Upload } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -7,6 +7,9 @@ import { useToast } from "@/components/ui/use-toast";
 import AIPromptPanel from "@/components/author/AIPromptPanel";
 import { UploadService } from "@/services/FirebaseService";
 import { useCreateIllustration } from "@/services/AIService";
+import { useAuth } from "@/context/AuthContext";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { getUserByEmail } from "@/services/UserService";
 
 export default function ImageCreate() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -18,6 +21,41 @@ export default function ImageCreate() {
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // --- NEW: authorId state + auth context ---
+  const { user } = useAuth();
+  const [authorId, setAuthorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAuthorId = async () => {
+      try {
+        const uidFromStorage = getCurrentUserId();
+        if (uidFromStorage) {
+          setAuthorId(uidFromStorage);
+          return;
+        }
+
+        if (user?.userId) {
+          setAuthorId(user.userId);
+          return;
+        }
+
+        if (user?.email) {
+          const currentUser = await getUserByEmail(user.email);
+          if (currentUser?.userId) {
+            setAuthorId(currentUser.userId);
+            return;
+          }
+        }
+
+        // Nếu không lấy được thì để null (khi upload sẽ báo)
+      } catch (error) {
+        console.error("❌ Lỗi khi xác định authorId:", error);
+      }
+    };
+
+    fetchAuthorId();
+  }, [user]);
 
   const handleImportImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,6 +76,15 @@ export default function ImageCreate() {
       return;
     }
 
+    if (!authorId) {
+      toast({
+        title: "Không tìm thấy tác giả",
+        description: "Không thể xác định authorId. Vui lòng đăng nhập lại.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       toast({ title: "Đang upload ảnh lên hệ thống..." });
       const gsUrl = await UploadService.uploadImageToFirebase(uploadedFile, "pages");
@@ -52,6 +99,7 @@ export default function ImageCreate() {
           height: 1024,
           title: uploadedFile.name,
           isActived: "ACTIVE",
+          userId: authorId, // <-- thêm userId tác giả
         },
       ];
 

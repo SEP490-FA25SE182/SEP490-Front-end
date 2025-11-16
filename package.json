@@ -37,6 +37,7 @@
     "react-hook-form": "^7.64.0",
     "react-quill-new": "^3.6.0",
     "react-router-dom": "^7.9.3",
+    "react-unity-webgl": "^10.1.6",
     "recharts": "^3.3.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",

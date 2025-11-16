@@ -28,6 +28,9 @@ import {
 import { getAllBooks } from "@/services/BookService";
 import { useGetAllAIGenerations } from "@/services/AIService";
 import { OrderService } from "@/services/OrderService";
+import { CartItemService } from "@/services/CartItemService";
+import { getBookById } from "@/services/BookService";
+import { getUserById } from "@/services/UserService";
 
 export default function AdminDashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -35,6 +38,7 @@ export default function AdminDashboardPage() {
     const [totalRevenue, setTotalRevenue] = useState<number>(0);
     const [totalOrders, setTotalOrders] = useState<number>(0);
     const [aiCost, setAiCost] = useState<number>(0);
+    const [authorRevenue, setAuthorRevenue] = useState<number>(0); // <-- dùng state, không dùng tổng * 0.7 cứng
     const [revenueFilter, setRevenueFilter] = useState<string>("month");
     const [structureFilter, setStructureFilter] = useState<string>("month");
     
@@ -74,6 +78,62 @@ export default function AdminDashboardPage() {
         fetchOrders();
     }, []);
 
+    // Tính doanh thu tác giả chính xác: duyệt orders -> cartItems -> book -> author -> royalty
+    useEffect(() => {
+        const computeAuthorRevenue = async () => {
+            try {
+                const orders = await OrderService.getAllOrders();
+                const bookCache = new Map<string, any>();
+                const userCache = new Map<string, any>();
+                let sumAuthor = 0;
+
+                for (const order of orders) {
+                    if (!order.cartId) continue;
+                    const items = await CartItemService.getItemsByCartId(order.cartId);
+                    for (const it of items) {
+                        const itemTotal = (it.price || 0) * (it.quantity || 1);
+
+                        // lấy book (cache)
+                        let book = bookCache.get(it.bookId);
+                        if (book === undefined) {
+                            try {
+                                book = await getBookById(it.bookId);
+                            } catch (e) {
+                                book = null;
+                            }
+                            bookCache.set(it.bookId, book);
+                        }
+                        const authorId = book?.authorId;
+                        if (!authorId) continue;
+
+                        // lấy author user (cache)
+                        let user = userCache.get(authorId);
+                        if (user === undefined) {
+                            try {
+                                user = await getUserById(authorId);
+                            } catch (e) {
+                                user = null;
+                            }
+                            userCache.set(authorId, user);
+                        }
+
+                        const royaltyRaw = Number(user?.royalty ?? 0);
+                        // nếu royalty là số lớn (>1) coi là phần trăm (vd 70 => 0.7), nếu đã fraction (0.7) giữ nguyên
+                        const royalty = royaltyRaw > 1 ? royaltyRaw / 100 : royaltyRaw;
+                        sumAuthor += itemTotal * (royalty || 0);
+                    }
+                }
+
+                setAuthorRevenue(sumAuthor);
+            } catch (err) {
+                console.error("Lỗi khi tính doanh thu tác giả:", err);
+                setAuthorRevenue(0);
+            }
+        };
+
+        computeAuthorRevenue();
+    }, []); // chạy 1 lần, có thể thêm dependency nếu muốn cập nhật khi orders thay đổi
+
     const totalAIGenerations = Array.isArray(aiResp)
         ? aiResp.length
         : Array.isArray((aiResp as any)?.content)
@@ -92,8 +152,8 @@ export default function AdminDashboardPage() {
        🔹 DỮ LIỆU CƠ CẤU DOANH THU (HARDCODE)
     ================================ */
     const hostCost = 4000000; // Chi phí host cố định
-    const authorRevenue = totalRevenue * 0.7; // 70% doanh thu cho tác giả
 
+    /* thay authorRevenue cũ (totalRevenue * 0.7) bằng state authorRevenue */
     const revenueStructureData = {
         day: [
             { name: "Đơn hàng", value: totalRevenue * 0.05 },
@@ -199,7 +259,7 @@ export default function AdminDashboardPage() {
                         >
                             {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                         </Button>
-                        <h1 className="text-lg font-semibold">📊 Thống kê tổng quan</h1>
+                        <h1 className="text-lg font-semibold">Thống kê tổng quan</h1>
                     </div>
                 </header>
 

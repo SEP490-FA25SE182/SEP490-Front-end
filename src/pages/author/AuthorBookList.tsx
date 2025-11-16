@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, Eye, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import {
   AlertDialogFooter,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
+import BookCreateDialog from "@/components/dialog/CreateBookDialog";
 
 export default function AuthorBookList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -62,23 +63,29 @@ export default function AuthorBookList() {
   const [sendReviewBook, setSendReviewBook] = useState<any | null>(null);
   const [isSendingReview, setIsSendingReview] = useState(false);
 
-  useEffect(() => {
-    async function fetchBooks() {
-      try {
-        const res = await getBooks({
-          authorId: user?.userId ?? undefined,
-          page: 0,
-          size: 200,
-        });
-        setBooks(res?.content ?? []);
-      } catch (err) {
-        console.error("Lỗi khi tải sách:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
+  // create book dialog state
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
+  // fetch books (callable so we can refresh after create)
+  const fetchBooks = async () => {
+    try {
+      setLoading(true);
+      const res = await getBooks({
+        authorId: user?.userId ?? undefined,
+        page: 0,
+        size: 200,
+      });
+      setBooks(res?.content ?? []);
+    } catch (err) {
+      console.error("Lỗi khi tải sách:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const getDisplayImageUrl = (url: string | undefined | null) => {
@@ -285,7 +292,7 @@ export default function AuthorBookList() {
 
             <Button
               className="bg-purple-600 hover:bg-purple-700"
-              onClick={() => navigate('/author/authorcreatebook')}
+              onClick={() => setOpenCreateDialog(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
               Tạo sách mới
@@ -307,12 +314,18 @@ export default function AuthorBookList() {
 
               return (
                 <div key={id} className="group relative">
-                  <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20">
+                  {/* make whole card clickable -> go to chapters of this book */}
+                  <div
+                    className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
+                    onClick={() => navigate(`/author/books/${id}/chapters`, { state: { book } })}
+                  >
                     {/* Dropdown Menu Button - top-right like chapter list */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
+                          {/* stopPropagation so clicking menu does not trigger card navigation */}
                           <Button
+                            onClick={(e) => e.stopPropagation()}
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
@@ -321,23 +334,20 @@ export default function AuthorBookList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => navigate(`/author/books/${id}/chapters`)}>
-                            <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
-                          </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => navigate(`/author/authoreditbook/${id}`)}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/author/authoreditbook/${id}`); }}
                             className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
                           >
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => confirmSendForReview(book)}
+                            onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
                             className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
                           >
                             <CircleCheck className="mr-2 h-4 w-4" />Đưa đi duyệt
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => confirmDeleteBook(book)}
+                            onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}
                             className={`${alreadySent ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Xóa
@@ -371,8 +381,8 @@ export default function AuthorBookList() {
                       </div>
                     </div>
                   </div>
-                </div>
-              );
+                 </div>
+               );
             })}
           </div>
 
@@ -462,6 +472,16 @@ export default function AuthorBookList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Book Dialog */}
+      <BookCreateDialog
+        isOpen={openCreateDialog}
+        onClose={() => setOpenCreateDialog(false)}
+        onCreated={() => {
+          // refresh list after a book is created
+          fetchBooks();
+        }}
+      />
     </div>
   );
 }

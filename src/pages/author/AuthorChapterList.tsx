@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Menu, X, Plus, Eye, Edit, Trash2, MoreVertical, BookOpen } from "lucide-react";
+import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -227,29 +227,17 @@ export default function AuthorChapterList() {
 
               return (
                 <div key={id} className="group relative">
-                  <div className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20">
-                    {/* Chapter Icon */}
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="relative w-16 h-20 flex items-center justify-center rounded bg-white/5">
-                        <BookOpen className="w-12 h-12 text-purple-400" strokeWidth={1.5} />
-                      </div>
-                      
-                      {/* Chapter Name */}
-                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
-                        {normalized.chapterName}
-                      </div>
-                      
-                      {/* Chapter Number Badge */}
-                      <div className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
-                        Chương {normalized.chapterNumber ?? "-"}
-                      </div>
-                    </div>
-
-                    {/* Dropdown Menu Button */}
+                  {/* whole card clickable -> go to pages of this chapter */}
+                  <div
+                    className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
+                    onClick={() => navigate(`/author/chapters/${id}/pages`, { state: { chapter: normalized } })}
+                  >
+                    {/* Dropdown Menu Button (stopPropagation so menu clicks don't navigate) */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
+                            onClick={(e) => e.stopPropagation()}
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
@@ -258,19 +246,13 @@ export default function AuthorChapterList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => navigate(`/author/chapters/${id}/pages`)}>
-                            <Eye className="mr-2 h-4 w-4" /> Xem chi tiết
-                          </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => {
-                              setEditingChapter(normalized);
-                              setOpenEditDialog(true);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); setEditingChapter(normalized); setOpenEditDialog(true); }}
                           >
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleConfirmDelete(normalized)} 
+                            onClick={(e) => { e.stopPropagation(); handleConfirmDelete(normalized); }} 
                             className="text-red-600 focus:text-red-600"
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Xóa
@@ -278,9 +260,22 @@ export default function AuthorChapterList() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+
+                    {/* Chapter Icon + Info */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="relative w-16 h-20 flex items-center justify-center rounded bg-white/5">
+                        <BookOpen className="w-12 h-12 text-purple-400" strokeWidth={1.5} />
+                      </div>
+                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
+                        {normalized.chapterName}
+                      </div>
+                      <div className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                        Chương {normalized.chapterNumber ?? "-"}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              );
+               );
             })}
           </div>
 

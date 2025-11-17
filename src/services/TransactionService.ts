@@ -1,58 +1,51 @@
-// src/services/TransactionService.ts
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
 
 /* ------------------------------------------
- 🧩 Interface định nghĩa kiểu dữ liệu
+ 🧩 Kiểu type của Transaction từ BE
 ------------------------------------------ */
-export interface Transaction {
-  transactionId: string;
-  userId: string;
-  amount: number;
-  type: "CREDIT" | "DEBIT";
-  description: string;
-  status: "PENDING" | "SUCCESS" | "FAILED";
-  createdAt: string;
-  updatedAt: string;
-}
+export type TransactionType =
+  | "PAYMENT"
+  | "REFUND"
+  | "SETTLEMENT"
+  | "DEPOSIT"
+  | "WITHDRAW";
 
 /* ------------------------------------------
- 🧩 Request body khi tạo / cập nhật transaction
+ 🧩 RESPONSE khi BE trả về Transaction
 ------------------------------------------ */
-export interface CreateTransactionRequest {
-  userId: string;
-  amount: number;
-  type: "CREDIT" | "DEBIT";
-  description?: string;
-  status?: "PENDING" | "SUCCESS" | "FAILED";
-}
-
-export interface UpdateTransactionRequest {
-  amount?: number;
-  type?: "CREDIT" | "DEBIT";
-  description?: string;
-  status?: "PENDING" | "SUCCESS" | "FAILED";
-}
-
-export interface TransactionRequest {
-  totalPrice: number;
-  status: number;
-  orderCode: number;
-  orderId: string;
-  paymentMethodId: string;
-  isActived: "ACTIVE" | "INACTIVE";
-}
-
 export interface TransactionResponse {
   transactionId: string;
   totalPrice: number;
-  status: string;
+  status: number; 
   orderCode: number;
   orderId: string;
   paymentMethodId: string;
-  isActived: string;
+  walletId: string;
+  transType: TransactionType;
+  isActived: "ACTIVE" | "INACTIVE";
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TransactionSearchResponse {
+  content: TransactionResponse[];
+  totalPages: number;
+  totalElements: number;
+}
+
+
+/* ------------------------------------------
+ 🧩 REQUEST BODY chuẩn khi tạo transaction
+------------------------------------------ */
+export interface TransactionRequest {
+  totalPrice: number;
+  status: number; 
+  orderId: string;
+  paymentMethodId: string;
+  walletId: string;
+  transType: TransactionType; // PAYMENT / REFUND / ...
+  isActived: "ACTIVE" | "INACTIVE";
 }
 
 /* ------------------------------------------
@@ -60,7 +53,7 @@ export interface TransactionResponse {
 ------------------------------------------ */
 export const TransactionService = {
   // 🔹 Lấy transaction theo ID
-  async getById(id: string): Promise<Transaction> {
+  async getById(id: string): Promise<TransactionResponse> {
     const res = await axios.get(`${API_BASE_URL}/transactions/${id}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -69,7 +62,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // 🔹 Tạo mới transaction
+  // 🔹 Tạo transaction mới (PAYMENT, REFUND, ...)
   async create(data: TransactionRequest): Promise<TransactionResponse> {
     const res = await axios.post(`${API_BASE_URL}/transactions`, data, {
       headers: {
@@ -81,7 +74,10 @@ export const TransactionService = {
   },
 
   // 🔹 Cập nhật transaction theo ID
-  async update(id: string, data: UpdateTransactionRequest): Promise<Transaction> {
+  async update(
+    id: string,
+    data: Partial<TransactionRequest>
+  ): Promise<TransactionResponse> {
     const res = await axios.put(`${API_BASE_URL}/transactions/${id}`, data, {
       headers: {
         "Content-Type": "application/json",
@@ -91,7 +87,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // 🔹 Xóa transaction theo ID
+  // 🔹 Xóa transaction
   async delete(id: string): Promise<void> {
     await axios.delete(`${API_BASE_URL}/transactions/${id}`, {
       headers: {
@@ -100,20 +96,25 @@ export const TransactionService = {
     });
   },
 
-  // 🔹 Tìm kiếm transaction (ví dụ: theo userId, status,...)
-  async search(params?: Record<string, string | number | undefined>): Promise<Transaction[]> {
-    const query = new URLSearchParams(
-      Object.entries(params || {}).reduce((acc, [k, v]) => {
-        if (v !== undefined && v !== null && v !== "") acc[k] = String(v);
-        return acc;
-      }, {} as Record<string, string>)
-    ).toString();
+  // 🔹 Tìm kiếm transaction theo: orderId, paymentMethodId, transType, ...
+  async search(
+  params?: Record<string, string | number | undefined>
+): Promise<TransactionSearchResponse> {
+  const query = new URLSearchParams(
+    Object.entries(params || {}).reduce((acc, [k, v]) => {
+      if (v !== undefined && v !== null && v !== "") {
+        acc[k] = String(v);
+      }
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString();
 
-    const res = await axios.get(`${API_BASE_URL}/transactions/search?${query}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-    return res.data;
-  },
+  const res = await axios.get(`${API_BASE_URL}/transactions/search?${query}`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+
+  return res.data; // { content: [...], totalPages, totalElements }
+}
 };

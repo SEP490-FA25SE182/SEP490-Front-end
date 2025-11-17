@@ -5,8 +5,8 @@ import { API_BASE_URL } from "@/config";
 export interface Wallet {
   walletId: string;
   userId: string;
-  balance: number;  // tiền thật VND
-  coin: number;     // xu
+  balance: number;
+  coin: number;
   isActived: string;
   createdAt: string;
   updatedAt: string;
@@ -25,82 +25,77 @@ export interface UpdateWalletRequest {
   isActived?: string;
 }
 
-/* ---------------------------------------------
-📌 Lấy ví theo ID
---------------------------------------------- */
+const headers = {
+  Authorization: `Bearer ${localStorage.getItem("token")}`,
+};
+
+/* Lấy ví theo ID */
 export const getWalletById = async (id: string): Promise<Wallet> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/${id}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  });
+  const res = await axios.get(`${API_BASE_URL}/users/wallets/${id}`, { headers });
   return res.data;
 };
 
-/* ---------------------------------------------
-📌 Lấy ví theo userId (1 ví duy nhất)
---------------------------------------------- */
+/* Lấy ví theo userId */
 export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
   const res = await axios.get(`${API_BASE_URL}/users/wallets/user/${userId}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    headers,
   });
   return res.data;
 };
 
-/* ---------------------------------------------
-📌 Lấy tất cả ví (mảng)
---------------------------------------------- */
+/* Lấy tất cả */
 export const getAllWallets = async (): Promise<Wallet[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  });
+  const res = await axios.get(`${API_BASE_URL}/users/wallets`, { headers });
   return res.data;
 };
 
-/* ---------------------------------------------
-📌 Tạo ví mới
---------------------------------------------- */
+/* Tạo ví mới → BE nhận array + trả array */
 export const createWallet = async (
   body: CreateWalletRequest
-): Promise<Wallet> => {
+): Promise<Wallet[]> => {
   const res = await axios.post(`${API_BASE_URL}/users/wallets`, [body], {
     headers: {
+      ...headers,
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
   });
-  return res.data; // backend trả object
+
+  return res.data; // array
 };
 
-/* ---------------------------------------------
-📌 Cập nhật ví
---------------------------------------------- */
+/* Cập nhật ví */
 export const updateWallet = async (
   walletId: string,
   body: UpdateWalletRequest
 ): Promise<Wallet> => {
   const res = await axios.put(`${API_BASE_URL}/users/wallets/${walletId}`, body, {
     headers: {
+      ...headers,
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
   });
   return res.data;
 };
 
-/* ---------------------------------------------
-📌 Xóa ví
---------------------------------------------- */
+/* Xóa ví */
 export const deleteWallet = async (walletId: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/wallets/${walletId}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  });
+  await axios.delete(`${API_BASE_URL}/users/wallets/${walletId}`, { headers });
 };
 
-/* ---------------------------------------------
-📌 Search ví
---------------------------------------------- */
-export const searchWallets = async (query: string): Promise<Wallet[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/search?q=${query}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+/* Search ví */
+export const searchWallets = async (
+  params?: Record<string, string | number | undefined>
+): Promise<Wallet[]> => {
+  const query = new URLSearchParams(
+    Object.entries(params || {}).reduce((acc, [k, v]) => {
+      if (v !== undefined && v !== null && v !== "") acc[k] = String(v);
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString();
+
+  const res = await axios.get(`${API_BASE_URL}/users/wallets/search?${query}`, {
+    headers,
   });
+
   return res.data;
 };

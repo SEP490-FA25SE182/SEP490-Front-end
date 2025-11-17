@@ -10,8 +10,12 @@ import {
   useUploadAsset3D,
   useCreateARScene,
   useCreateARSceneItems,
+  useSearchAsset3D,  
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+
 
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -48,6 +52,18 @@ export default function AuthorModelView() {
 
   const { toast } = useToast();
 
+    // current userId
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user.userId;
+
+  // fetch user's 3D assets
+  const { data: asset3DResp, isLoading: assetsLoading } = useSearchAsset3D({
+    userId,
+  });
+
+  const assets: any[] = asset3DResp?.content ?? [];
+
+
   // fetch marker detail (will run if markerId exists)
   const { data: markerDetail, isLoading: loadingMarker } =
     useGetMarkerById(markerId);
@@ -57,9 +73,6 @@ export default function AuthorModelView() {
   const createSceneMut = useCreateARScene();
   const createSceneItemsMut = useCreateARSceneItems();
 
-  // Giả sử bạn có model URL (lấy từ DB, hoặc tạm thời hardcode)
-  const modelUrl =
-    "https://firebasestorage.googleapis.com/v0/b/YOUR_BUCKET/o/models%2Fcharacter1.glb?alt=media";
 
   // Cấu hình Unity build
   const {
@@ -74,17 +87,6 @@ export default function AuthorModelView() {
     frameworkUrl: "/build/webgl/Build.framework.js.br",
     codeUrl: "/build/webgl/Build.wasm.br",
   });
-
-  // Khi Unity đã load xong thì gửi URL model vào Unity (demo)
-  useEffect(() => {
-    if (isLoaded && modelUrl) {
-      try {
-        sendMessage("SceneManager", "LoadModelFromUrl", modelUrl);
-      } catch (e) {
-        // ignore if message target not present
-      }
-    }
-  }, [isLoaded, modelUrl, sendMessage]);
 
   // Register Unity events: selection and scene sync
   useEffect(() => {
@@ -536,18 +538,72 @@ export default function AuthorModelView() {
 
                 {/* hidden file input - opened by the Upload Model button */}
                 {leftToolPanel === "model" && (
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".glb"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadGlb(f);
-                      // reset so same file can be picked again
-                      if (e.currentTarget) e.currentTarget.value = "";
-                    }}
-                  />
+                  <div className="mt-4">
+                    <div className="text-sm text-gray-300 mb-2">Models của bạn</div>
+                    <div className="grid grid-cols-2 gap-2 max-h-56 overflow-auto">
+                      {assetsLoading ? (
+                        <div className="text-sm text-gray-400 col-span-full">
+                          Đang tải models...
+                        </div>
+                      ) : assets.length === 0 ? (
+                        <div className="text-sm text-gray-500 col-span-full">
+                          Không có model 3D.
+                        </div>
+                      ) : (
+                        assets.map((a: any) => {
+                          const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
+                          const assetUrl = typeof rawUrl === "string" ? rawUrl : "";
+                          const isGlb = assetUrl.toLowerCase().includes(".glb");
+
+                          return (
+                            <button
+                              key={a.asset3DId ?? a.id}
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  const payload = JSON.stringify({
+                                    asset3DId: a.asset3DId ?? a.id,
+                                    assetUrl,
+                                  });
+                                  sendMessage(
+                                    "SceneManager",
+                                    "AddAssetFromUrl",
+                                    payload
+                                  );
+                                  toast({
+                                    title: "Đã thêm model vào scene",
+                                    description: a.title || a.fileName || "",
+                                  });
+                                } catch (e) {
+                                  console.error("AddAssetFromUrl error", e);
+                                }
+                              }}
+                              className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
+                            >
+                              <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
+                                {assetUrl && isGlb ? (
+                                  <div className="w-full h-full">
+                                    <GLBThumbnail url={assetUrl} />
+                                  </div>
+                                ) : assetUrl && !isGlb ? (
+                                  <div className="text-[10px] text-gray-500 p-2 text-center">
+                                    File không phải .glb
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-400 p-2">
+                                    No preview
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs mt-2 text-left text-gray-200 truncate">
+                                {a.title ?? a.fileName ?? a.asset3DId ?? a.id}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -831,5 +887,91 @@ function SceneCreateModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/* GLBThumbnail component (preview .glb bằng three.js) */
+function GLBThumbnail({ url, size = 160 }: { url?: string; size?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!url || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const w = size;
+    const h = Math.round(size * 0.75);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
+    renderer.setPixelRatio(DPR);
+    renderer.setSize(w, h, false);
+    renderer.setClearColor(0x000000, 0); // nền trong suốt
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, w / h, 0.01, 1000);
+    camera.position.set(0, 1.2, 2.4);
+    camera.lookAt(0, 0, 0);
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(5, 10, 7.5);
+    scene.add(dir);
+
+    const loader = new GLTFLoader();
+    loader.setCrossOrigin("anonymous");
+
+    let model: THREE.Object3D | null = null;
+    let frameId: number;
+
+    loader.load(
+      url,
+      (gltf: any) => {
+        model = gltf.scene || (gltf as any);
+
+        const box = new THREE.Box3().setFromObject(model);
+        const sizeBox = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(sizeBox.x, sizeBox.y, sizeBox.z) || 1;
+        const scale = (1.0 / maxDim) * 1.2;
+        model.scale.setScalar(scale);
+        box.getCenter(model.position).multiplyScalar(-1);
+
+        scene.add(model);
+      },
+      undefined,
+      (error: any) => {
+        console.error("Lỗi load GLB thumbnail:", error, "URL:", url);
+      }
+    );
+
+    const animate = () => {
+      frameId = requestAnimationFrame(animate);
+      if (model) {
+        model.rotation.y += 0.01;
+      }
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      renderer.dispose();
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      (gl as any)?.getExtension("WEBGL_lose_context")?.loseContext();
+    };
+  }, [url, size]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={size}
+      height={Math.round(size * 0.75)}
+      className="w-full h-full block"
+    />
   );
 }

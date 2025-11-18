@@ -19,6 +19,7 @@ export interface OrderResponse {
   walletId: string;
   createdAt?: string;
   updatedAt?: string;
+  userAddressId: string;
   
 }
 
@@ -65,7 +66,7 @@ async createOrderFromCart(
 
   // 🔍 Lấy tất cả orders
   async getAllOrders(): Promise<OrderResponse[]> {
-    const res = await await axios.get(`${API_BASE_URL}/users/orders`);
+    const res = await axios.get(`${API_BASE_URL}/users/orders`);
     return res.data;
   },
 

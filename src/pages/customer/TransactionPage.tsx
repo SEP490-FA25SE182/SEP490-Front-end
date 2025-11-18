@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail } from "@/services/UserService";
 import { CartService } from "@/services/CartService";
-import { OrderService } from "@/services/OrderService";
+import { OrderService, type OrderResponse } from "@/services/OrderService";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +17,8 @@ import { OrderDetailService } from "@/services/OrderDetailService";
 import { getBookById } from "@/services/BookService";
 import { FeedbackService, type CreateFeedbackRequest, type Feedback } from "@/services/FeedbackService";
 import { Star } from "lucide-react";
+import { TransactionService, type TransactionRequest } from "@/services/TransactionService";
+
 
 
 
@@ -119,6 +121,74 @@ export default function TransactionPage() {
 
     fetchOrders();
   }, [user, filter]); // 🆕 Thêm filter vào dependency
+
+
+  async function getPaymentTransaction(orderId: string) {
+  const res = await TransactionService.search({ orderId });
+
+  console.log("RAW TRANSACTION SEARCH:", res);
+
+  // ⚡ CASE 1: BE trả về dạng { content: [...] }
+  const list = Array.isArray(res?.content) ? res.content : [];
+
+  // Tìm transaction PAYMENT
+  return (
+    list.find((t) => t.transType === "PAYMENT") ||
+    null
+  );
+}
+
+  async function handleReturn(order: OrderResponse, onSuccess?: () => void) {
+  try {
+    if (!window.confirm("Bạn có chắc muốn trả hàng và hoàn tiền?")) return;
+
+    toast.loading("Đang xử lý trả hàng...");
+
+    // 1️⃣ Update Order → RETURN (6)
+    await OrderService.updateOrder(order.orderId, { status: 6 });
+
+    // 2️⃣ Lấy transaction PAYMENT cũ
+    const paymentTrans = await getPaymentTransaction(order.orderId);
+
+    if (!paymentTrans) {
+      toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
+      return;
+    }
+
+    // 3️⃣ Tạo REFUND transaction dựa theo PAYMENT cũ
+    const payload: TransactionRequest = {
+      totalPrice: order.totalPrice,
+      status: 1,
+      orderId: order.orderId,
+      paymentMethodId: paymentTrans.paymentMethodId,  
+      walletId: paymentTrans.walletId,                
+      transType: "REFUND",
+      isActived: "ACTIVE",
+    };
+
+    console.log("📦 REFUND PAYLOAD:", payload);
+
+    await TransactionService.create(payload);
+
+    // 4️⃣ Cập nhật UI
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.orderId === order.orderId ? { ...o, status: 6 } : o
+      )
+    );
+
+    toast.success("Yêu cầu trả hàng đã được tạo thành công!");
+
+    if (onSuccess) onSuccess();
+  } catch (err) {
+    console.error("❌ Lỗi refund:", err);
+    toast.error("Không thể xử lý yêu cầu trả hàng.");
+  } finally {
+    toast.dismiss();
+  }
+}
+
+
 
 
 
@@ -326,11 +396,23 @@ export default function TransactionPage() {
 
               </div>
 
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-between mt-6 items-center">
+                {Number(selected?.status) === 4 && (
+                  <Button
+                    variant="destructive"
+                    onClick={() =>
+                      handleReturn(selected as OrderResponse, () => setSelected(null))
+                    }
+                  >
+                    Trả hàng
+                  </Button>
+                )}
+
                 <Button variant="outline" onClick={() => setSelected(null)}>
                   Đóng
                 </Button>
               </div>
+
             </>
           )}
         </DialogContent>
@@ -387,6 +469,7 @@ export default function TransactionPage() {
           </div>
 
           {/* ⚙️ Các nút hành động */}
+
           <div className="flex justify-end gap-2 mt-5">
             <Button
               variant="outline"

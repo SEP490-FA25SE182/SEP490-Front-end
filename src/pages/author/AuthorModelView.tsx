@@ -1,4 +1,3 @@
-// src/pages/AuthorModelView.tsx
 import { useEffect, useState, useRef } from "react";
 import { Menu, X, Save, UploadCloud } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -12,6 +11,7 @@ import {
   useCreateARScene,
   useCreateARSceneItems,
   useSearchAsset3D,
+  type Marker,
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 
@@ -22,11 +22,22 @@ import PropertiesPanel from "@/components/author/model-editor/PropertiesPanel";
 import type { SceneObject } from "@/components/author/model-editor/PropertiesPanel";
 import SceneCreateModal from "@/components/author/model-editor/SceneCreateModal";
 
+// Khai báo global cho TypeScript (để window.OnSelectObject không báo lỗi)
+declare global {
+  interface Window {
+    OnSelectObject?: (json: any) => void;
+    OnSyncSceneObjects?: (json: any) => void;
+    OnSceneExport?: (json: any) => void;
+  }
+}
+
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<"marker" | "model" | "quiz">(
+    "marker"
+  );
   const [leftToolPanel, setLeftToolPanel] =
-    useState<null | "image" | "model">(null);
-  const [activeTab, setActiveTab] = useState<"marker" | "model">("marker");
+    useState<null | "image" | "model" | "quiz">(null);
   const [assetDialogOpenLocal, setAssetDialogOpenLocal] = useState(false);
 
   const [sceneObjects, setSceneObjects] = useState<SceneObject[]>([]);
@@ -34,21 +45,40 @@ export default function AuthorModelView() {
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
 
   const navigate = useNavigate();
-  const params = useParams<{ markerId?: string }>();
+  const { markerId: paramMarkerId } = useParams<{ markerId?: string }>();
   const location = useLocation();
-  const markerId =
-    params.markerId || (location.state as any)?.marker?.markerId;
   const { toast } = useToast();
+
+  // Lấy markerId từ URL hoặc location.state
+  const markerIdFromState = (location.state as any)?.marker?.markerId;
+  const markerId = paramMarkerId || markerIdFromState;
+
+  // Dữ liệu marker được truyền từ AuthorPageList (state)
+  const initialMarker = location.state?.marker as Marker | undefined;
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user.userId;
 
+  // Tải danh sách asset 3D của user
   const { data: asset3DResp, isLoading: assetsLoading } =
     useSearchAsset3D({ userId });
   const assets: any[] = asset3DResp?.content ?? [];
 
-  const { data: markerDetail, isLoading: loadingMarker } =
-    useGetMarkerById(markerId);
+  // Tải marker detail (có initialData để hiển thị ngay)
+  const { data: markerDetail, isLoading: loadingMarker } = useGetMarkerById(
+    markerId,
+    {
+      initialData: initialMarker, // Dữ liệu có ngay, không flash loading
+    }
+  );
+
+  // Hàm lấy chapterId hiện tại (ưu tiên state > param > fallback)
+  const getCurrentChapterId = (): string | undefined => {
+    if (location.state && (location.state as any).chapterId) {
+      return (location.state as any).chapterId;
+    }
+    return undefined;
+  };
 
   const uploadMut = useUploadAsset3D();
   const createSceneMut = useCreateARScene();
@@ -67,12 +97,13 @@ export default function AuthorModelView() {
     codeUrl: "/build/webgl/ar_rookie_build.wasm.unityweb",
   });
 
+  // =====================
   // Unity events: select + sync
+  // =====================
   useEffect(() => {
     const onSelect = (payload: any) => {
       try {
-        const data =
-          typeof payload === "string" ? JSON.parse(payload) : payload;
+        const data = typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!data || !data.localId) return;
 
         setSceneObjects((prev) => {
@@ -100,13 +131,14 @@ export default function AuthorModelView() {
           return [...prev, item];
         });
         setSelectedLocalId(data.localId);
-      } catch (err) {}
+      } catch (err) {
+        console.error("OnSelectObject handler error", err);
+      }
     };
 
     const onSync = (payload: any) => {
       try {
-        const data =
-          typeof payload === "string" ? JSON.parse(payload) : payload;
+        const data = typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!Array.isArray(data)) return;
         const mapped: SceneObject[] = data.map((d: any, i: number) => ({
           localId: d.localId ?? `u-${i}`,
@@ -124,23 +156,39 @@ export default function AuthorModelView() {
           scaleZ: d.scale?.z ?? 1,
         }));
         setSceneObjects(mapped);
-      } catch (err) {}
+      } catch (err) {
+        console.error("OnSyncSceneObjects handler error", err);
+      }
     };
 
+    // react-unity-webgl event (giữ nguyên)
     try {
       addEventListener?.("OnSelectObject", onSelect);
       addEventListener?.("OnSyncSceneObjects", onSync);
     } catch (e) {}
+
+    // BRIDGE cho Application.ExternalCall("OnSelectObject"/"OnSyncSceneObjects")
+    window.OnSelectObject = (json: any) => {
+      onSelect(json);
+    };
+    window.OnSyncSceneObjects = (json: any) => {
+      onSync(json);
+    };
 
     return () => {
       try {
         removeEventListener?.("OnSelectObject", onSelect);
         removeEventListener?.("OnSyncSceneObjects", onSync);
       } catch (e) {}
+
+      delete window.OnSelectObject;
+      delete window.OnSyncSceneObjects;
     };
   }, [addEventListener, removeEventListener]);
 
+  // =====================
   // Load initial scene for marker
+  // =====================
   useEffect(() => {
     const loadInitialScene = async () => {
       if (!markerId || !isLoaded) return;
@@ -242,10 +290,8 @@ export default function AuthorModelView() {
     try {
       const meta = { markerId };
       const res = await uploadMut.mutateAsync({ file, meta });
-      const asset3DId =
-        (res as any).asset3DId ?? (res as any).id ?? undefined;
-      const assetUrl =
-        (res as any).assetUrl ?? (res as any).assetUrl;
+      const asset3DId = (res as any).asset3DId ?? (res as any).id ?? undefined;
+      const assetUrl = (res as any).assetUrl ?? (res as any).assetUrl;
 
       try {
         const payload = JSON.stringify({ asset3DId, assetUrl });
@@ -288,6 +334,8 @@ export default function AuthorModelView() {
         description: exportDto?.description || "",
         version: 1,
         status,
+        // hidden on UI, always set ACTIVE when saving/publishing
+        isActived: "ACTIVE",
       };
 
       const scene = await createSceneMut.mutateAsync(sceneReq);
@@ -298,23 +346,21 @@ export default function AuthorModelView() {
 
       setCurrentSceneId(sceneId);
 
-      const items = (exportDto?.items || []).map(
-        (it: any, idx: number) => ({
-          sceneId,
-          asset3DId: it.asset3DId,
-          orderIndex: it.orderIndex ?? idx,
-          posX: it.posX ?? 0,
-          posY: it.posY ?? 0,
-          posZ: it.posZ ?? 0,
-          rotX: it.rotX ?? 0,
-          rotY: it.rotY ?? 0,
-          rotZ: it.rotZ ?? 0,
-          scaleX: it.scaleX ?? 1,
-          scaleY: it.scaleY ?? 1,
-          scaleZ: it.scaleZ ?? 1,
-          behaviorJson: it.behaviorJson ?? null,
-        })
-      );
+      const items = (exportDto?.items || []).map((it: any, idx: number) => ({
+        sceneId,
+        asset3DId: it.asset3DId,
+        orderIndex: it.orderIndex ?? idx,
+        posX: it.posX ?? 0,
+        posY: it.posY ?? 0,
+        posZ: it.posZ ?? 0,
+        rotX: it.rotX ?? 0,
+        rotY: it.rotY ?? 0,
+        rotZ: it.rotZ ?? 0,
+        scaleX: it.scaleX ?? 1,
+        scaleY: it.scaleY ?? 1,
+        scaleZ: it.scaleZ ?? 1,
+        behaviorJson: it.behaviorJson ?? null,
+      }));
 
       if (items.length) {
         await createSceneItemsMut.mutateAsync(items);
@@ -336,11 +382,13 @@ export default function AuthorModelView() {
     }
   };
 
+  // =====================
+  // Unity event: OnSceneExport
+  // =====================
   useEffect(() => {
     const onSceneExport = (payload: any) => {
       try {
-        const data =
-          typeof payload === "string" ? JSON.parse(payload) : payload;
+        const data = typeof payload === "string" ? JSON.parse(payload) : payload;
         const status = sceneDialogMode || "DRAFT";
         saveSceneToBackend(data, status);
       } catch (err) {
@@ -356,10 +404,17 @@ export default function AuthorModelView() {
       addEventListener?.("OnSceneExport", onSceneExport);
     } catch (e) {}
 
+    // Bridge cho Application.ExternalCall("OnSceneExport", json)
+    window.OnSceneExport = (json: any) => {
+      onSceneExport(json);
+    };
+
     return () => {
       try {
         removeEventListener?.("OnSceneExport", onSceneExport);
       } catch (e) {}
+
+      delete window.OnSceneExport;
     };
   }, [addEventListener, removeEventListener, sceneDialogMode]);
 
@@ -393,8 +448,7 @@ export default function AuthorModelView() {
       toast({
         title: "Lỗi",
         description:
-          err?.message ||
-          "Không gửi được yêu cầu ExportScene sang Unity",
+          err?.message || "Không gửi được yêu cầu ExportScene sang Unity",
       });
     } finally {
       setSceneDialogOpen(false);
@@ -407,7 +461,7 @@ export default function AuthorModelView() {
     ? `Project ${markerDetail.markerCode}`
     : "Project";
 
-  // === handlers cho AssetToolPanel ===
+  // Handler thêm model vào scene
   const handleAddExistingModel = (asset: any, assetUrl: string) => {
     try {
       const payload = JSON.stringify({
@@ -436,7 +490,7 @@ export default function AuthorModelView() {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg:white/10"
+              className="text-white hover:bg-white/10"
             >
               {sidebarOpen ? (
                 <X className="w-6 h-6" />
@@ -490,32 +544,28 @@ export default function AuthorModelView() {
             markerDetail={markerDetail}
           />
 
-          {/* Slide panel */}
+          {/* Slide panel - AssetToolPanel */}
           {leftToolPanel && (
             <AssetToolPanel
               panelType={leftToolPanel}
               onClose={() => setLeftToolPanel(null)}
+              markerId={markerDetail?.markerId || initialMarker?.markerId}
+              markerImageUrl={markerDetail?.imageUrl || initialMarker?.imageUrl}
               assets={assets}
               assetsLoading={assetsLoading}
               onAddExistingModel={handleAddExistingModel}
               onUploadClick={() => {
                 if (leftToolPanel === "model") {
                   fileInputRef.current?.click();
-                } else {
-                  // TODO: flow upload ảnh marker
                 }
               }}
-              onOpenCreateAIDialog={() =>
-                setAssetDialogOpenLocal(true)
-              }
+              onOpenCreateAIDialog={() => setAssetDialogOpenLocal(true)}
+              currentChapterId={getCurrentChapterId()}
             />
           )}
 
           {/* Center Unity */}
-          <UnityStage
-            unityProvider={unityProvider}
-            isLoaded={isLoaded}
-          />
+          <UnityStage unityProvider={unityProvider} isLoaded={isLoaded} />
 
           {/* Right Properties */}
           <PropertiesPanel

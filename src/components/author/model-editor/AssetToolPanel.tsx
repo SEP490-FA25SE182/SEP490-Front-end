@@ -1,16 +1,24 @@
-// src/components/author/model-editor/AssetToolPanel.tsx
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GLBThumbnail from "./GLBThumbnail";
+import { useGetMarkerById } from "@/services/ARService";
+import QuizCreateDialog from "@/components/dialog/QuizCreateDialog";
+import { useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 type AssetToolPanelProps = {
-  panelType: "image" | "model";
+  panelType: "image" | "model" | "quiz";
   onClose: () => void;
+  currentChapterId?: string;  // <-- Thêm prop mới
 
   // 3D Assets
   assets: any[];
   assetsLoading: boolean;
   onAddExistingModel: (asset: any, assetUrl: string) => void;
+
+  // marker image
+  markerImageUrl?: string;
+  markerId?: string;
 
   // actions
   onUploadClick: () => void;
@@ -25,13 +33,49 @@ export default function AssetToolPanel({
   onAddExistingModel,
   onUploadClick,
   onOpenCreateAIDialog,
+  markerImageUrl,
+  markerId,
+  currentChapterId,
 }: AssetToolPanelProps) {
+  const quizThumbnailUrl =
+    "https://media.sketchfab.com/models/2260e525086943c6ab6e23f1330d7a34/thumbnails/cdb21be6f55d409aa616a4ad537cf26b/e1899cfeeaea43ac8bf510b8d25deda4.jpeg";
+
+  // lấy marker detail nếu có markerId
+  const { data: marker, isLoading: markerLoading } = useGetMarkerById(markerId);
+
+  // copy từ AuthorPageList: xử lý gs:// và Firebase URLs
+  const getDisplayImageUrl = (url?: string): string => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    if (
+      (url.includes("firebasestorage.googleapis.com") && url.includes("alt=media"))
+      || url.startsWith("http")
+    ) {
+      return url;
+    }
+    // fallback: return as-is
+    return url;
+  };
+
+  const displayImageUrl = getDisplayImageUrl(marker?.imageUrl ?? markerImageUrl);
+  const [quizDialogOpen, setQuizDialogOpen] = useState(false);
+  const { toast } = useToast();
+
   return (
     <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col justify-between">
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="text-white font-semibold capitalize">
-            {panelType === "model" ? "3D Model" : "Ảnh Marker"}
+            {panelType === "model"
+              ? "3D Model"
+              : panelType === "quiz"
+                ? "Quiz"
+                : "Ảnh Marker"}
           </div>
           <button
             onClick={onClose}
@@ -43,84 +87,155 @@ export default function AssetToolPanel({
         <div className="text-sm text-gray-300 mb-4">
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
-            : "Chọn cách thêm ảnh marker vào scene."}
+            : panelType === "quiz"
+              ? "Chọn quiz để tạo quiz mới."
+              : "Chọn cách thêm ảnh marker vào scene."}
         </div>
 
         {panelType === "model" && (
-          <div className="mt-4">
-            <div className="text-sm text-gray-300 mb-2">Models của bạn</div>
-            <div className="grid grid-cols-2 gap-2 max-h-56 overflow-auto">
-              {assetsLoading ? (
-                <div className="text-sm text-gray-400 col-span-full">
-                  Đang tải models...
-                </div>
-              ) : assets.length === 0 ? (
-                <div className="text-sm text-gray-500 col-span-full">
-                  Không có model 3D.
-                </div>
-              ) : (
-                assets.map((a: any) => {
-                  const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
-                  const assetUrl =
-                    typeof rawUrl === "string" ? rawUrl : "";
-                  const isGlb = assetUrl
-                    .toLowerCase()
-                    .includes(".glb");
+          <div className="mt-4 flex flex-col gap-3">
+            <div>
+              <div className="text-sm text-gray-300 mb-2">Models của bạn</div>
+              {/* Bỏ thanh kéo, cho hiện full list */}
+              <div className="grid grid-cols-2 gap-2">
+                {assetsLoading ? (
+                  <div className="text-sm text-gray-400 col-span-full">
+                    Đang tải models...
+                  </div>
+                ) : assets.length === 0 ? (
+                  <div className="text-sm text-gray-500 col-span-full">
+                    Không có model 3D.
+                  </div>
+                ) : (
+                  assets.map((a: any) => {
+                    const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
+                    const assetUrl =
+                      typeof rawUrl === "string" ? rawUrl : "";
+                    const isGlb = assetUrl
+                      .toLowerCase()
+                      .includes(".glb");
 
-                  return (
-                    <button
-                      key={a.asset3DId ?? a.id}
-                      type="button"
-                      onClick={() =>
-                        onAddExistingModel(a, assetUrl)
-                      }
-                      className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
-                    >
-                      <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
-                        {assetUrl && isGlb ? (
-                          <div className="w-full h-full">
-                            <GLBThumbnail url={assetUrl} />
-                          </div>
-                        ) : assetUrl && !isGlb ? (
-                          <div className="text-[10px] text-gray-500 p-2 text-center">
-                            File không phải .glb
-                          </div>
-                        ) : (
-                          <div className="text-xs text-gray-400 p-2">
-                            No preview
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-xs mt-2 text-left text-gray-200 truncate">
-                        {a.title ?? a.fileName ?? a.asset3DId ?? a.id}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+                    return (
+                      <button
+                        key={a.asset3DId ?? a.id}
+                        type="button"
+                        onClick={() =>
+                          onAddExistingModel(a, assetUrl)
+                        }
+                        className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
+                      >
+                        <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
+                          {assetUrl && isGlb ? (
+                            <div className="w-full h-full">
+                              <GLBThumbnail url={assetUrl} />
+                            </div>
+                          ) : assetUrl && !isGlb ? (
+                            <div className="text-[10px] text-gray-500 p-2 text-center">
+                              File không phải .glb
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 p-2">
+                              No preview
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs mt-2 text-left text-gray-200 truncate">
+                          {a.title ?? a.fileName ?? a.asset3DId ?? a.id}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
+          </div>
+        )}
+
+        {panelType === "quiz" && (
+          <div className="mt-4">
+            <div className="text-sm text-gray-300 mb-2">
+              Quiz của bạn
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => setQuizDialogOpen(true)}
+                className="rounded border p-2 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500 text-left"
+              >
+                <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden rounded">
+                  <img
+                    src={quizThumbnailUrl}
+                    alt="Trò chơi mở cửa"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="text-xs mt-2 text-gray-200 font-medium truncate">
+                  Trò chơi mở cửa
+                </div>
+                <div className="text-[11px] text-gray-400 mt-1">
+                  Một quiz để tăng trải nghiệm người dùng.
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {panelType === "image" && (
+          <div className="mt-4">
+            {markerLoading ? (
+              <div className="text-sm text-gray-400">Đang tải marker...</div>
+            ) : displayImageUrl ? (
+              <div className="w-full bg-[#020617] rounded border border-white/10 p-2">
+                <div className="w-full aspect-[4/3] overflow-hidden rounded bg-black/40 flex items-center justify-center">
+                  <img
+                    src={displayImageUrl}
+                    alt="Marker image"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">
+                Chưa có ảnh marker cho marker này.
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* BUTTONS bottom */}
-      <div className="flex gap-3">
-        <Button
-          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-          onClick={onUploadClick}
-        >
-          {panelType === "model" ? "Upload Model" : "Upload Ảnh"}
-        </Button>
+      {/* Khi nhiều model quá thì chỗ này mới có thanh trượt chung của panel */}
+      <div className="flex gap-3 overflow-auto">
+        {panelType === "model" && (
+          <>
+            <Button
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={onUploadClick}
+            >
+              Upload Model
+            </Button>
 
-        {panelType === "model" ? (
-          <Button
-            className="flex-1 bg-pink-500 hover:bg-pink-600 text-white"
-            onClick={onOpenCreateAIDialog}
-          >
-            Tạo với AI
-          </Button>
-        ) : null}
+            <Button
+              className="flex-1 bg-pink-500 hover:bg-pink-600 text-white"
+              onClick={onOpenCreateAIDialog}
+            >
+              Tạo với AI
+            </Button>
+          </>
+        )}
       </div>
+
+      <QuizCreateDialog
+        isOpen={quizDialogOpen}
+        onClose={() => setQuizDialogOpen(false)}
+        initialChapterId={currentChapterId}  // <-- Truyền chính xác chapterId
+        onCreated={() => {
+          setQuizDialogOpen(false);
+          toast({ title: "Tạo quiz thành công!" });
+          // Có thể thêm callback để refresh quiz list nếu cần
+        }}
+      />
     </div>
   );
 }

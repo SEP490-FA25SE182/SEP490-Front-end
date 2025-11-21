@@ -325,7 +325,7 @@ const AuthorPageList = () => {
                       </div>
                     </div>
                   </div>
-                 );
+                );
               })}
             </div>
 
@@ -402,12 +402,18 @@ const AuthorPageList = () => {
                 <div
                   key={m.markerId}
                   className="group relative bg-white/5 hover:bg-white/10 rounded-lg p-0 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 overflow-hidden cursor-pointer"
+                  // Trong AuthorPageList.tsx - phần click vào marker card
                   onClick={async () => {
                     try {
-                      // fetch full marker detail before navigate (per request)
                       const marker = await getMarkerById(m.markerId as string);
-                      // navigate to model view with markerId; pass marker in location state for fast access
-                      navigate(`/author/model-view/${marker.markerId}`, { state: { marker } });
+
+                      // TRUYỀN THÊM chapterId QUA location.state
+                      navigate(`/author/model-view/${marker.markerId}`, {
+                        state: {
+                          marker,
+                          chapterId: chapterId  // <-- Đây là điểm quan trọng!
+                        }
+                      });
                     } catch (err) {
                       toast({ title: "Lỗi", description: "Không lấy được marker.", variant: "destructive" });
                     }

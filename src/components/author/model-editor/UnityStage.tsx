@@ -1,4 +1,3 @@
-// src/components/author/model-editor/UnityStage.tsx
 import { Unity, UnityProps } from "react-unity-webgl";
 
 type UnityStageProps = {

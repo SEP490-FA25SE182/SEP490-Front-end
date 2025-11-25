@@ -7,14 +7,13 @@ import {
   Heart,
   MessageCircle,
   PlusCircle,
-  Upload,
   Search,
   Trash2,
   Loader2,
   Send,
   Edit2,
   Eye,
-  Tag as TagIcon,
+  
 } from "lucide-react";
 import {
   Dialog,
@@ -323,11 +322,11 @@ const BlogCard: React.FC<{
 export default function BlogPage() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
+  const [, setTags] = useState<Tag[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [sortOrder] = useState<"newest" | "oldest">("newest");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", coverUrl: "" });

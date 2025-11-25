@@ -40,7 +40,7 @@ import { getAllBooks, type Book } from "@/services/BookService";
 import { useGetAllAIGenerations } from "@/services/AIService";
 import { OrderService, type OrderResponse } from "@/services/OrderService";
 import { getUserById } from "@/services/UserService";
-import { FeedbackService, type Feedback } from "@/services/FeedbackService";
+import { FeedbackService } from "@/services/FeedbackService";
 import { OrderDetailService } from "@/services/OrderDetailService";
 
 
@@ -70,13 +70,6 @@ const formatCurrency = (value: number) =>
         currency: "VND",
     }).format(isNaN(value) ? 0 : value);
 
-const normalizeRoyalty = (raw: unknown): number => {
-    const royaltyRaw = Number(raw ?? 0);
-    if (royaltyRaw <= 0) return 0;
-    let r = royaltyRaw > 1 ? royaltyRaw / 100 : royaltyRaw;
-    if (r > 1) r = 1;
-    return r;
-};
 
 /* =========================================================
   🔥 BUILD CHART THEO THỜI GIAN (REAL ORDER TIMELINE)

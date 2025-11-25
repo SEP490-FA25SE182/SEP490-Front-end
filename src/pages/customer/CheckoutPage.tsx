@@ -146,7 +146,7 @@ export default function CheckoutPage() {
   );
 
   const effectiveSubtotal = subtotalLocal;
-  const shippingFeeMap = { standard: 0, express: 0 };
+  
 
   const orderId = location.state?.orderId;
 

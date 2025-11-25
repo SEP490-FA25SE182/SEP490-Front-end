@@ -31,7 +31,7 @@ import { toast } from "sonner";
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
+  const [filterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [users, setUsers] = useState<User[]>([]);
   const [roleNames, setRoleNames] = useState<Record<string, string>>({});

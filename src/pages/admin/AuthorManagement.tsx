@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Loader2, RefreshCw } from "lucide-react";
+import { Menu, X, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { formatVND } from "@/lib/money";
 
-import { getAllUsers, getRoleById, type User } from "@/services/UserService";
+import { getAllUsers, getRoleById } from "@/services/UserService";
 import { getAllBooks, type Book } from "@/services/BookService";
 import { OrderService, type OrderResponse } from "@/services/OrderService";
 import {

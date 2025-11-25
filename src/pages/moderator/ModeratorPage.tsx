@@ -65,7 +65,7 @@ export default function ModeratorBooksPage() {
     });
     console.groupEnd();
 
-    await updateBookStatusFull(book, newStatus, message);
+    await updateBookStatusFull(book, newStatus);
 
     toast.success(
       newStatus === 1

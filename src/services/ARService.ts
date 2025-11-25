@@ -100,7 +100,7 @@ export const useCreateMarker = () => {
 };
 
 /** Hook: Lấy marker theo ID (sử dụng useQuery để cache và enabled theo id) */
-export const useGetMarkerById = (id?: string) => {
+export const useGetMarkerById = (id?: string, _p0?: { initialData: Marker | undefined; }) => {
   return useQuery({
     queryKey: ["markers", id],
     queryFn: () => getMarkerById(id as string),
@@ -352,6 +352,8 @@ export interface ARScene {
   description?: string;
   version?: number;
   status?: string;
+  // Hidden flag defaulted by UI when creating/publishing scenes
+  isActived?: string;
   createdAt?: string;
   updatedAt?: string;
 }

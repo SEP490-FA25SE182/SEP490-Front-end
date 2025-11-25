@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Save, MapPin, Trash2 } from "lucide-react";
+import { Plus, Edit2, Save, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -10,7 +10,6 @@ import {
   getAddressesByUserId,
   createAddress,
   updateAddress,
-  deleteAddress,
   type Address,
 } from "@/services/UserService";
 
@@ -106,38 +105,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ---------------------------------------------
-   🏠 Address Handlers (Add / Update / Delete)
-  --------------------------------------------- */
-  // const handleUpdateAddress = async (addr: Address) => {
-  //   try {
-  //     await updateAddress(addr.userAddressId, {
-  //       addressInfor: addr.addressInfor,
-  //       isActived: "ACTIVE",
-  //     });
-  //     toast.success("Cập nhật địa chỉ thành công!");
-  //   } catch {
-  //     toast.error("Cập nhật địa chỉ thất bại!");
-  //   }
-  // };
-
-  const handleDeleteAddress = async (id: string) => {
-    try {
-      await deleteAddress(id);
-      setAddresses((prev) => prev.filter((a) => a.userAddressId !== id));
-      toast.success("Đã xóa địa chỉ!");
-    } catch {
-      toast.error("Xóa địa chỉ thất bại!");
-    }
-  };
-
-  // const handleAddressChange = (id: string, value: string) => {
-  //   setAddresses((prev) =>
-  //     prev.map((addr) =>
-  //       addr.userAddressId === id ? { ...addr, addressInfor: value } : addr
-  //     )
-  //   );
-  // };
+  
 
   if (isLoading || !user)
     return <p className="text-gray-500">Đang tải thông tin...</p>;
@@ -359,7 +327,7 @@ function AddOrEditAddressForm({
   const [fullName, setFullName] = useState(defaultAddress?.fullName || userDefaultInfo?.fullName || "");
   const [phoneNumber, setPhoneNumber] = useState(defaultAddress?.phoneNumber || userDefaultInfo?.phoneNumber || "");
   const [type, setType] = useState(defaultAddress?.type || "");
-  const [isDefault, setIsDefault] = useState(defaultAddress?.default || false);
+  const [isDefault] = useState(defaultAddress?.default || false);
   const [addressDetail, setAddressDetail] = useState(defaultAddress?.addressInfor || "");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");

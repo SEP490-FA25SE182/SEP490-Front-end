@@ -1,7 +1,9 @@
-import { Unity, UnityProps } from "react-unity-webgl";
+import { Unity, useUnityContext } from "react-unity-webgl";
+
+type UnityProviderType = ReturnType<typeof useUnityContext>["unityProvider"];
 
 type UnityStageProps = {
-  unityProvider: UnityProps["unityProvider"];
+  unityProvider: UnityProviderType;
   isLoaded: boolean;
 };
 

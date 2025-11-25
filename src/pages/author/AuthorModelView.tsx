@@ -21,6 +21,7 @@ import UnityStage from "@/components/author/model-editor/UnityStage";
 import PropertiesPanel from "@/components/author/model-editor/PropertiesPanel";
 import type { SceneObject } from "@/components/author/model-editor/PropertiesPanel";
 import SceneCreateModal from "@/components/author/model-editor/SceneCreateModal";
+import { getQuizPlayById } from "@/services/QuizService";
 
 // Khai báo global cho TypeScript (để window.OnSelectObject không báo lỗi)
 declare global {
@@ -97,6 +98,43 @@ export default function AuthorModelView() {
     codeUrl: "/build/webgl/ar_rookie_build.wasm.unityweb",
   });
 
+  const previewQuizInUnity = async (quizId: string) => {
+    if (!isLoaded) {
+      toast({
+        title: "Unity chưa sẵn sàng",
+        description: "Vui lòng chờ Unity WebGL load xong rồi thử lại.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // 1) Gọi backend lấy dữ liệu quiz để play
+      const quizPlay = await getQuizPlayById(quizId);
+
+      // 2) Convert sang JSON string
+      const json = JSON.stringify(quizPlay);
+
+      // 3) Gửi sang Unity
+      //  - GameObject: "QuizGameManager"
+      //  - Method: LoadQuizFromJson(string json)
+      sendMessage("QuizGameManager", "LoadQuizFromJson", json);
+
+      toast({
+        title: "Đã gửi quiz sang Unity",
+        description: `QuizId: ${quizId}`,
+      });
+    } catch (err: any) {
+      console.error("previewQuizInUnity error", err);
+      toast({
+        title: "Lỗi",
+        description:
+          err?.response?.data?.message || "Không load được quiz để preview.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // =====================
   // Unity events: select + sync
   // =====================
@@ -165,7 +203,7 @@ export default function AuthorModelView() {
     try {
       addEventListener?.("OnSelectObject", onSelect);
       addEventListener?.("OnSyncSceneObjects", onSync);
-    } catch (e) {}
+    } catch (e) { }
 
     // BRIDGE cho Application.ExternalCall("OnSelectObject"/"OnSyncSceneObjects")
     window.OnSelectObject = (json: any) => {
@@ -179,7 +217,7 @@ export default function AuthorModelView() {
       try {
         removeEventListener?.("OnSelectObject", onSelect);
         removeEventListener?.("OnSyncSceneObjects", onSync);
-      } catch (e) {}
+      } catch (e) { }
 
       delete window.OnSelectObject;
       delete window.OnSyncSceneObjects;
@@ -198,7 +236,7 @@ export default function AuthorModelView() {
 
       try {
         sendMessage("SceneManager", "ClearAll", "");
-      } catch (e) {}
+      } catch (e) { }
 
       try {
         const res = await fetch(`/api/markers/${markerId}/active-scene`);
@@ -243,7 +281,7 @@ export default function AuthorModelView() {
             "LoadSceneFromJson",
             JSON.stringify(importDto)
           );
-        } catch (e) {}
+        } catch (e) { }
       } catch (error) {
         console.error("Load initial scene error", error);
       }
@@ -277,7 +315,7 @@ export default function AuthorModelView() {
           },
         });
         sendMessage("SceneManager", "UpdateObjectTransform", payload);
-      } catch (e) {}
+      } catch (e) { }
 
       return next;
     });
@@ -296,7 +334,7 @@ export default function AuthorModelView() {
       try {
         const payload = JSON.stringify({ asset3DId, assetUrl });
         sendMessage("SceneManager", "AddAssetFromUrl", payload);
-      } catch (e) {}
+      } catch (e) { }
       toast({
         title: "Upload thành công",
         description: `Asset được upload`,
@@ -402,7 +440,7 @@ export default function AuthorModelView() {
 
     try {
       addEventListener?.("OnSceneExport", onSceneExport);
-    } catch (e) {}
+    } catch (e) { }
 
     // Bridge cho Application.ExternalCall("OnSceneExport", json)
     window.OnSceneExport = (json: any) => {
@@ -412,7 +450,7 @@ export default function AuthorModelView() {
     return () => {
       try {
         removeEventListener?.("OnSceneExport", onSceneExport);
-      } catch (e) {}
+      } catch (e) { }
 
       delete window.OnSceneExport;
     };
@@ -458,8 +496,8 @@ export default function AuthorModelView() {
   const projectTitle = loadingMarker
     ? "Project (đang tải marker...)"
     : markerDetail?.markerCode
-    ? `Project ${markerDetail.markerCode}`
-    : "Project";
+      ? `Project ${markerDetail.markerCode}`
+      : "Project";
 
   // Handler thêm model vào scene
   const handleAddExistingModel = (asset: any, assetUrl: string) => {
@@ -561,6 +599,14 @@ export default function AuthorModelView() {
               }}
               onOpenCreateAIDialog={() => setAssetDialogOpenLocal(true)}
               currentChapterId={getCurrentChapterId()}
+              onQuizFullyCreated={(quizId) => {
+                // khi tạo quiz mới xong thì preview luôn
+                previewQuizInUnity(quizId);
+              }}
+              onPreviewQuiz={(quizId) => {
+                // khi chọn quiz có sẵn trong dialog
+                previewQuizInUnity(quizId);
+              }}
             />
           )}
 

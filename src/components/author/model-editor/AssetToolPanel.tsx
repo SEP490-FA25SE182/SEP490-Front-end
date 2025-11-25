@@ -2,14 +2,15 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GLBThumbnail from "./GLBThumbnail";
 import { useGetMarkerById } from "@/services/ARService";
-import QuizCreateDialog from "@/components/dialog/QuizCreateDialog";
-import { useState } from "react";
+import QuizViewDialog from "@/components/dialog/QuizViewDialog";
+import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { getCurrentUserId } from "@/utils/authStorage";
 
 type AssetToolPanelProps = {
   panelType: "image" | "model" | "quiz";
   onClose: () => void;
-  currentChapterId?: string;  // <-- Thêm prop mới
+  currentChapterId?: string;
 
   // 3D Assets
   assets: any[];
@@ -23,6 +24,10 @@ type AssetToolPanelProps = {
   // actions
   onUploadClick: () => void;
   onOpenCreateAIDialog: () => void;
+
+  // quiz callbacks
+  onQuizFullyCreated?: (quizId: string) => void;
+  onPreviewQuiz?: (quizId: string) => void; // ⬅️ thêm
 };
 
 export default function AssetToolPanel({
@@ -36,6 +41,8 @@ export default function AssetToolPanel({
   markerImageUrl,
   markerId,
   currentChapterId,
+  onQuizFullyCreated,
+  onPreviewQuiz,
 }: AssetToolPanelProps) {
   const quizThumbnailUrl =
     "https://media.sketchfab.com/models/2260e525086943c6ab6e23f1330d7a34/thumbnails/cdb21be6f55d409aa616a4ad537cf26b/e1899cfeeaea43ac8bf510b8d25deda4.jpeg";
@@ -50,11 +57,14 @@ export default function AssetToolPanel({
       const parts = url.split("/");
       const bucket = parts[2];
       const path = parts.slice(3).join("/");
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
     }
     if (
-      (url.includes("firebasestorage.googleapis.com") && url.includes("alt=media"))
-      || url.startsWith("http")
+      (url.includes("firebasestorage.googleapis.com") &&
+        url.includes("alt=media")) ||
+      url.startsWith("http")
     ) {
       return url;
     }
@@ -66,6 +76,13 @@ export default function AssetToolPanel({
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  // lấy authorId từ storage (tương tự CreateAudioDialog)
+  const [authorId, setAuthorId] = useState<string | null>(null);
+  useEffect(() => {
+    const uid = getCurrentUserId();
+    if (uid) setAuthorId(uid);
+  }, []);
+
   return (
     <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col justify-between">
       <div>
@@ -74,13 +91,10 @@ export default function AssetToolPanel({
             {panelType === "model"
               ? "3D Model"
               : panelType === "quiz"
-                ? "Quiz"
-                : "Ảnh Marker"}
+              ? "Quiz"
+              : "Ảnh Marker"}
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -88,15 +102,14 @@ export default function AssetToolPanel({
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
             : panelType === "quiz"
-              ? "Chọn quiz để tạo quiz mới."
-              : "Chọn cách thêm ảnh marker vào scene."}
+            ? "Chọn quiz để tạo quiz mới."
+            : "Chọn cách thêm ảnh marker vào scene."}
         </div>
 
         {panelType === "model" && (
           <div className="mt-4 flex flex-col gap-3">
             <div>
               <div className="text-sm text-gray-300 mb-2">Models của bạn</div>
-              {/* Bỏ thanh kéo, cho hiện full list */}
               <div className="grid grid-cols-2 gap-2">
                 {assetsLoading ? (
                   <div className="text-sm text-gray-400 col-span-full">
@@ -111,17 +124,13 @@ export default function AssetToolPanel({
                     const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
                     const assetUrl =
                       typeof rawUrl === "string" ? rawUrl : "";
-                    const isGlb = assetUrl
-                      .toLowerCase()
-                      .includes(".glb");
+                    const isGlb = assetUrl.toLowerCase().includes(".glb");
 
                     return (
                       <button
                         key={a.asset3DId ?? a.id}
                         type="button"
-                        onClick={() =>
-                          onAddExistingModel(a, assetUrl)
-                        }
+                        onClick={() => onAddExistingModel(a, assetUrl)}
                         className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
                       >
                         <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -153,9 +162,7 @@ export default function AssetToolPanel({
 
         {panelType === "quiz" && (
           <div className="mt-4">
-            <div className="text-sm text-gray-300 mb-2">
-              Quiz của bạn
-            </div>
+            <div className="text-sm text-gray-300 mb-2">Quiz của bạn</div>
 
             <div className="grid grid-cols-1 gap-2">
               <button
@@ -205,7 +212,6 @@ export default function AssetToolPanel({
       </div>
 
       {/* BUTTONS bottom */}
-      {/* Khi nhiều model quá thì chỗ này mới có thanh trượt chung của panel */}
       <div className="flex gap-3 overflow-auto">
         {panelType === "model" && (
           <>
@@ -226,14 +232,27 @@ export default function AssetToolPanel({
         )}
       </div>
 
-      <QuizCreateDialog
+      <QuizViewDialog
         isOpen={quizDialogOpen}
         onClose={() => setQuizDialogOpen(false)}
-        initialChapterId={currentChapterId}  // <-- Truyền chính xác chapterId
+        authorId={authorId}
+        initialChapterId={currentChapterId}
         onCreated={() => {
           setQuizDialogOpen(false);
           toast({ title: "Tạo quiz thành công!" });
-          // Có thể thêm callback để refresh quiz list nếu cần
+        }}
+        onQuizFullyCreated={onQuizFullyCreated}
+        onSelected={(quiz) => {
+          const quizId = quiz.quizId ?? quiz.id;
+          if (!quizId) {
+            toast({
+              title: "Không tìm thấy quizId",
+              description: "Quiz này không có id hợp lệ.",
+              variant: "destructive",
+            });
+            return;
+          }
+          onPreviewQuiz?.(quizId);
         }}
       />
     </div>

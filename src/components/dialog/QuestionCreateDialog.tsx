@@ -36,7 +36,7 @@ interface QuestionForm {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    onCreated?: () => void;
+    onCreated?: (quizId: string) => void;
     quizId: string | null;
     quiz?: Quiz | null;
     getCurrentQuiz?: () => string | null;
@@ -289,7 +289,14 @@ const QuestionCreateDialog: React.FC<Props> = ({
             const isLast = qIdx === forms.length - 1;
             if (isLast) {
                 toast({ title: "Quiz đã tạo thành công" });
-                onCreated?.();
+
+                if (effectiveQuizId) {
+                    onCreated?.(effectiveQuizId);
+                } else {
+                    console.warn("effectiveQuizId null khi onCreated được gọi");
+                    onCreated?.("");
+                }
+
                 onClose();
             } else {
                 setActiveIdx(qIdx + 1);
@@ -297,6 +304,7 @@ const QuestionCreateDialog: React.FC<Props> = ({
                     title: `Đáp án câu ${qIdx + 1} đã lưu, chuyển sang câu ${qIdx + 2}`,
                 });
             }
+
         } catch (err: any) {
             toast({
                 title: "Lỗi khi lưu đáp án",

@@ -118,7 +118,7 @@ export const useDeleteQuiz = () => {
 export const useSearchQuizzes = (params?: QuizSearchParams) => {
   return useQuery({
     queryKey: ["quizzes", "search", params],
-    queryFn: () => searchQuizzes(params),
+    queryFn: async () => searchQuizzes(params),
   });
 };
 
@@ -313,5 +313,43 @@ export const useSearchAnswers = (params?: AnswerSearchParams) => {
   return useQuery({
     queryKey: ["answers", "search", params],
     queryFn: () => searchAnswers(params),
+  });
+};
+
+/* ====================== QUIZ PLAY (PLAYABLE QUIZ WITH QUESTIONS & ANSWERS) ====================== */
+
+export interface PlayAnswer {
+  answerId: string;
+  content: string;
+  isCorrect: boolean;
+}
+
+export interface PlayQuestion {
+  questionId: string;
+  content: string;
+  score: number;
+  answerCount: number;
+  answers: PlayAnswer[];
+}
+
+export interface QuizPlay {
+  quizId: string;
+  title: string;
+  totalScore: number;
+  questionCount: number;
+  questions: PlayQuestion[];
+}
+
+/** GET /books/quizzes/{id}/play -> trả về quiz + questions + answers (play payload) */
+export const getQuizPlayById = async (id: string): Promise<QuizPlay> => {
+  const response = await axios.get(`${API_BASE_URL}/books/quizzes/${id}/play`);
+  return response.data;
+};
+
+export const useGetQuizPlayById = (id?: string) => {
+  return useQuery({
+    queryKey: ["quizzes", "play", id],
+    queryFn: () => getQuizPlayById(id as string),
+    enabled: !!id,
   });
 };

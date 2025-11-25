@@ -96,10 +96,13 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
 
     try {
       const found = illustrationsList.find((i) => i.id === selectedIllustrationId);
-      const imageUrl = found?.url;
-      if (!imageUrl) throw new Error("Không lấy được url ảnh để tạo marker.");
+      const rawImageUrl = found?.url;
+      if (!rawImageUrl) throw new Error("Không lấy được url ảnh để tạo marker.");
 
-      // create marker with the selected illustration url
+      // Convert gs:// URL to HTTPS before saving
+      const imageUrl = gsToHttp(rawImageUrl);
+
+      // create marker with the selected illustration url (HTTPS)
       await createMarker.mutateAsync({
         markerCode: normalized,
         markerType: "fiducial",

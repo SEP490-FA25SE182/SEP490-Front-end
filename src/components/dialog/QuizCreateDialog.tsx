@@ -17,6 +17,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: () => void;
+  onQuizFullyCreated?: (quizId: string) => void;
   initialChapterId?: string;
 }
 
@@ -24,6 +25,7 @@ const QuizCreateDialog: React.FC<Props> = ({
   isOpen,
   onClose,
   onCreated,
+  onQuizFullyCreated,
   initialChapterId,
 }) => {
   const { toast } = useToast();
@@ -245,14 +247,24 @@ const QuizCreateDialog: React.FC<Props> = ({
           createdQuizId ??
           null
         }
-        // luôn dùng cấu hình đã chụp tại thời điểm bấm "Tạo Quiz"
         questionCount={questionConfig?.questionCount ?? 1}
         totalScore={questionConfig?.totalScore ?? 100}
-        onCreated={() => {
+        onCreated={(quizIdFromDialog) => {
+          // dọn state local
           setOpenQuestionDialog(false);
           setCreatedQuizId(null);
           setCreatedQuizFull(null);
           setQuestionConfig(null);
+
+          // báo lên trên (AuthorModelView) để preview Unity
+          if (quizIdFromDialog) {
+            onQuizFullyCreated?.(quizIdFromDialog);
+          } else if (createdQuizId) {
+            onQuizFullyCreated?.(createdQuizId);
+          }
+
+          // nếu muốn vẫn dùng onCreated cũ để cho QuizViewDialog refetch
+          onCreated?.();
         }}
       />
     </>

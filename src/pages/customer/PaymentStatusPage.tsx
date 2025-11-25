@@ -15,7 +15,7 @@ export default function PaymentStatusPage() {
   const query = new URLSearchParams(location.search);
   const success = query.get("success"); // ?success=true / false
   const [status, setStatus] = useState<"pending" | "success" | "failed">("pending");
-  const [order, setOrder] = useState<any>(null);
+  const [, setOrder] = useState<any>(null);
   const { clear } = useCart();
 
 

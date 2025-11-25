@@ -52,7 +52,7 @@ export const getAllWallets = async (): Promise<Wallet[]> => {
 /* Tạo ví mới → BE nhận array + trả array */
 export const createWallet = async (
   body: CreateWalletRequest
-): Promise<Wallet[]> => {
+): Promise<Wallet> => {
   const res = await axios.post(`${API_BASE_URL}/users/wallets`, [body], {
     headers: {
       ...headers,
@@ -60,8 +60,10 @@ export const createWallet = async (
     },
   });
 
-  return res.data; // array
+  const arr: Wallet[] = res.data;
+  return arr[0]; // 👈 lấy phần tử đầu tiên làm Wallet
 };
+
 
 /* Cập nhật ví */
 export const updateWallet = async (

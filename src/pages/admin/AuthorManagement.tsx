@@ -236,8 +236,12 @@ export default function AuthorManagementPage() {
                 }
 
                 // Đã tất toán trong THÁNG HIỆN TẠI → cấm tất toán tiếp
-                const canSettle =
-                    !lastSettleDate || !isSameMonth(now, lastSettleDate);
+                // const canSettle =
+                //     !lastSettleDate || !isSameMonth(now, lastSettleDate);
+
+                // DEMO MODE: chỉ cần có doanh thu mới là cho tất toán tiếp
+                const canSettle = totalRevenue > 0;
+
 
                 return {
                     userId: u.userId,

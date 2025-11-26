@@ -67,14 +67,7 @@ async createOrderFromCart(
   // 🔍 Lấy tất cả orders
   async getAllOrders(): Promise<OrderResponse[]> {
     const res = await axios.get(`${API_BASE_URL}/users/orders`);
-    const data = res.data;
-
-    // Nếu BE trả Page<OrderResponse> thì lấy content
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    return data?.content ?? [];
+    return res.data;
   },
 
   // 🔍 Lấy order theo ID

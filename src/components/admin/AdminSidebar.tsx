@@ -13,7 +13,7 @@ export default function AdminSidebar({ isOpen }: AdminSidebarProps) {
     { path: "/admin/users", icon: <Users className="w-5 h-5" />, label: "Người dùng" },
     { path: "/admin/orders", icon: <ShoppingBag className="w-5 h-5" />, label: "Đơn hàng" },
     { path: "/admin/authors", icon: <UsersRoundIcon className="w-5 h-5" />, label: "Tác giả" },
-    { path: "/admin/settings", icon: <Settings className="w-5 h-5" />, label: "Cài đặt" },
+    // { path: "/admin/settings", icon: <Settings className="w-5 h-5" />, label: "Cài đặt" },
   ];
 
   return (

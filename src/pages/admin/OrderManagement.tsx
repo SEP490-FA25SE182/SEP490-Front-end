@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Loader2, Trash2, RefreshCw } from "lucide-react";
+import { Menu, X, Loader2, Trash2} from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,7 +184,7 @@ export default function OrderManagementPage() {
     }
   }
 
-  
+
 
   // ===============================
   //  FILTERED LIST
@@ -251,15 +251,7 @@ export default function OrderManagementPage() {
               {sidebarOpen ? <X /> : <Menu />}
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-white border-white/30"
-              onClick={fetchOrders}
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Làm mới
-            </Button>
+
           </div>
         </header>
 
@@ -299,7 +291,7 @@ export default function OrderManagementPage() {
               <>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#1a2332]">
+                    <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
                       <TableHead className="text-white">Mã đơn</TableHead>
                       <TableHead className="text-white">Tổng tiền</TableHead>
                       <TableHead className="text-white">Trạng thái</TableHead>

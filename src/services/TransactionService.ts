@@ -41,7 +41,7 @@ export interface TransactionSearchResponse {
 export interface TransactionRequest {
   totalPrice: number;
   status: number; 
-  orderId: string;
+  orderId?: string | null; 
   paymentMethodId: string;
   walletId: string;
   transType: TransactionType; // PAYMENT / REFUND / ...

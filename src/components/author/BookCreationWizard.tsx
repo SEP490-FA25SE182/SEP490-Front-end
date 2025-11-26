@@ -20,7 +20,10 @@ export default function BookCreationWizard() {
     coverUrl: "",
     decription: "",
     authorId: "", // sẽ được set tự động
+    price: 0,
+    quantity: 0,
   });
+
 
   const [selectedCoverPreview, setSelectedCoverPreview] = useState<string | null>(null);
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
@@ -118,18 +121,16 @@ export default function BookCreationWizard() {
     if (lengthErrors.length > 0) {
       toast({
         title: "Vượt giới hạn ký tự",
-        description: `Các trường sau vượt giới hạn: ${lengthErrors.join(
-          ", "
-        )}.`,
+        description: `Các trường sau vượt giới hạn: ${lengthErrors.join(", ")}.`,
         variant: "destructive",
       });
       return;
     }
 
-    if (!book.authorId) {
+    if (priceInvalid || quantityInvalid) {
       toast({
-        title: "Không tìm thấy tác giả",
-        description: "Không thể xác định authorId. Vui lòng đăng nhập lại.",
+        title: "Giá / số lượng không hợp lệ",
+        description: "Giá và số lượng phải lớn hơn hoặc bằng 0 (số lượng là số nguyên).",
         variant: "destructive",
       });
       return;
@@ -180,13 +181,22 @@ export default function BookCreationWizard() {
   const coverTooLong = (book.coverUrl ?? "").length > MAX_COVER;
   const descTooLong = (book.decription ?? "").length > MAX_DESC;
 
+  const priceInvalid = book.price < 0 || Number.isNaN(book.price as any);
+  const quantityInvalid =
+    book.quantity < 0 ||
+    Number.isNaN(book.quantity as any) ||
+    !Number.isInteger(book.quantity as any);
+
   const disableSave =
     !book.bookName?.trim() ||
     !book.decription?.trim() ||
     titleTooLong ||
     coverTooLong ||
     descTooLong ||
+    priceInvalid ||
+    quantityInvalid ||
     isUploadingCover;
+
 
   return (
     <div>
@@ -203,9 +213,8 @@ export default function BookCreationWizard() {
         />
         <div className="flex justify-between text-xs mt-1">
           <div
-            className={`text-gray-400 ${
-              titleTooLong ? "text-red-400" : ""
-            }`}
+            className={`text-gray-400 ${titleTooLong ? "text-red-400" : ""
+              }`}
           >
             {" "}
             {(book.bookName ?? "").length} / {MAX_TITLE}
@@ -282,9 +291,8 @@ export default function BookCreationWizard() {
         />
         <div className="flex justify-between text-xs mt-1">
           <div
-            className={`text-gray-400 ${
-              descTooLong ? "text-red-400" : ""
-            }`}
+            className={`text-gray-400 ${descTooLong ? "text-red-400" : ""
+              }`}
           >
             {" "}
             {(book.decription ?? "").length} / {MAX_DESC}
@@ -295,6 +303,55 @@ export default function BookCreationWizard() {
             </div>
           )}
         </div>
+
+                {/* PRICE */}
+        <div className="mt-3">
+          <label className="block text-xs mb-1 text-gray-300">
+            Giá (VNĐ)
+          </label>
+          <Input
+            type="number"
+            min={0}
+            value={book.price}
+            onChange={(e) =>
+              setBook((prev) => ({
+                ...prev,
+                price: Number(e.target.value),
+              }))
+            }
+            className="bg-transparent border-white/20 text-white"
+          />
+          {priceInvalid && (
+            <div className="text-xs text-red-400 mt-1">
+              Giá phải lớn hơn hoặc bằng 0.
+            </div>
+          )}
+        </div>
+
+        {/* QUANTITY */}
+        <div className="mt-3">
+          <label className="block text-xs mb-1 text-gray-300">
+            Số lượng tồn kho
+          </label>
+          <Input
+            type="number"
+            min={0}
+            value={book.quantity}
+            onChange={(e) =>
+              setBook((prev) => ({
+                ...prev,
+                quantity: Number(e.target.value),
+              }))
+            }
+            className="bg-transparent border-white/20 text-white"
+          />
+          {quantityInvalid && (
+            <div className="text-xs text-red-400 mt-1">
+              Số lượng phải là số nguyên ≥ 0.
+            </div>
+          )}
+        </div>
+
 
         <Button
           onClick={handleCreateBook}

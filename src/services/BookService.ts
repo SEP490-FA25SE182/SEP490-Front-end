@@ -14,6 +14,8 @@ export interface Book {
   authorId: string | null;
   progressStatus: number;
   publicationStatus: number;
+  price: number;
+  quantity: number;
   isActived: string;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +88,7 @@ export class BookService {
   }
 
   /** 🔧 Chuẩn hóa dữ liệu gửi đi */
+  /** 🔧 Chuẩn hóa dữ liệu gửi đi */
   private normalizeBookPayload(book: Partial<Book>) {
     const publication =
       typeof book.publicationStatus === "string"
@@ -97,10 +100,19 @@ export class BookService {
         ? Number(book.progressStatus)
         : book.progressStatus;
 
+    // 👇 THÊM ĐOẠN NÀY
+    const price =
+      typeof book.price === "string" ? Number(book.price) : book.price;
+
+    const quantity =
+      typeof book.quantity === "string" ? Number(book.quantity) : book.quantity;
+
     return {
       ...book,
       publicationStatus: publication ?? 0,
       progressStatus: progress ?? 0,
+      price: price ?? 0,
+      quantity: quantity ?? 0,
     };
   }
 

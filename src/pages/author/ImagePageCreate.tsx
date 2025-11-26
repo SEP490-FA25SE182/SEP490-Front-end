@@ -62,21 +62,21 @@ export default function ImagePageCreate() {
 
   // Memoize illustrationsList with userId filtering
   const illustrationsList = useMemo(() => {
-    if (Array.isArray(illustrations) && illustrations.length > 0) {
-      return illustrations
-        .filter((it: any) => 
-          it.isActived === "ACTIVE" && 
-          !!it.illustrationId && 
-          (it.userId === userId || !it.userId) // Include only illustrations matching userId or with null userId
-        )
-        .map((it: any) => ({
-          id: it.illustrationId as string,
-          title: it.title,
-          url: it.imageUrl,
-        }));
+    if (!Array.isArray(illustrations) || illustrations.length === 0) {
+      return [];
     }
-    return [];
-  }, [illustrations, userId]); // Added userId to dependency array
+
+    return illustrations
+      .filter((it: any) =>
+        it.isActived === "ACTIVE" &&
+        !!it.illustrationId
+      )
+      .map((it: any) => ({
+        id: it.illustrationId as string,
+        title: it.title,
+        url: it.imageUrl,
+      }));
+  }, [illustrations]);
 
   // when user selects an illustration -> set selected id and replace content with image url
   const handleSelectIllustration = (id: string) => {
@@ -185,11 +185,10 @@ export default function ImagePageCreate() {
                     key={it.id}
                     type="button"
                     onClick={() => handleSelectIllustration(it.id)}
-                    className={`rounded border p-1 overflow-hidden focus:outline-none ${
-                      selectedIllustrationId === it.id
+                    className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id
                         ? "border-purple-500 ring-2 ring-purple-200"
                         : "border-white/10 hover:border-gray-300"
-                    }`}
+                      }`}
                   >
                     <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img

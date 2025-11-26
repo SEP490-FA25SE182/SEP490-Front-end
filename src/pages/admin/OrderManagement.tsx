@@ -189,14 +189,24 @@ export default function OrderManagementPage() {
   // ===============================
   //  FILTERED LIST
   // ===============================
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = orders
+  .slice() // tránh mutate state gốc
+  .sort((a, b) => {
+    const t1 = new Date(b.createdAt ?? "").getTime();
+    const t2 = new Date(a.createdAt ?? "").getTime();
+    return t1 - t2; // mới nhất lên đầu
+  })
+  .filter((order) => {
     const matchStatus =
       filterStatus === "all" || String(order.status) === filterStatus;
+
     const matchSearch =
       !searchQuery ||
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchStatus && matchSearch;
   });
+
 
   // ===============================
   //  UPDATE STATUS

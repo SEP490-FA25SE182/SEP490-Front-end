@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useCreatePage, useGetAllPages } from "@/services/BookManageService";
+import { useCreatePage, useGetAllPages, useUpdatePage } from "@/services/BookManageService";
 import { useToast } from "@/components/ui/use-toast";
 import ImagePageDialog from "./ImagePageDialog";
 
@@ -30,6 +30,7 @@ export default function EmptyPageDialog({ isOpen, onClose, chapterId, onCreated 
 
   const { toast } = useToast();
   const createPage = useCreatePage();
+  const updatePage = useUpdatePage();
   const { data: pagesResp } = useGetAllPages(chapterId ? { chapterId } : undefined);
 
   useEffect(() => {
@@ -78,11 +79,22 @@ export default function EmptyPageDialog({ isOpen, onClose, chapterId, onCreated 
           content,
           chapterId,
           isActived: "ACTIVE",
+          pageType: "PICTURE",
         });
         const pid = res?.pageId ?? res?.id ?? res?.page_id ?? null;
         setCreatedPageId(pid);
       } else {
-        // if already created earlier, skip (update not implemented here)
+        // ensure existing page has correct fields (pageType = PICTURE)
+        await updatePage.mutateAsync({
+          id: createdPageId,
+          data: {
+            pageNumber: Number(pageNumber),
+            content,
+            chapterId,
+            isActived: "ACTIVE",
+            pageType: "PICTURE",
+          },
+        });
       }
 
       toast({ title: "Lưu thành công", description: `Trang ${pageNumber} đã được lưu.` });
@@ -108,24 +120,37 @@ export default function EmptyPageDialog({ isOpen, onClose, chapterId, onCreated 
       return;
     }
 
-    if (!createdPageId) {
-      try {
+    try {
+      if (!createdPageId) {
         const res: any = await createPage.mutateAsync({
           pageNumber: Number(pageNumber),
           content,
           chapterId,
           isActived: "ACTIVE",
+          pageType: "PICTURE",
         });
         const pid = res?.pageId ?? res?.id ?? res?.page_id ?? null;
         setCreatedPageId(pid);
-      } catch (err: any) {
-        toast({
-          title: "Tạo trang thất bại",
-          description: err?.response?.data?.message || "Không thể tạo trang để gắn ảnh.",
-          variant: "destructive",
+      } else {
+        // ensure page type is set so list shows image immediately
+        await updatePage.mutateAsync({
+          id: createdPageId,
+          data: {
+            pageNumber: Number(pageNumber),
+            content,
+            chapterId,
+            isActived: "ACTIVE",
+            pageType: "PICTURE",
+          },
         });
-        return;
       }
+    } catch (err: any) {
+      toast({
+        title: "Tạo trang thất bại",
+        description: err?.response?.data?.message || "Không thể tạo trang để gắn ảnh.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setOpenImageDialog(true);

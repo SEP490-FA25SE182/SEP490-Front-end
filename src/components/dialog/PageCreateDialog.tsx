@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,12 +40,12 @@ export const PageCreateDialog: React.FC<Props> = ({
     chapterId ? { chapterId } : undefined
   );
 
-  // newly added state
+  // state phục vụ gắn audio
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
   const [openAudioDialog, setOpenAudioDialog] = useState(false);
   const [, setAttachedAudioIds] = useState<string[]>([]);
 
-  // load user's audios so we can render audio players in preview
+  // load user's audios (hiện tại chỉ để prefetch)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   useSearchAudios({
     userId: user?.userId,
@@ -60,7 +60,6 @@ export const PageCreateDialog: React.FC<Props> = ({
       setAttachedAudioIds([]);
     }
   }, [isOpen]);
-
 
   const handleSubmit = async () => {
     if (!chapterId || pageNumber === "") {
@@ -94,20 +93,19 @@ export const PageCreateDialog: React.FC<Props> = ({
     }
 
     try {
-      // nếu chưa có page tạo mới, nếu đã tạo trước đó (khi thêm audio) thì chỉ cập nhật nội dung
+      // nếu chưa có page thì tạo mới
       if (!createdPageId) {
         const res: any = await createPage.mutateAsync({
           pageNumber: Number(pageNumber),
           content,
           chapterId,
-          pageType: "TEXT", // default hidden page type
+          pageType: "TEXT", // default page type
           isActived: "ACTIVE",
         });
         const pid = res?.pageId ?? res?.id ?? res?.page_id ?? null;
         setCreatedPageId(pid);
       } else {
-        // cập nhật trường content/number cho page đã tạo (nếu api có endpoint updatePage bạn có thể gọi ở đây)
-        // để đơn giản, gọi createPage.mutateAsync với id nếu server hỗ trợ upsert, hoặc nên sử dụng hook updatePage ở nơi khác.
+        // TODO: nếu muốn update nội dung cho page đã tạo, nên dùng hook updatePage ở đây
       }
 
       toast({
@@ -145,7 +143,7 @@ export const PageCreateDialog: React.FC<Props> = ({
           pageNumber: Number(pageNumber),
           content,
           chapterId,
-          pageType: "TEXT", // default when creating before attaching audio
+          pageType: "TEXT",
           isActived: "ACTIVE",
         });
         const pid = res?.pageId ?? res?.id ?? res?.page_id ?? null;
@@ -164,8 +162,6 @@ export const PageCreateDialog: React.FC<Props> = ({
 
     setOpenAudioDialog(true);
   };
-
-  // attached audios details for preview
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -207,7 +203,10 @@ export const PageCreateDialog: React.FC<Props> = ({
             <Button variant="ghost" onClick={onClose}>
               Huỷ
             </Button>
-            <Button onClick={handleOpenAudioDialog} disabled={createPage.isPending}>
+            <Button
+              onClick={handleOpenAudioDialog}
+              disabled={createPage.isPending}
+            >
               Thêm audio
             </Button>
           </div>
@@ -226,13 +225,20 @@ export const PageCreateDialog: React.FC<Props> = ({
         onClose={() => setOpenAudioDialog(false)}
         pageId={createdPageId}
         onAttached={(ids: string[]) => {
-          // append newly attached ids (avoid duplicates)
-          setAttachedAudioIds((prev) => Array.from(new Set([...prev, ...ids])));
+          // lưu lại danh sách audio đã gắn (nếu sau này muốn preview)
+          setAttachedAudioIds((prev) =>
+            Array.from(new Set([...prev, ...ids]))
+          );
+
           setOpenAudioDialog(false);
           toast({
             title: "Gắn audio thành công",
             description: `Đã gắn ${ids.length} audio vào trang.`,
           });
+
+          // ✅ sau khi gắn audio xong: refresh list + đóng luôn PageCreateDialog
+          onCreated?.();
+          onClose();
         }}
       />
     </Dialog>

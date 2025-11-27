@@ -36,6 +36,7 @@ export interface Page {
     pageNumber: number;
     content: string;
     chapterId: string;
+    pageType?: string; // added pageType
     isActived?: string;
 }
 

@@ -9,7 +9,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { UploadService } from "@/services/FirebaseService";
 
-export default function BookCreationWizard() {
+type WizardProps = { onCreated?: (bookId: string) => void };
+
+export default function BookCreationWizard(props: WizardProps) {
   // --- limits
   const MAX_TITLE = 50;
   const MAX_COVER = 100;
@@ -161,11 +163,20 @@ export default function BookCreationWizard() {
         title: "Tạo sách thành công",
         description: `“${book.bookName}” đã được tạo.`,
       });
-      if (res) {
+      if (res?.bookId) {
         // clear selection
         setSelectedCoverFile(null);
         setSelectedCoverPreview(null);
+        const createdId = res.bookId;
+        props.onCreated?.(createdId);
         navigate("/author/authorbooklist");
+      } else {
+        console.error("Tạo sách thất bại: thiếu bookId trong phản hồi", res);
+        toast({
+          title: "Tạo sách thất bại",
+          description: "Không nhận được ID sách từ server. Vui lòng thử lại.",
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Tạo sách thất bại:", err);
@@ -304,7 +315,7 @@ export default function BookCreationWizard() {
           )}
         </div>
 
-                {/* PRICE */}
+        {/* PRICE */}
         <div className="mt-3">
           <label className="block text-xs mb-1 text-gray-300">
             Giá (VNĐ)

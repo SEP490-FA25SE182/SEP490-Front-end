@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Menu, X, Edit, Trash2, Search, MoreVertical, Image, AudioLines, StickyNote, Plus } from "lucide-react";
+import { Menu, X, Edit, Trash2, Search, MoreVertical, Image, AudioLines, Plus, TextInitial, BookImage } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import CreateAudioDialog from "@/components/dialog/CreateAudioDialog";
 import { useGetAllMarkers, type Marker, getMarkerById } from "@/services/ARService";
+import EmptyPageDialog from "@/components/dialog/EmptyPageDialog";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -45,6 +46,7 @@ const AuthorPageList = () => {
   const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
   const [openAudioDialog, setOpenAudioDialog] = useState(false);
+  const [openEmptyDialog, setOpenEmptyDialog] = useState(false);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(undefined);
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
@@ -203,8 +205,11 @@ const AuthorPageList = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setOpenEmptyDialog(true)}>
+                      <BookImage className="w-4 h-4 mr-2" /> Tạo trang ảnh
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setOpenCreateDialog(true)}>
-                      <StickyNote className="w-4 h-4 mr-2" /> Tạo trang trống
+                      <TextInitial className="w-4 h-4 mr-2" /> Tạo trang chữ
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
                       <Image className="w-4 h-4 mr-2" /> Tạo ảnh
@@ -509,6 +514,17 @@ const AuthorPageList = () => {
         chapterId={chapterId}
         onCreated={async () => {
           await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+        }}
+      />
+
+      <EmptyPageDialog
+        isOpen={openEmptyDialog}
+        onClose={() => setOpenEmptyDialog(false)}
+        chapterId={chapterId}
+        onCreated={async () => {
+          // refresh pages list after created
+          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+          setOpenEmptyDialog(false);
         }}
       />
 

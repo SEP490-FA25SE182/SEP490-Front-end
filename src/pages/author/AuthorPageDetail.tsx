@@ -1,15 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetPageById } from "@/services/BookManageService";
 import { useState } from "react";
-import { Menu, X, ArrowLeft, Image, CaseSensitive, Plus } from "lucide-react";
+import { Menu, X, ArrowLeft } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 
 const AuthorPageDetail = () => {
   const { pageId } = useParams<{ pageId: string }>();
@@ -19,7 +13,8 @@ const AuthorPageDetail = () => {
 
   const isFirebaseImageUrl = (url: string) => {
     return (
-      (url?.includes("firebasestorage.googleapis.com") && url?.includes("alt=media")) ||
+      (url?.includes("firebasestorage.googleapis.com") &&
+        url?.includes("alt=media")) ||
       url?.startsWith("gs://")
     );
   };
@@ -29,7 +24,9 @@ const AuthorPageDetail = () => {
     if (url.startsWith("gs://")) {
       const bucket = url.split("/")[2];
       const path = url.split("/").slice(3).join("/");
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
     }
     return url;
   };
@@ -67,7 +64,11 @@ const AuthorPageDetail = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </Button>
 
             <div className="ml-4 text-white text-lg font-medium">
@@ -84,28 +85,7 @@ const AuthorPageDetail = () => {
                 <ArrowLeft className="w-4 h-4" /> Quay lại
               </Button>
 
-              {page.content?.trim() ===
-                "Xin chào, đây là trang trống. Vui lòng thêm nội dung sau." && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                        <Plus className="w-4 h-4 mr-2" /> Tạo nội dung trang
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/author/pages/${pageId}/edit-text`)}
-                      >
-                        <CaseSensitive className="w-4 h-4 mr-2" /> Tạo nội dung chữ
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/author/pages/${pageId}/edit-image`)}
-                      >
-                        <Image className="w-4 h-4 mr-2" /> Tạo nội dung ảnh
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+              {/* Đã loại bỏ các tùy chọn tạo nội dung (ảnh, chữ, AR) */}
             </div>
           </div>
         </header>

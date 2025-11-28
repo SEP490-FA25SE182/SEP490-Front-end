@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, ShoppingBag, Settings, LogOut, UsersRoundIcon } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingBag, LogOut, UsersRoundIcon } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface AdminSidebarProps {

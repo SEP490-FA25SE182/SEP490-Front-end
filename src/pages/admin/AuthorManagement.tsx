@@ -83,12 +83,12 @@ export default function AuthorManagementPage() {
     // ===============================
     //  FETCH AUTHORS + STATS
     // ===============================
-    function isSameMonth(a: Date, b: Date) {
-        return (
-            a.getFullYear() === b.getFullYear() &&
-            a.getMonth() === b.getMonth()
-        );
-    }
+    // function isSameMonth(a: Date, b: Date) {
+    //     return (
+    //         a.getFullYear() === b.getFullYear() &&
+    //         a.getMonth() === b.getMonth()
+    //     );
+    // }
 
 
     const fetchAuthors = async () => {
@@ -189,7 +189,7 @@ export default function AuthorManagementPage() {
                 })
             );
 
-            const now = new Date();
+            // const now = new Date();
 
             // 7️⃣ Build thống kê cho từng tác giả
             const result: AuthorRow[] = authorUsers.map((u) => {

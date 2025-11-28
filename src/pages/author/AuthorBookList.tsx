@@ -341,12 +341,6 @@ export default function AuthorBookList() {
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
-                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
-                          >
-                            <CircleCheck className="mr-2 h-4 w-4" />Đưa đi duyệt
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}
                             className={`${alreadySent ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
                           >
@@ -444,30 +438,6 @@ export default function AuthorBookList() {
               disabled={isDeleting}
             >
               {isDeleting ? "Đang xóa..." : "Xóa"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Send-for-review confirmation dialog */}
-      <AlertDialog open={openSendAlert} onOpenChange={setOpenSendAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Gửi sách đi duyệt</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn gửi sách "{sendReviewBook?.bookName ?? sendReviewBook?.book_name}" đi duyệt? Sau khi gửi, bạn sẽ không thể sửa hoặc xóa sách.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => setOpenSendAlert(false)}>
-              Huỷ
-            </Button>
-            <Button
-              onClick={handleSendForReviewConfirmed}
-              disabled={isSendingReview}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {isSendingReview ? "Đang gửi..." : "Gửi duyệt"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
-import { updateBookStatusFull } from "@/services/BookService";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -58,10 +57,7 @@ export default function AuthorBookList() {
   const [deletingBook, setDeletingBook] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // send-for-review dialog state
-  const [openSendAlert, setOpenSendAlert] = useState(false);
-  const [sendReviewBook, setSendReviewBook] = useState<any | null>(null);
-  const [isSendingReview, setIsSendingReview] = useState(false);
+
 
   // create book dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -148,54 +144,8 @@ export default function AuthorBookList() {
     setCurrentPage(1);
   }, [searchQuery, selectedStatus, selectedPublication]);
 
-  const handleSendForReviewConfirmed = async () => {
-    const book = sendReviewBook;
-    if (!book) return;
-    setIsSendingReview(true);
-
-    try {
-      await updateBookStatusFull({ ...book } as any, 3);
-
-      setBooks(prev => prev.map(b => {
-        const idB = b.bookId ?? b.book_id;
-        const id = book.bookId ?? book.book_id;
-        if (String(idB) === String(id)) {
-          return { ...b, publicationStatus: 3 };
-        }
-        return b;
-      }));
-
-      toast({
-        title: "Đã gửi duyệt",
-        description: `Sách "${book.bookName ?? book.book_name}" đã được gửi đi duyệt.`,
-      });
-    } catch (err) {
-      console.error("Gửi duyệt thất bại:", err);
-      toast({
-        title: "Gửi duyệt thất bại",
-        description: "Không thể gửi sách đi duyệt. Vui lòng thử lại.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingReview(false);
-      setOpenSendAlert(false);
-      setSendReviewBook(null);
-    }
-  };
-
-  const confirmSendForReview = (book: any) => {
-    // nếu đã gửi rồi thì không mở dialog
-    const publication = book.publicationStatus ?? book.publication_status;
-    if (String(publication) === "3" || publication === 3) {
-      toast({
-        title: "Đã gửi duyệt",
-        description: "Quyển sách này đã được gửi đi duyệt trước đó.",
-      });
-      return;
-    }
-    setSendReviewBook(book);
-    setOpenSendAlert(true);
-  };
+  
+  
 
   const confirmDeleteBook = (book: any) => {
     setDeletingBook(book);

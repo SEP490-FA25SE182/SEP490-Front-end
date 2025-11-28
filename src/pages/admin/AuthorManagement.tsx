@@ -87,6 +87,8 @@ export default function AuthorManagementPage() {
     // ===============================
     //  FETCH AUTHORS + STATS
     // ===============================
+
+    //--tạm thời chưa dùng đến
     // function isSameMonth(a: Date, b: Date) {
     //     return (
     //         a.getFullYear() === b.getFullYear() &&

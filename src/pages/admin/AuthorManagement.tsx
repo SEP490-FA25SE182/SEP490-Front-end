@@ -57,6 +57,7 @@ type AuthorRow = {
     fullName: string;
     email: string;
     roleId: string;
+    royalty?: number;
     totalBooks: number;
     totalSold: number;
     totalRevenue: number;
@@ -68,6 +69,8 @@ type AuthorRow = {
 
 type FilterStatus = "all" | "hasRevenue" | "noRevenue";
 
+
+
 export default function AuthorManagementPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [authors, setAuthors] = useState<AuthorRow[]>([]);
@@ -77,6 +80,7 @@ export default function AuthorManagementPage() {
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedAuthor, setSelectedAuthor] = useState<AuthorRow | null>(null);
+
 
 
 
@@ -92,13 +96,15 @@ export default function AuthorManagementPage() {
 
 
     const fetchAuthors = async () => {
+
         setLoading(true);
         try {
             // 1️⃣ Lấy users + books
-            const [users, books] = await Promise.all([
-                getAllUsers(),
-                getAllBooks(),
-            ]);
+            const users = await getAllUsers();
+            const books = await getAllBooks();
+
+            console.log("✅ users raw:", users);
+            console.log("✅ books raw:", books);
 
             // 2️⃣ Gắn roleName cho từng user (giống login)
             const usersWithRole = await Promise.all(
@@ -114,10 +120,17 @@ export default function AuthorManagementPage() {
                 })
             );
 
-            // 3️⃣ Chỉ lấy user có roleName chứa 'author'
             const authorUsers = usersWithRole
-                .filter((x) => x.roleName.includes("author"))
+                .filter((x) => {
+                    const role = x.roleName?.toLowerCase() || "";
+                    return (
+                        role === "author" ||
+                        role.endsWith("_author") ||
+                        role.includes("author")
+                    );
+                })
                 .map((x) => x.user);
+
 
             // 4️⃣ Lấy danh sách order (status = 4) + orderDetails
             let successOrders: OrderResponse[] = [];
@@ -248,6 +261,7 @@ export default function AuthorManagementPage() {
                     fullName: u.fullName,
                     email: u.email,
                     roleId: u.roleId,
+                    royalty: u.royalty,
                     totalBooks: myBooks.length,
                     totalSold,
                     totalRevenue,
@@ -269,6 +283,7 @@ export default function AuthorManagementPage() {
 
 
     useEffect(() => {
+        console.log("✅ useEffect triggered");
         fetchAuthors();
     }, []);
 
@@ -279,8 +294,9 @@ export default function AuthorManagementPage() {
         const q = searchQuery.toLowerCase().trim();
         const matchSearch =
             !q ||
-            a.fullName.toLowerCase().includes(q) ||
-            a.email.toLowerCase().includes(q);
+            (a.fullName?.toLowerCase() || "").includes(q) ||
+            (a.email?.toLowerCase() || "").includes(q);
+
 
         const matchFilter =
             filterStatus === "all" ||
@@ -303,7 +319,11 @@ export default function AuthorManagementPage() {
     // ===============================
     const handleSettle = async (author: AuthorRow) => {
         // 1️⃣ Số tiền cần tất toán (ví dụ: doanh thu tháng)
-        const settlementAmount = author.totalRevenue;
+        const settlementAmount = calcRoyaltyAmount(
+            author.totalRevenue,
+            author.royalty
+        );
+
 
         if (settlementAmount <= 0) {
             toast.error("Tác giả này chưa có doanh thu để tất toán");
@@ -400,6 +420,17 @@ export default function AuthorManagementPage() {
             toast.dismiss();
         }
     };
+
+
+    const calcRoyaltyAmount = (total?: any, royalty?: any) => {
+        const safeTotal = Number(total ?? 0);
+        const safePercent = Number(royalty ?? 0);
+
+        if (isNaN(safeTotal) || isNaN(safePercent)) return 0;
+
+        return safeTotal * (safePercent / 100);
+    };
+
 
 
 
@@ -506,7 +537,8 @@ export default function AuthorManagementPage() {
                                                 </TableCell>
 
                                                 <TableCell className="text-center">
-                                                    {formatVND(author.totalRevenue)}
+                                                    {formatVND(calcRoyaltyAmount(author.totalRevenue, author.royalty))}
+
                                                 </TableCell>
 
                                                 <TableCell className="text-right space-x-2">
@@ -560,14 +592,12 @@ export default function AuthorManagementPage() {
                             <p>
                                 <b>Tổng số lượng đã bán:</b> {selectedAuthor.totalSold}
                             </p>
-                            <p>
-                                <b>Doanh thu tạm tính:</b>{" "}
-                                {formatVND(selectedAuthor.totalRevenue)}
-                            </p>
+
 
                             <h4 className="font-semibold mt-4">Chi tiết từng đầu sách:</h4>
                             <div className="max-h-80 overflow-auto border rounded-md">
-                                {selectedAuthor.breakdown.length === 0 ? (
+                                {(selectedAuthor.breakdown?.length ?? 0) === 0 ? (
+
                                     <div className="p-3 text-sm text-gray-500">
                                         Tác giả chưa có sách nào được bán.
                                     </div>
@@ -593,6 +623,26 @@ export default function AuthorManagementPage() {
                                     ))
                                 )}
                             </div>
+                            <p>
+                                <b>Doanh thu tạm tính:</b>{" "}
+                                {formatVND(selectedAuthor.totalRevenue)}
+                            </p>
+                            <p>
+                                <b>Phần trăm hoa hồng:</b>{" "}
+                                {selectedAuthor.royalty ?? 0}%
+
+                            </p>
+                            <p>
+                                <b>Tiền tác quyền:</b>{" "}
+                                {formatVND(
+                                    calcRoyaltyAmount(
+                                        selectedAuthor.totalRevenue,
+                                        selectedAuthor.royalty
+                                    )
+                                )}
+
+
+                            </p>
 
                             <div className="flex justify-end mt-4 gap-2">
                                 <Button variant="outline" onClick={() => setDetailOpen(false)}>

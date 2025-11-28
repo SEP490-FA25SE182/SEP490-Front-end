@@ -84,6 +84,7 @@ export default function CheckoutPage() {
     state?: {
       orderId?: string;
       buyNowLine?: { book: Book; qty: number };
+      usedCoin?: boolean;
     };
   };
 
@@ -135,6 +136,8 @@ export default function CheckoutPage() {
   }, [user?.email]);
 
   /* ======================= CART / ORDER ======================= */
+  const usedCoin = location.state?.usedCoin ?? false;
+
   const isBuyNow = !!location.state?.buyNowLine;
   const linesToPay = isBuyNow
     ? [location.state!.buyNowLine!]
@@ -145,8 +148,17 @@ export default function CheckoutPage() {
     [linesToPay]
   );
 
-  const effectiveSubtotal = subtotalLocal;
-  
+  const discount = useMemo(() => {
+    return usedCoin ? subtotalLocal * 0.1 : 0;
+  }, [usedCoin, subtotalLocal]);
+
+  const effectiveSubtotal = useMemo(() => {
+    return subtotalLocal - discount;
+  }, [subtotalLocal, discount]);
+
+
+
+
 
   const orderId = location.state?.orderId;
 
@@ -386,6 +398,97 @@ export default function CheckoutPage() {
     }
   }
 
+  async function handleCOD() {
+    if (!orderId) {
+      toast({
+        variant: "destructive",
+        title: "Không tìm thấy mã đơn hàng",
+        description: "Vui lòng quay lại giỏ hàng.",
+      });
+      return;
+    }
+
+    if (
+      !form.watch("province") ||
+      !form.watch("district") ||
+      !form.watch("ward")
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu thông tin địa chỉ",
+        description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
+      });
+      return;
+    }
+
+    try {
+      let finalAddressId = selectedAddressId;
+
+      const selectedAddress = addresses.find(
+        (a) => a.userAddressId === selectedAddressId
+      );
+
+      const provinceObj = provinces.find(
+        (p) => String(p.ProvinceID) === form.watch("province")
+      );
+      const districtObj = districts.find(
+        (d) => String(d.DistrictID) === form.watch("district")
+      );
+      const wardObj = wards.find(
+        (w) => String(w.WardCode) === form.watch("ward")
+      );
+
+      const formAddressInfor = `${form.watch("address")}, ${wardObj?.WardName
+        }, ${districtObj?.DistrictName}, ${provinceObj?.ProvinceName
+        }`.trim();
+
+      const isEdited =
+        !selectedAddress ||
+        selectedAddress.addressInfor !== formAddressInfor;
+
+      if (isEdited && user?.email) {
+        const userRes = await getUserByEmail(user.email);
+        const created = await createAddress({
+          userId: userRes.userId,
+          fullName: form.watch("fullName"),
+          phoneNumber: form.watch("phone"),
+          addressInfor: formAddressInfor,
+          type: "HOME",
+          isActived: "ACTIVE",
+          default: false,
+        });
+
+        finalAddressId = created.userAddressId;
+      }
+
+      // ✅ Update order (bao gồm phí ship)
+      const updatePayload = {
+        totalPrice: total,
+        status: 1,
+        userAddressId: finalAddressId,
+      };
+
+      await OrderService.updateOrder(orderId, updatePayload);
+
+      toast({
+        title: "Đặt hàng thành công!",
+        description: "Bạn sẽ thanh toán khi nhận hàng (COD).",
+      });
+
+      navigate("/payment-status", {
+        state: { paymentMethod: "COD", orderId },
+      });
+    } catch (err: any) {
+      console.error("❌ COD error:", err);
+      toast({
+        variant: "destructive",
+        title: "Lỗi COD",
+        description: err?.message || "Không thể đặt hàng COD.",
+      });
+    }
+  }
+
+
   /* ============================ 🧾 RENDER ============================ */
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
@@ -574,20 +677,12 @@ export default function CheckoutPage() {
 
                       <Button
                         type="button"
-                        onClick={() => {
-                          toast({
-                            title: "Đặt hàng thành công!",
-                            description:
-                              "Bạn sẽ thanh toán khi nhận hàng (COD).",
-                          });
-                          navigate("/payment-status", {
-                            state: { paymentMethod: "COD" },
-                          });
-                        }}
+                        onClick={handleCOD}
                         className="bg-white text-[#16213E] font-semibold py-2 rounded-lg hover:bg-gray-100"
                       >
                         🧾 Thanh toán tiền mặt (COD)
                       </Button>
+
                     </div>
                   </div>
                 </section>
@@ -640,6 +735,13 @@ export default function CheckoutPage() {
                   <span>Tạm tính</span>
                   <span>{formatVND(effectiveSubtotal)}</span>
                 </div>
+                {usedCoin && (
+                  <div className="flex justify-between text-green-400 text-sm mt-2">
+                    <span>Đã áp dụng xu (-10%)</span>
+                    <span>-{formatVND(discount)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span>Phí vận chuyển</span>
                   <span>{formatVND(shippingFee)}</span>

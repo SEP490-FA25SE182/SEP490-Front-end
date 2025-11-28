@@ -28,14 +28,48 @@ import {
 } from "@/services/UserService";
 import { toast } from "sonner";
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRole] = useState("all");
+  const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [users, setUsers] = useState<User[]>([]);
   const [roleNames, setRoleNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [currentRoleName, setCurrentRoleName] = useState("");
+  const [openRoyaltyModal, setOpenRoyaltyModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [royaltyValue, setRoyaltyValue] = useState<number>(0);
+  const [savingRoyalty, setSavingRoyalty] = useState(false);
+
+
+
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const fetchRole = async () => {
+      try {
+        // 1. Tìm user theo email
+        const allUsers = await getAllUsers();
+        const currentUser = allUsers.find(u => u.email === user.email);
+
+        if (!currentUser?.roleId) return;
+
+        // 2. Lấy role name
+        const role = await getRoleById(currentUser.roleId);
+        setCurrentRoleName(role.roleName?.toLowerCase().trim() || "");
+      } catch {
+        setCurrentRoleName("");
+      }
+    };
+
+    fetchRole();
+  }, [user?.email]);
+
 
   // 🔹 Lấy toàn bộ user
   useEffect(() => {
@@ -75,6 +109,23 @@ export default function UserManagementPage() {
     if (users.length > 0) fetchRoleNames();
   }, [users]);
 
+
+
+  //hepler
+
+  const isAuthor = (roleId?: string) => {
+    const roleName = (roleNames[roleId || ""] || "")
+      .trim()
+      .toLowerCase();
+
+    return roleName === "author" || roleName === "role_author";
+
+  };
+  console.log(roleNames)
+
+  const isCurrentUserAdmin = currentRoleName === "admin";
+
+
   // 🔍 Tìm kiếm user theo tên/email
   const handleSearch = async () => {
     try {
@@ -90,23 +141,7 @@ export default function UserManagementPage() {
     }
   };
 
-  // ✏️ Cập nhật trạng thái (ACTIVE / INACTIVE)
-  const handleToggleActive = async (user: User) => {
-    try {
-      const newStatus = user.isActived === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      await updateUser(user.userId, { isActived: newStatus });
-      toast.success(
-        `Đã ${newStatus === "ACTIVE" ? "kích hoạt" : "vô hiệu"} ${user.fullName}`
-      );
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.userId === user.userId ? { ...u, isActived: newStatus } : u
-        )
-      );
-    } catch (err) {
-      toast.error("Không thể cập nhật trạng thái");
-    }
-  };
+
 
   // 🗑️ Xóa user
   const handleDelete = async (userId: string) => {
@@ -130,6 +165,50 @@ export default function UserManagementPage() {
     return matchRole && matchStatus;
   });
 
+  const handleRoyaltyUpdate = (user: User) => {
+    setSelectedUser(user);
+    setRoyaltyValue(user.royalty ?? 0); // nếu backend có field royalty
+    setOpenRoyaltyModal(true);
+  };
+
+  const handleSaveRoyalty = async () => {
+    if (!selectedUser?.userId) return;
+
+    if (royaltyValue < 0 || royaltyValue > 100) {
+      toast.error("Royalty phải từ 0 - 100%");
+      return;
+    }
+
+    try {
+      setSavingRoyalty(true);
+
+      await updateUser(selectedUser.userId, {
+        ...selectedUser,
+        royalty: royaltyValue,
+      });
+
+      toast.success("Cập nhật royalty thành công ✅");
+
+      // cập nhật lại danh sách user UI
+      setUsers(prev =>
+        prev.map(u =>
+          u.userId === selectedUser.userId
+            ? { ...u, royalty: royaltyValue }
+            : u
+        )
+      );
+
+      setOpenRoyaltyModal(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Cập nhật royalty thất bại");
+    } finally {
+      setSavingRoyalty(false);
+    }
+  };
+
+
+  //--------------------------------RENDER--------------------------------
   return (
     <div className="flex h-screen bg-[#1a1a2e] text-white">
       <AdminSidebar isOpen={sidebarOpen} />
@@ -165,6 +244,20 @@ export default function UserManagementPage() {
           <Button onClick={handleSearch} className="bg-purple-600 hover:bg-purple-700">
             Tìm kiếm
           </Button>
+          <Select value={filterRole} onValueChange={setFilterRole}>
+            <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
+              <SelectValue placeholder="Vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="author">Author</SelectItem>
+              <SelectItem value="staff">Staff</SelectItem>
+              <SelectItem value="moderator">Moderator</SelectItem>
+              <SelectItem value="customer">Customer</SelectItem>
+            </SelectContent>
+          </Select>
+
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
@@ -194,7 +287,14 @@ export default function UserManagementPage() {
                     <TableHead className="text-white font-medium">Email</TableHead>
                     <TableHead className="text-white font-medium">Vai trò</TableHead>
                     <TableHead className="text-white font-medium">Trạng thái</TableHead>
-                    <TableHead className="text-white font-medium text-right">Hành động</TableHead>
+
+                    {isCurrentUserAdmin && (
+                      <TableHead className="text-white font-medium text-right">
+                        Hành động
+                      </TableHead>
+                    )}
+
+
                   </TableRow>
                 </TableHeader>
 
@@ -217,29 +317,35 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`font-semibold ${
-                            u.isActived === "ACTIVE" ? "text-green-600" : "text-gray-500"
-                          }`}
+                          className={`font-semibold ${u.isActived === "ACTIVE" ? "text-green-600" : "text-gray-500"
+                            }`}
                         >
                           {u.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
                         </span>
                       </TableCell>
-                      <TableCell className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleActive(u)}
-                        >
-                          {u.isActived === "ACTIVE" ? "Vô hiệu" : "Kích hoạt"}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleDelete(u.userId)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
+                      {isCurrentUserAdmin && (
+                        <TableCell className="flex justify-end gap-2">
+                          {/* ✍️ Nếu user là AUTHOR → hiện nút Royalty */}
+                          {isAuthor(u.roleId) && (
+                            <Button
+                              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                              onClick={() => handleRoyaltyUpdate(u)}
+                            >
+                              Royalty
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDelete(u.userId)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      )}
+
+
                     </TableRow>
                   ))}
                 </TableBody>
@@ -248,6 +354,57 @@ export default function UserManagementPage() {
           </div>
         </div>
       </div>
+
+      {openRoyaltyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[420px] p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Cập nhật Royalty
+            </h2>
+
+            <div className="mb-6">
+              <label className="block text-sm text-gray-600 mb-2">
+                Royalty (%)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={royaltyValue}
+                onChange={(e) => setRoyaltyValue(Number(e.target.value))}
+                className="text-black bg-white"
+                disabled={false}
+              />
+
+
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setOpenRoyaltyModal(false)}
+                disabled={savingRoyalty}
+              >
+                Hủy
+              </Button>
+
+              <Button
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={handleSaveRoyalty}
+                disabled={savingRoyalty}
+              >
+                {savingRoyalty ? "Đang lưu..." : "Lưu"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
+
+
+
   );
+
+
 }

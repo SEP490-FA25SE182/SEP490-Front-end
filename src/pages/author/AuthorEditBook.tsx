@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { getBookById, updateBook } from "@/services/BookService";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft } from "lucide-react";
+import { getAllChapters } from "@/services/BookManageService";
+
 
 export default function AuthorEditBook() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -20,6 +22,16 @@ export default function AuthorEditBook() {
     decription: "",
   });
 
+  const [originalBook, setOriginalBook] = useState<any>(null);
+
+  const [meta, setMeta] = useState({
+    publicationStatus: 0,
+    progressStatus: 0,
+    chapterCount: 0,
+  });
+
+
+
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -27,11 +39,41 @@ export default function AuthorEditBook() {
     const load = async () => {
       try {
         const res = await getBookById(bookId);
+        const chapters = await getAllChapters({ bookId });
+
+
         setBook({
           bookName: res.bookName ?? res.book_name ?? "",
           coverUrl: res.coverUrl ?? res.cover_url ?? "",
           decription: res.decription ?? res.description ?? "",
         });
+        let chapterCount = 0;
+
+        // Trường hợp 1: API trả về mảng trực tiếp
+        if (Array.isArray(chapters)) {
+          chapterCount = chapters.length;
+        }
+        // Trường hợp 2: API dạng page: { content: [...] }
+        else if (Array.isArray((chapters as any).content)) {
+          chapterCount = (chapters as any).content.length;
+        }
+        // Trường hợp 3: API dạng { data: [...] }
+        else if (Array.isArray((chapters as any).data)) {
+          chapterCount = (chapters as any).data.length;
+        }
+
+        setMeta({
+          publicationStatus: res.publicationStatus ?? 0,
+          progressStatus: res.progressStatus ?? 0,
+          chapterCount,
+        });
+        setOriginalBook({
+          bookName: res.bookName ?? "",
+          coverUrl: res.coverUrl ?? "",
+          decription: res.decription ?? "",
+        });
+
+
       } catch (err) {
         console.error("Lỗi khi tải sách:", err);
         toast({
@@ -47,36 +89,50 @@ export default function AuthorEditBook() {
   }, [bookId, toast]);
 
   const MAX_TITLE = 50;
-  const MAX_COVER = 100;
   const MAX_DESC = 250;
 
   const titleTooLong = (book.bookName ?? "").length > MAX_TITLE;
-  const coverTooLong = (book.coverUrl ?? "").length > MAX_COVER;
   const descTooLong = (book.decription ?? "").length > MAX_DESC;
 
   const disableSave =
     !book.bookName?.trim() ||
     !book.decription?.trim() ||
     titleTooLong ||
-    coverTooLong ||
     descTooLong;
 
   const handleSave = async () => {
     if (!bookId) return;
     setIsSaving(true);
     try {
-      await updateBook(bookId, {
-        bookName: book.bookName,
-        coverUrl: book.coverUrl,
-        decription: book.decription,
-      });
+      const payload: any = {};
+
+      if (book.bookName?.trim()) payload.bookName = book.bookName;
+      if (book.coverUrl?.trim()) payload.coverUrl = book.coverUrl;
+      if (book.decription?.trim()) payload.decription = book.decription;
+
+      if (isChanged) {
+        payload.publicationStatus = "3";
+      }
+
+      console.log("Payload gửi đi:", payload);
+      console.log("bookId =", bookId);
+
+
+      await updateBook(bookId, payload);
+
+
+
       toast({
-        title: "Cập nhật thành công",
-        description: `Sách "${book.bookName}" đã được cập nhật.`,
+        title: isChanged ? "Đã gửi kiểm duyệt" : "Cập nhật thành công",
+        description: isChanged
+          ? "Sách đã được gửi lên hệ thống để chờ duyệt."
+          : `Sách "${book.bookName}" đã được cập nhật.`,
       });
+
       navigate("/author/authorbooklist");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Cập nhật thất bại:", err);
+      console.log("Response data:", err?.response?.data);
       toast({
         title: "Lỗi",
         description: "Không thể cập nhật sách. Vui lòng thử lại.",
@@ -86,6 +142,31 @@ export default function AuthorEditBook() {
       setIsSaving(false);
     }
   };
+
+
+
+  const isChanged =
+    originalBook &&
+    (
+      book.bookName !== originalBook.bookName ||
+      book.coverUrl !== originalBook.coverUrl ||
+      book.decription !== originalBook.decription
+    );
+
+
+  const publicationMap: Record<number, string> = {
+    0: "BẢN THẢO",
+    1: "ĐÃ XUẤT BẢN",
+    2: "LƯU TRỮ",
+    3: "CHỜ KIỂM DUYỆT",
+  };
+
+  const progressMap: Record<number, string> = {
+    0: "IN_PROGRESS",
+    1: "COMPLETED",
+    2: "DROPPED",
+  };
+
 
   return (
     <div className="flex h-screen bg-[#1a1a2e] text-white">
@@ -137,13 +218,6 @@ export default function AuthorEditBook() {
                     onChange={(e) => setBook({ ...book, coverUrl: e.target.value })}
                     className="bg-transparent border-white/20 text-white"
                   />
-                  <div className="flex justify-between text-xs mt-1">
-                    <div className={`text-gray-400 ${coverTooLong ? "text-red-400" : ""}`}>
-                      {(book.coverUrl ?? "").length} / {MAX_COVER}
-                    </div>
-                    {coverTooLong && <div className="text-red-400">Vượt tối đa {MAX_COVER} ký tự</div>}
-                  </div>
-
                   {book.coverUrl && (
                     <div className="flex justify-center">
                       <img
@@ -158,6 +232,30 @@ export default function AuthorEditBook() {
                       />
                     </div>
                   )}
+
+                  <div className="mt-6 space-y-2 text-sm bg-white/5 p-4 rounded-lg border border-white/10">
+                    <div>
+                      <span className="text-gray-400">Trạng thái xuất bản:</span>{" "}
+                      <span className="font-semibold text-purple-400">
+                        {publicationMap[meta.publicationStatus]}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400">Trạng thái sách:</span>{" "}
+                      <span className="font-semibold text-blue-400">
+                        {progressMap[meta.progressStatus]}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400">Số chương:</span>{" "}
+                      <span className="font-semibold text-green-400">
+                        {meta.chapterCount}
+                      </span>
+                    </div>
+                  </div>
+
 
                   <Input
                     placeholder="Mô tả"
@@ -186,8 +284,13 @@ export default function AuthorEditBook() {
                       className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
                       disabled={disableSave || isSaving}
                     >
-                      {isSaving ? "Đang lưu..." : "Lưu"}
+                      {isSaving
+                        ? "Đang lưu..."
+                        : isChanged
+                          ? "Gửi kiểm duyệt"
+                          : "Lưu"}
                     </Button>
+
                   </div>
                 </div>
               </div>

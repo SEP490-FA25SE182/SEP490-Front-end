@@ -37,11 +37,11 @@ import {
 } from "@/components/ui/select";
 
 import { getAllBooks, type Book } from "@/services/BookService";
-import { useGetAllAIGenerations } from "@/services/AIService";
 import { OrderService, type OrderResponse } from "@/services/OrderService";
 import { getUserById } from "@/services/UserService";
 import { FeedbackService } from "@/services/FeedbackService";
 import { OrderDetailService } from "@/services/OrderDetailService";
+import { TransactionService } from "@/services/TransactionService";
 
 
 
@@ -59,8 +59,7 @@ type BookStats = {
     feedbackCount: number;
 };
 
-const USD_TO_VND = 25000;
-const HOST_COST_MONTH = 4_000_000;
+
 
 const COLORS = ["#667EEA", "#764BA2", "#FFB830", "#F87171"];
 
@@ -71,15 +70,69 @@ const formatCurrency = (value: number) =>
     }).format(isNaN(value) ? 0 : value);
 
 
-/* =========================================================
-  🔥 BUILD CHART THEO THỜI GIAN (REAL ORDER TIMELINE)
-========================================================= */
+// =================== HELPERS ===================
+
+const getStartDateByFilter = (filter: RevenueFilter) => {
+    const now = new Date();
+    const d = new Date(now);
+
+    switch (filter) {
+        case "day":
+            d.setDate(now.getDate() - 1);
+            break;
+        case "week":
+            d.setDate(now.getDate() - 7);
+            break;
+        case "month":
+            d.setMonth(now.getMonth() - 1);
+            break;
+        case "quarter":
+            d.setMonth(now.getMonth() - 3);
+            break;
+        case "year":
+            d.setFullYear(now.getFullYear() - 1);
+            break;
+    }
+
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+const buildCostStructure = (
+    platformMonthlyCost: number,
+    authorPaidAmount: number,
+    filter: RevenueFilter
+) => {
+    let platformCost = platformMonthlyCost;
+
+    switch (filter) {
+        case "day":
+            platformCost /= 30;
+            break;
+        case "week":
+            platformCost = (platformMonthlyCost * 7) / 30;
+            break;
+        case "month":
+            break;
+        case "quarter":
+            platformCost *= 3;
+            break;
+        case "year":
+            platformCost *= 12;
+            break;
+    }
+
+    return [
+        { name: "Chi phí nền tảng", value: Math.round(platformCost) },
+        { name: "Chi phí tác quyền", value: authorPaidAmount },
+    ];
+};
 
 const buildSalesSeries = (
     orders: OrderResponse[],
     filter: RevenueFilter
-): { time: string; revenue: number }[] => {
+) => {
     const now = new Date();
+    const result: Record<string, number> = {};
 
     const parseDate = (o: OrderResponse) => {
         if (!o.createdAt) return null;
@@ -87,167 +140,39 @@ const buildSalesSeries = (
         return isNaN(d.getTime()) ? null : d;
     };
 
-    const result: Record<string, number> = {};
+    const labels =
+        filter === "day"
+            ? ["0–4h", "4–8h", "8–12h", "12–16h", "16–20h", "20–24h"]
+            : filter === "week"
+                ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+                : filter === "month"
+                    ? ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"]
+                    : filter === "quarter"
+                        ? ["Tháng -2", "Tháng -1", "Tháng này"]
+                        : ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"];
 
-    switch (filter) {
-        case "day": {
-            const labels = ["0–4h", "4–8h", "8–12h", "12–16h", "16–20h", "20–24h"];
-            labels.forEach((l) => (result[l] = 0));
+    labels.forEach(l => (result[l] = 0));
 
-            for (const o of orders) {
-                const d = parseDate(o);
-                if (!d) continue;
-                if (now.getTime() - d.getTime() > 24 * 3600 * 1000) continue;
+    for (const o of orders) {
+        const d = parseDate(o);
+        if (!d) continue;
+        if (filter === "year" && d.getFullYear() !== now.getFullYear()) continue;
 
-                const h = d.getHours();
-                let label = "0–4h";
-                if (h >= 4 && h < 8) label = "4–8h";
-                else if (h >= 8 && h < 12) label = "8–12h";
-                else if (h >= 12 && h < 16) label = "12–16h";
-                else if (h >= 16 && h < 20) label = "16–20h";
-                else if (h >= 20) label = "20–24h";
-
-                result[label] += o.totalPrice || 0;
-            }
-
-            return labels.map((l) => ({ time: l, revenue: result[l] }));
-        }
-
-        case "week": {
-            const labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-            labels.forEach((l) => (result[l] = 0));
-
-            for (const o of orders) {
-                const d = parseDate(o);
-                if (!d) continue;
-
-                if (now.getTime() - d.getTime() > 7 * 24 * 3600 * 1000) continue;
-
-                const wd = d.getDay();
-                const label = wd === 0 ? "CN" : `T${wd + 1}`;
-                result[label] += o.totalPrice || 0;
-            }
-
-            return labels.map((l) => ({ time: l, revenue: result[l] }));
-        }
-
-        case "month": {
-            const labels = ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
-            labels.forEach((l) => (result[l] = 0));
-
-            for (const o of orders) {
-                const d = parseDate(o);
-                if (!d) continue;
-
-                if (now.getTime() - d.getTime() > 30 * 24 * 3600 * 1000) continue;
-
-                const diffDays = Math.floor(
-                    (now.getTime() - d.getTime()) / (24 * 3600 * 1000)
-                );
-                let idx = 3 - Math.floor(diffDays / 7);
-                if (idx < 0) idx = 0;
-
-                result[labels[idx]] += o.totalPrice || 0;
-            }
-
-            return labels.map((l) => ({ time: l, revenue: result[l] }));
-        }
-
-        case "quarter": {
-            const labels = ["Tháng -2", "Tháng -1", "Tháng này"];
-            labels.forEach((l) => (result[l] = 0));
-
-            for (const o of orders) {
-                const d = parseDate(o);
-                if (!d) continue;
-
-                const monthDiff =
-                    (now.getFullYear() - d.getFullYear()) * 12 +
-                    (now.getMonth() - d.getMonth());
-
-                if (monthDiff >= 0 && monthDiff <= 2) {
-                    const label =
-                        monthDiff === 2 ? "Tháng -2" : monthDiff === 1 ? "Tháng -1" : "Tháng này";
-                    result[label] += o.totalPrice || 0;
-                }
-            }
-
-            return labels.map((l) => ({ time: l, revenue: result[l] }));
-        }
-
-        case "year": {
-            const labels = [
-                "Th1",
-                "Th2",
-                "Th3",
-                "Th4",
-                "Th5",
-                "Th6",
-                "Th7",
-                "Th8",
-                "Th9",
-                "Th10",
-                "Th11",
-                "Th12",
-            ];
-            labels.forEach((l) => (result[l] = 0));
-
-            for (const o of orders) {
-                const d = parseDate(o);
-                if (!d) continue;
-                if (d.getFullYear() !== now.getFullYear()) continue;
-
-                const label = labels[d.getMonth()];
-                result[label] += o.totalPrice || 0;
-            }
-
-            return labels.map((l) => ({ time: l, revenue: result[l] }));
-        }
-
-        default:
-            return [];
-    }
-};
-/* =========================================================
-    🔥 BUILD CƠ CẤU DOANH THU (STRUCTURE)
-========================================================= */
-
-const buildRevenueStructure = (
-    totalRevenue: number,
-    authorRevenue: number,
-    aiCost: number,
-    filter: RevenueFilter
-) => {
-    let factor = 1;
-    switch (filter) {
-        case "day":
-            factor = 1 / 30;
-            break;
-        case "week":
-            factor = 7 / 30;
-            break;
-        case "month":
-            factor = 1;
-            break;
-        case "quarter":
-            factor = 3;
-            break;
-        case "year":
-            factor = 12;
-            break;
+        const label = labels[d.getMonth()] || labels[0];
+        result[label] += o.totalPrice || 0;
     }
 
-    return [
-        { name: "Đơn hàng", value: totalRevenue * factor },
-        { name: "Doanh thu tác giả", value: authorRevenue * factor },
-        { name: "Chi phí host", value: HOST_COST_MONTH * factor },
-        { name: "Chi phí AI", value: aiCost * factor },
-    ];
+    return labels.map(l => ({ time: l, revenue: result[l] }));
 };
 
-/* =========================================================
-          🧠 MAIN COMPONENT
-========================================================= */
+
+const getEndDate = () => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d;
+};
+
+// =================== COMPONENT ===================
 
 export default function AdminDashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -256,159 +181,147 @@ export default function AdminDashboardPage() {
 
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [totalOrders, setTotalOrders] = useState(0);
-    const [aiCost, setAiCost] = useState(0);
-    const [authorRevenue, setAuthorRevenue] = useState(0);
+    const [, setAuthorRevenue] = useState(0);
 
-    const [revenueFilter, setRevenueFilter] =
-        useState<RevenueFilter>("month");
-    const [structureFilter, setStructureFilter] =
-        useState<RevenueFilter>("month");
+    const [revenueFilter, setRevenueFilter] = useState<RevenueFilter>("month");
+    const [structureFilter, setStructureFilter] = useState<RevenueFilter>("month");
 
-    const [bookStatsMap, setBookStatsMap] = useState<
-        Map<string, BookStats>
-    >(new Map());
-
+    const [bookStatsMap, setBookStatsMap] = useState<Map<string, BookStats>>(new Map());
     const [loading, setLoading] = useState(true);
 
-    const aiHook = useGetAllAIGenerations();
-    const { data: aiResp } = aiHook;
+    const [authorPaidAmount, setAuthorPaidAmount] = useState(0);
+    const [profit, setProfit] = useState(0);
 
-    /* =========================================================
-        🔥 LOAD DASHBOARD DATA (BOOKS + ORDERS + ITEMS + FEEDBACK)
-    ========================================================== */
+    const HOST_COST_MONTH = 4_000_000;
+
+    // =================== LOAD IO ===================
+
     useEffect(() => {
-        const loadDashboard = async () => {
+    const loadDashboard = async () => {
+        try {
+            setLoading(true);
+
+            /* ========= LOAD BOOKS ========= */
+            const books = await getAllBooks();
+            setBookCount(books.length);
+
+            /* ========= LOAD ORDERS ========= */
+            const orderRes = await OrderService.getAllOrders();
+            const successOrders = orderRes.filter(o => Number(o.status) === 4);
+
+            setOrders(successOrders);
+            setTotalOrders(successOrders.length);
+
+            /* ========= LOAD ORDER DETAILS ========= */
+            const orderDetails = await OrderDetailService.getAllOrderDetails();
+            const successOrderIds = new Set(successOrders.map(o => o.orderId));
+            const details = orderDetails.filter(d => successOrderIds.has(d.orderId));
+
+            /* ✅ DOANH THU ĐÚNG (KHÔNG TÍNH SHIPPING) */
+            let actualRevenue = 0;
+            for (const d of details) {
+                actualRevenue += d.quantity * d.price;
+            }
+
+            setTotalRevenue(actualRevenue);
+
+            /* ========= SETTLEMENT THEO KỲ ========= */
+            let paidAuthorTotal = 0;
+
             try {
-                setLoading(true);
+                const res = await TransactionService.search({
+                    transType: "SETTLEMENT",
+                    status: "PAID"
+                });
 
-                // 1️⃣ Lấy danh sách SÁCH
-                const books: Book[] = await getAllBooks();
-                setBookCount(books.length);
+                const startDate = getStartDateByFilter(structureFilter);
+                const endDate = getEndDate();
 
-                const bookMap = new Map<string, Book>();
-                books.forEach(b => bookMap.set(b.bookId, b));
+                const txList = (res.content || []).filter((t) => {
+                    if (!t.createdAt) return false;
+                    if (t.orderId !== null && t.orderId !== "") return false;
 
-                // 2️⃣ Lấy tất cả đơn hàng (status = 4)
-                const orderRes = await OrderService.getAllOrders();
-                const successOrders = orderRes.filter(o => Number(o.status) === 4);
+                    const d = new Date(t.createdAt);
+                    return d >= startDate && d <= endDate;
+                });
 
-                setOrders(successOrders);
-                setTotalOrders(successOrders.length);
-
-                const totalRev = successOrders.reduce(
-                    (sum, o) => sum + (o.totalPrice || 0),
+                paidAuthorTotal = txList.reduce(
+                    (sum, t) => sum + Number(t.totalPrice || 0),
                     0
                 );
-                setTotalRevenue(totalRev);
+            } catch { }
 
-                // 3️⃣ Lấy tất cả orderDetails
-                const orderDetails = await OrderDetailService.getAllOrderDetails();
-                const successOrderIds = new Set(successOrders.map(o => o.orderId));
+            setAuthorPaidAmount(paidAuthorTotal);
 
-                const details = orderDetails.filter(d =>
-                    successOrderIds.has(d.orderId)
-                );
+            /* ✅ LỢI NHUẬN */
+            setProfit(actualRevenue - paidAuthorTotal);
 
-                // 4️⃣ Build thống kê sách
-                const stats = new Map<string, BookStats>();
+            /* ========= BOOK STATS ========= */
+            const bookMap = new Map<string, Book>();
+            books.forEach(b => bookMap.set(b.bookId, b));
 
-                for (const d of details) {
-                    const bookId = d.bookId;
+            const stats = new Map<string, BookStats>();
 
-                    if (!stats.has(bookId)) {
-                        stats.set(bookId, {
-                            bookId,
-                            totalQty: 0,
-                            totalRevenue: 0,
-                            feedbackCount: 0,
-                            book: bookMap.get(bookId),
-                        });
-                    }
-
-                    const s = stats.get(bookId)!;
-
-                    s.totalQty += d.quantity;
-                    s.totalRevenue += d.quantity * d.price;
+            for (const d of details) {
+                if (!stats.has(d.bookId)) {
+                    stats.set(d.bookId, {
+                        bookId: d.bookId,
+                        totalQty: 0,
+                        totalRevenue: 0,
+                        feedbackCount: 0,
+                        book: bookMap.get(d.bookId),
+                    });
                 }
 
-                // 5️⃣ Feedback (CHỈ CHẠY 1 LẦN — ngoài for)
-                const feedbacks = await FeedbackService.getAll();
-
-                for (const fb of feedbacks) {
-                    const st = stats.get(fb.bookId);
-                    if (st) st.feedbackCount += 1;
-                }
-
-                // 6️⃣ Set thống kê sách
-                setBookStatsMap(stats);
-
-                // 7️⃣ Tính doanh thu tác giả
-                let authorTotal = 0;
-
-                for (const s of stats.values()) {
-                    const book = s.book;
-                    if (!book?.authorId) continue;
-
-                    let royalty = 0;
-                    try {
-                        const user = await getUserById(book.authorId);
-                        const raw = Number(user?.royalty ?? 0);
-                        royalty = raw > 1 ? raw / 100 : raw;
-                    } catch {
-                        royalty = 0;
-                    }
-
-                    authorTotal += s.totalRevenue * royalty;
-                }
-
-                setAuthorRevenue(authorTotal);
-
-            } catch (err) {
-                console.error("Dashboard error:", err);
-            } finally {
-                setLoading(false);
+                const s = stats.get(d.bookId)!;
+                s.totalQty += d.quantity;
+                s.totalRevenue += d.quantity * d.price;
             }
-        };
 
-        loadDashboard();
-    }, []);
+            /* ========= FEEDBACK ========= */
+            const feedbacks = await FeedbackService.getAll();
+            for (const fb of feedbacks) {
+                const st = stats.get(fb.bookId);
+                if (st) st.feedbackCount += 1;
+            }
+
+            setBookStatsMap(stats);
+
+            /* ========= AUTHOR ROYALTY ESTIMATION ========= */
+            let authorTotal = 0;
+            for (const s of stats.values()) {
+                if (!s.book?.authorId) continue;
+
+                let royalty = 0;
+                try {
+                    const user = await getUserById(s.book.authorId);
+                    const raw = Number(user?.royalty ?? 0);
+                    royalty = raw > 1 ? raw / 100 : raw;
+                } catch { }
+
+                authorTotal += s.totalRevenue * royalty;
+            }
+
+            setAuthorRevenue(authorTotal);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    loadDashboard();
+}, [structureFilter]);
 
 
-    /* =========================================================
-        🔥 AI COST
-    ========================================================== */
-    const totalAIGenerations = useMemo(() => {
-        if (!aiResp) return 0;
+    // =================== MEMO ===================
 
-        if (Array.isArray(aiResp)) return aiResp.length;
-
-        const paged = aiResp as any;
-        if (typeof paged.totalElements === "number") return paged.totalElements;
-        if (Array.isArray(paged.content)) return paged.content.length;
-
-        return 0;
-    }, [aiResp]);
-
-    useEffect(() => {
-        const credits = totalAIGenerations * 3;
-        const usd = credits * 0.03;
-        const vnd = usd * USD_TO_VND;
-        setAiCost(vnd);
-    }, [totalAIGenerations]);
-
-    /* =========================================================
-          🔥 CHART DATA
-    ========================================================== */
-
-    const currentRevenueStructure = useMemo(
+    const currentCostStructure = useMemo(
         () =>
-            buildRevenueStructure(
-                totalRevenue,
-                authorRevenue,
-                aiCost,
+            buildCostStructure(
+                HOST_COST_MONTH,
+                authorPaidAmount,
                 structureFilter
             ),
-        [totalRevenue, authorRevenue, aiCost, structureFilter]
+        [HOST_COST_MONTH, authorPaidAmount, structureFilter]
     );
 
     const currentSalesData = useMemo(
@@ -416,26 +329,15 @@ export default function AdminDashboardPage() {
         [orders, revenueFilter]
     );
 
-    /* =========================================================
-          🔥 TOP BOOKS (best seller / interested / feedback)
-    ========================================================== */
     const allStats = useMemo(() => Array.from(bookStatsMap.values()), [bookStatsMap]);
 
     const topSellingBooks = useMemo(
-        () =>
-            [...allStats]
-                .sort((a, b) => b.totalQty - a.totalQty)
-                .slice(0, 5),
+        () => [...allStats].sort((a, b) => b.totalQty - a.totalQty).slice(0, 5),
         [allStats]
     );
 
-
-
     const mostFeedbackBooks = useMemo(
-        () =>
-            [...allStats]
-                .sort((a, b) => b.feedbackCount - a.feedbackCount)
-                .slice(0, 5),
+        () => [...allStats].sort((a, b) => b.feedbackCount - a.feedbackCount).slice(0, 5),
         [allStats]
     );
 
@@ -489,6 +391,20 @@ export default function AdminDashboardPage() {
                                 <p className="text-white/70 text-sm">Chỉ tính đơn thành công (status 4)</p>
                             </CardContent>
                         </Card>
+                        {/* Lợi Nhuận */}
+                        <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Cpu className="w-5 h-5" /> Lợi nhuận
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-2xl font-bold">{formatCurrency(profit)}</p>
+                                <p className="text-white/70 text-sm">
+                                    Lợi nhuận = Doanh thu – Chi phí tác quyền
+                                </p>
+                            </CardContent>
+                        </Card>
 
                         {/* Tổng đơn */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
@@ -503,6 +419,8 @@ export default function AdminDashboardPage() {
                             </CardContent>
                         </Card>
 
+                        
+
                         {/* Số lượng sách */}
                         <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
                             <CardHeader>
@@ -515,20 +433,7 @@ export default function AdminDashboardPage() {
                             </CardContent>
                         </Card>
 
-                        {/* Chi phí AI */}
-                        <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Cpu className="w-5 h-5" /> Chi phí AI
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-2xl font-bold">{formatCurrency(aiCost)}</p>
-                                <p className="text-white/70 text-sm">
-                                    {totalAIGenerations} lượt × 3 credits × 0.03 USD
-                                </p>
-                            </CardContent>
-                        </Card>
+                        
                     </div>
 
                     {/* CHARTS: PIE + BAR */}
@@ -537,7 +442,7 @@ export default function AdminDashboardPage() {
                         {/* Pie */}
                         <Card className="bg-[#1a2332] border border-white/10">
                             <CardHeader className="flex flex-row items-center justify-between">
-                                <CardTitle className="text-white">Cơ cấu doanh thu</CardTitle>
+                                <CardTitle className="text-white">Cơ cấu chi phí</CardTitle>
 
                                 <Select
                                     value={structureFilter}
@@ -560,7 +465,7 @@ export default function AdminDashboardPage() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={currentRevenueStructure}
+                                            data={currentCostStructure}
                                             cx="50%"
                                             cy="50%"
                                             labelLine={false}
@@ -572,14 +477,14 @@ export default function AdminDashboardPage() {
 
 
                                         >
-                                            {currentRevenueStructure.map((_, i) => (
+                                            {currentCostStructure.map((_, i) => (
                                                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                             ))}
                                         </Pie>
 
                                         <Tooltip
                                             formatter={(v) => formatCurrency(Number(v))}
-                                            contentStyle={{ backgroundColor: "#1a2332", border: "none" }}
+                                            contentStyle={{ backgroundColor: "#e5e8eeff", border: "none" }}
                                         />
                                         <Legend />
                                     </PieChart>
@@ -611,12 +516,12 @@ export default function AdminDashboardPage() {
 
                             <CardContent className="h-80">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={currentRevenueStructure}>
+                                    <BarChart data={currentCostStructure}>
                                         <XAxis dataKey="name" stroke="#ccc" />
                                         <YAxis stroke="#ccc" />
                                         <Tooltip
                                             formatter={(v) => formatCurrency(Number(v))}
-                                            contentStyle={{ backgroundColor: "#1a2332", border: "none" }}
+                                            contentStyle={{ backgroundColor: "#fbfbfbff", border: "none" }}
                                         />
                                         <Legend />
                                         <Bar dataKey="value" fill="#667EEA" radius={[6, 6, 0, 0]} />
@@ -715,7 +620,7 @@ export default function AdminDashboardPage() {
                                 </CardTitle>
                             </CardHeader>
 
-                            
+
                         </Card>
 
                         {/* Nhiều feedback */}

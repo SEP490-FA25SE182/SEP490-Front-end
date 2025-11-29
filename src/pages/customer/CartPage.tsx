@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { formatVND } from "@/lib/money";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,83 +10,136 @@ import { OrderService } from "@/services/OrderService";
 import { getWalletByUserId } from "@/services/WalletService";
 import { getUserByEmail } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
+import { Switch } from "@/components/ui/switch";
+
 
 export default function CartPage() {
-  const { state, subtotal, setQty, remove, clear} = useCart();
+  const { state, setQty, remove, clear } = useCart();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [coin, setCoin] = useState<number>(0);
 
- const handleCheckout = async () => {
-  console.log("🟢 handleCheckout bắt đầu");
+  const [useCoin, setUseCoin] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  try {
-    // 🔹 1. Kiểm tra giỏ hàng hợp lệ
-    if (!state?.cartId) {
-      toast.error("Không tìm thấy giỏ hàng hiện tại.");
-      return;
+
+  const selectedLines = state.lines.filter(line =>
+    selectedIds.includes(line.book.bookId)
+  );
+
+  const selectedSubtotal = selectedLines.reduce(
+    (sum, line) => sum + (line.price ?? 0) * line.qty,
+    0
+  );
+
+  const discount = useCoin ? selectedSubtotal * 0.1 : 0;
+  const displaySubtotal = useCoin
+    ? selectedSubtotal - discount
+    : selectedSubtotal;
+
+
+  useEffect(() => {
+    async function loadCoin() {
+      try {
+        if (!user?.email) return;
+
+        const userRes = await getUserByEmail(user.email);
+        if (!userRes?.userId) return;
+
+        const walletRes = await getWalletByUserId(userRes.userId);
+        const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
+
+        if (wallet?.coin != null) {
+          setCoin(wallet.coin);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi load coin:", err);
+      }
     }
 
-    // 🔹 2. Kiểm tra người dùng
-    if (!user?.email) {
-      toast.error("Không tìm thấy thông tin người dùng.");
-      return;
+    loadCoin();
+  }, [user?.email]);
+
+
+
+
+
+  const handleCheckout = async () => {
+
+
+    try {
+      // 🔹 1. Kiểm tra giỏ hàng hợp lệ
+      if (!state?.cartId) {
+        toast.error("Không tìm thấy giỏ hàng hiện tại.");
+        return;
+      }
+
+      // 🔹 2. Kiểm tra người dùng
+      if (!user?.email) {
+        toast.error("Không tìm thấy thông tin người dùng.");
+        return;
+      }
+
+      // 🔹 3. Lấy userId từ email
+      const userRes = await getUserByEmail(user.email);
+      const userId = userRes?.userId;
+      if (!userId) {
+        toast.error("Không tìm thấy userId hợp lệ.");
+        return;
+      }
+
+      // 🔹 4. Lấy ví người dùng theo userId
+      const walletRes = await getWalletByUserId(userId);
+      const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
+
+      if (!wallet?.walletId) {
+        toast.error("Không tìm thấy ví người dùng.");
+        return;
+      }
+
+
+      // 🚀 6. Gọi API tạo order từ cart
+      const selectedCartItemIds = state.lines
+        .filter(line => selectedIds.includes(line.book.bookId))
+        .map(line => line.cartItemId)
+        .filter(Boolean) as string[];
+
+
+      if (selectedCartItemIds.length === 0) {
+        toast.error("Vui lòng chọn ít nhất 1 sản phẩm");
+        return;
+      }
+
+
+      const order = await OrderService.createOrderFromCart(
+        state.cartId,
+        wallet.walletId,
+        useCoin,
+        selectedCartItemIds
+      );
+
+      if (!order?.orderId) {
+        throw new Error("Không nhận được orderId từ backend.");
+      }
+
+      console.log("✅ Order tạo thành công:", order);
+      toast.success("Đơn hàng đã được tạo thành công!");
+
+      // 🔁 7. Điều hướng sang trang Checkout
+      navigate("/checkout", {
+        state: {
+          orderId: order.orderId,
+          cartId: order.cartId, 
+          totalPrice: order.totalPrice,
+          walletId: wallet.walletId,
+          usedCoin: useCoin,
+        },
+      });
+    } catch (error: any) {
+      console.error("❌ Lỗi khi tạo order:", error);
+      toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
     }
-
-    // 🔹 3. Lấy userId từ email
-    const userRes = await getUserByEmail(user.email);
-    const userId = userRes?.userId;
-    if (!userId) {
-      toast.error("Không tìm thấy userId hợp lệ.");
-      return;
-    }
-
-    // 🔹 4. Lấy ví người dùng theo userId
-    const walletRes = await getWalletByUserId(userId);
-    const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
-
-    if (!wallet?.walletId) {
-      toast.error("Không tìm thấy ví người dùng.");
-      return;
-    }
-
-    // 🪙 5. (Tuỳ chọn) Hỏi người dùng có muốn dùng điểm xu để giảm giá không
-    // 👉 Tạm thời đặt mặc định là false, bạn có thể thay bằng checkbox hoặc dialog xác nhận
-    const usePoints = false;
-
-    // 🚀 6. Gọi API tạo order từ cart
-    console.log("📦 Gọi API tạo order từ cart:", {
-      cartId: state.cartId,
-      walletId: wallet.walletId,
-      usePoints,
-    });
-
-    const order = await OrderService.createOrderFromCart(
-      state.cartId,
-      wallet.walletId,
-      usePoints
-    );
-    
-    if (!order?.orderId) {
-      throw new Error("Không nhận được orderId từ backend.");
-    }
-
-    console.log("✅ Order tạo thành công:", order);
-    toast.success("Đơn hàng đã được tạo thành công!");
-
-    // 🔁 7. Điều hướng sang trang Checkout
-    navigate("/checkout", {
-      state: {
-        orderId: order.orderId,
-        cartId: order.cartId,
-        totalPrice: order.totalPrice,
-        walletId: wallet.walletId,
-      },
-    });
-  } catch (error: any) {
-    console.error("❌ Lỗi khi tạo order:", error);
-    toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
-  }
-};
+  };
 
 
 
@@ -114,11 +168,41 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-4">
               {state.lines.map((line) => {
                 const unit = line.price ?? 2000;
+                const id = line.book.bookId;
                 return (
                   <div
-                    key={line.cartItemId || line.book.bookId}
-                    className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-4"
+                    key={line.cartItemId}
+                    className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-4 items-center "
                   >
+                    {/* ✅ Checkbox chọn sách */}
+
+                    <div className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedIds.includes(id)) {
+                            setSelectedIds(prev => prev.filter(x => x !== id));
+                          } else {
+                            setSelectedIds(prev => [...prev, id]);
+                          }
+                        }}
+                        className={`
+      w-6 h-6 rounded-md flex items-center justify-center
+      border transition-all duration-300
+
+      ${selectedIds.includes(id)
+                            ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
+                            : "bg-white/5 border-white/30"}
+    `}
+                      >
+                        {selectedIds.includes(id) && (
+                          <span className="text-white text-sm font-bold">✓</span>
+                        )}
+                      </button>
+                    </div>
+
+
+
                     <div className="w-20 h-28 overflow-hidden rounded-lg shrink-0">
                       <img
                         src={line.book.coverUrl}
@@ -206,17 +290,52 @@ export default function CartPage() {
               <div className="flex items-center justify-between text-white/80 mb-2">
                 <span>Tạm tính</span>
                 <span className="font-semibold text-white">
-                  {formatVND(subtotal)}
+                  {formatVND(displaySubtotal)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-white/60 mb-2">
-                <span>Phí vận chuyển</span>
-                <span>Sẽ tính ở bước sau</span>
+              <div className="flex items-center justify-between text-white/80 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch
+                    checked={useCoin}
+                    onCheckedChange={setUseCoin}
+                    disabled={coin === 0}
+                    className="
+    border border-white/40
+    bg-white/10
+    transition-all duration-300
+
+    data-[state=checked]:bg-gradient-to-r
+    data-[state=checked]:from-[#764BA2]
+    data-[state=checked]:to-[#667EEA]
+
+    [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
+
+    [&[data-state=unchecked]>span]:bg-gradient-to-r
+    [&[data-state=unchecked]>span]:from-[#764BA2]
+    [&[data-state=unchecked]>span]:to-[#667EEA]
+
+    [&[data-state=checked]>span]:bg-white
+  "
+                  />
+
+                  <span>Sử dụng xu</span>
+                  <span className="text-yellow-400 text-sm">
+                    ({coin.toLocaleString()} xu)
+                  </span>
+                </label>
+
+                {useCoin && (
+                  <span className="text-green-400 font-semibold">
+                    -{formatVND(discount)}
+                  </span>
+                )}
               </div>
+
+
               <div className="h-px bg-white/10 my-3" />
               <div className="flex items-center justify-between text-white mb-4">
                 <span className="font-semibold">Thành tiền</span>
-                <span className="font-bold">{formatVND(subtotal)}</span>
+                <span className="font-bold">{formatVND(displaySubtotal)}</span>
               </div>
 
               <button

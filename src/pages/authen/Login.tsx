@@ -77,7 +77,12 @@ export default function Login() {
                 } else if (roleName.includes('admin')) {
                   window.location.href = "/admin/dashboard";
                   return;
-                } else if (roleName.includes('moderator')) {
+                } 
+                else if (roleName.includes('staff')) {
+                  window.location.href = "/admin/dashboard";
+                  return;
+                }
+                else if (roleName.includes('moderator')) {
                   window.location.href = "/moderator";
                   return;
                 }

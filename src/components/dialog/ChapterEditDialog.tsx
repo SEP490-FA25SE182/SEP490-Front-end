@@ -79,6 +79,8 @@ export const ChapterEditDialog: React.FC<Props> = ({ isOpen, onClose, chapter, o
           chapterName: chapterName.trim(),
           chapterNumber: Number(chapterNumber),
           decription: decription.trim(),
+          bookId: chapter.bookId,
+          publicationStatus: "1",
           // keep bookId unchanged
         },
       });

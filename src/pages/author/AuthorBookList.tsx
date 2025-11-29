@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,6 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
-import { updateBookStatusFull } from "@/services/BookService";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -58,10 +57,7 @@ export default function AuthorBookList() {
   const [deletingBook, setDeletingBook] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // send-for-review dialog state
-  const [openSendAlert, setOpenSendAlert] = useState(false);
-  const [sendReviewBook, setSendReviewBook] = useState<any | null>(null);
-  const [isSendingReview, setIsSendingReview] = useState(false);
+
 
   // create book dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -158,51 +154,6 @@ export default function AuthorBookList() {
     setCurrentPage(1);
   }, [searchQuery, selectedStatus, selectedPublication]);
 
-  const handleSendForReviewConfirmed = async () => {
-    const book = sendReviewBook;
-    if (!book) return;
-    setIsSendingReview(true);
-
-    try {
-      await updateBookStatusFull({ ...book } as any, 3);
-
-      // cập nhật trạng thái và sắp xếp lại theo updatedAt
-      setBooks(prev => sortBooksByUpdatedDesc(prev.map(b => {
-        const idB = b.bookId ?? b.book_id;
-        const id = book.bookId ?? book.book_id;
-        if (String(idB) === String(id)) {
-          return { ...b, publicationStatus: 3, updatedAt: new Date().toISOString() };
-        }
-        return b;
-      })));
-      // lưu ý: nếu backend trả updatedAt mới thì fetchBooks() có thể được gọi thay vì giả lập updatedAt
-    } catch (err) {
-      console.error("Gửi duyệt thất bại:", err);
-      toast({
-        title: "Gửi duyệt thất bại",
-        description: "Không thể gửi sách đi duyệt. Vui lòng thử lại.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingReview(false);
-      setOpenSendAlert(false);
-      setSendReviewBook(null);
-    }
-  };
-
-  const confirmSendForReview = (book: any) => {
-    // nếu đã gửi rồi thì không mở dialog
-    const publication = book.publicationStatus ?? book.publication_status;
-    if (String(publication) === "3" || publication === 3) {
-      toast({
-        title: "Đã gửi duyệt",
-        description: "Quyển sách này đã được gửi đi duyệt trước đó.",
-      });
-      return;
-    }
-    setSendReviewBook(book);
-    setOpenSendAlert(true);
-  };
 
   const confirmDeleteBook = (book: any) => {
     setDeletingBook(book);
@@ -337,12 +288,6 @@ export default function AuthorBookList() {
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
-                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
-                          >
-                            <CircleCheck className="mr-2 h-4 w-4" />Đưa đi duyệt
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}
                             className={`${alreadySent ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
                           >
@@ -440,30 +385,6 @@ export default function AuthorBookList() {
               disabled={isDeleting}
             >
               {isDeleting ? "Đang xóa..." : "Xóa"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Send-for-review confirmation dialog */}
-      <AlertDialog open={openSendAlert} onOpenChange={setOpenSendAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Gửi sách đi duyệt</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn gửi sách "{sendReviewBook?.bookName ?? sendReviewBook?.book_name}" đi duyệt? Sau khi gửi, bạn sẽ không thể sửa hoặc xóa sách.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => setOpenSendAlert(false)}>
-              Huỷ
-            </Button>
-            <Button
-              onClick={handleSendForReviewConfirmed}
-              disabled={isSendingReview}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {isSendingReview ? "Đang gửi..." : "Gửi duyệt"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

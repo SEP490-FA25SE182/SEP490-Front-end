@@ -35,8 +35,12 @@ import CustomerLayout from "./layouts/CustomerLayout";
 import UserManagementPage from "./pages/admin/UserManagement";
 import OrderManagementPage from "./pages/admin/OrderManagement";
 
-import ModeratorBooksPage from "./pages/moderator/ModeratorPage";
 import AuthorManagementPage from "./pages/admin/AuthorManagement";
+import ModeratorBookList from "./pages/moderator/ModeratorBookList";
+import ModeratorChapterList from "./pages/moderator/ModeratorChapterList";
+import ModeratorPageList from "./pages/moderator/ModeratorPageList";
+import ModeratorPageDetail from "./pages/moderator/ModeratorPageDetail";
+import ModeratorPage from "./pages/moderator/ModeratorPage";
 
 export default function AppRouter() {
   return (
@@ -71,12 +75,37 @@ export default function AppRouter() {
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
       <Route path="/author/pages/:pageId/edit-ar" element={<MarkerPageCreate />} />
 
+
+
+
+      <Route
+        path="/moderator/authors/:authorId/books"
+        element={<ModeratorBookList />}
+      />
+
+      <Route
+        path="/moderator/books/:bookId/chapters"
+        element={<ModeratorChapterList />}
+      />
+
+      <Route
+        path="/moderator/chapters/:chapterId/pages"
+        element={<ModeratorPageList />}
+      />
+
+      <Route
+        path="/moderator/pages/:pageId"
+        element={<ModeratorPageDetail />}
+      />
+
+
+
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />
       <Route path="/admin/orders" element={<OrderManagementPage />} />
       <Route path="/admin/authors" element={<AuthorManagementPage />} />
 
-      <Route path="/moderator" element={<ModeratorBooksPage />} />
+      <Route path="/moderator" element={<ModeratorPage />} />
     </Routes>
   );
 }

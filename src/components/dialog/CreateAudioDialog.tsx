@@ -171,18 +171,6 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
           return;
         }
 
-        // use the new uploadTTSFile API which accepts meta: { filename, language } + file
-        const meta = {
-          filename: audioData.title || audioData.file.name,
-          language: audioData.language,
-        };
-
-        const result = await uploadTTS.mutateAsync({
-          userId: authorId,
-          meta,
-          file: audioData.file,
-        });
-
         toast({ title: "Upload thành công", description: "Audio đã được tải lên và lưu." });
         onCreated?.();
         onClose();

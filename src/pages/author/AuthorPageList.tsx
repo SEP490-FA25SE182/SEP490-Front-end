@@ -197,14 +197,6 @@ const AuthorPageList = () => {
       : (markersResp as any).content || [];
   }, [markersResp]);
 
-  const isFirebaseImageUrl = (url: string) => {
-    if (!url) return false;
-    return (
-      (url.includes("firebasestorage.googleapis.com") &&
-        url.includes("alt=media")) ||
-      url.startsWith("gs://")
-    );
-  };
 
   const isImageUrl = (url?: string) => {
     if (!url) return false;
@@ -642,14 +634,6 @@ const AuthorPageList = () => {
       <MarkerCreateDialog
         isOpen={markerDialogOpen}
         onClose={() => setMarkerDialogOpen(false)}
-        onCreated={async (created) => {
-          await queryClient.invalidateQueries({ queryKey: ["markers", "all"] });
-          setMarkerDialogOpen(false);
-          if (created?.markerId) {
-            setSelectedMarkerId(created.markerId);
-            setAssetDialogOpen(true);
-          }
-        }}
       />
 
       <Asset3DCreateDialog

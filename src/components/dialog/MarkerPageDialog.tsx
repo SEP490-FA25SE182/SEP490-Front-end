@@ -79,6 +79,13 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
           <DialogTitle>Gắn marker vào trang {pageNumber ?? ""}</DialogTitle>
         </DialogHeader>
 
+        {/* Khuyến nghị dùng ảnh marker giống ảnh đã gắn trên trang để tăng độ nhận diện */}
+        <div className="mt-2 text-center">
+          <p className="text-xs text-gray-400">
+            Khuyến nghị: sử dụng ảnh marker giống với ảnh đã gắn vào trang để đảm bảo nhận diện AR chính xác.
+          </p>
+        </div>
+
         <div className="mt-2">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
             {markerList.length === 0 && <div className="text-sm text-gray-500 col-span-full">Không có marker.</div>}

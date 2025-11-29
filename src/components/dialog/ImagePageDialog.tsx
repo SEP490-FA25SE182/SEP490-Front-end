@@ -7,10 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  useSearchIllustrations,
-  useCreatePageIllustration,
-} from "@/services/AIService";
+import { useSearchIllustrations, useCreatePageIllustration } from "@/services/AIService";
 import { useUpdatePage } from "@/services/BookManageService";
 import { useToast } from "@/components/ui/use-toast";
 import MarkerPageDialog from "@/components/dialog/MarkerPageDialog";
@@ -27,20 +24,10 @@ interface Props {
   onSaved?: () => void;
 }
 
-export default function ImagePageDialog({
-  isOpen,
-  onClose,
-  pageId,
-  pageNumber,
-  chapterId,
-  onSaved,
-}: Props) {
+export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, chapterId, onSaved }: Props) {
   const { toast } = useToast();
-  const [selectedIllustrationId, setSelectedIllustrationId] =
-    useState<string>("");
+  const [selectedIllustrationId, setSelectedIllustrationId] = useState<string>("");
   const [openMarkerDialog, setOpenMarkerDialog] = useState(false);
-  const [linked, setLinked] = useState(false); // để tránh tạo trùng page-illustration
-
   const updatePage = useUpdatePage();
   const createPageIllustration = useCreatePageIllustration();
 
@@ -52,24 +39,18 @@ export default function ImagePageDialog({
   useEffect(() => {
     if (!isOpen) {
       setSelectedIllustrationId("");
-      setLinked(false);
-      setOpenMarkerDialog(false);
     }
   }, [isOpen]);
 
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
-    const list = illustrations
-      .filter(
-        (it: any) => it.isActived === "ACTIVE" && (it.illustrationId || it.id)
-      )
+    return illustrations
+      .filter((it: any) => it.isActived === "ACTIVE" && (it.illustrationId || it.id))
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,
         url: it.imageUrl,
       }));
-    console.log("[ImagePageDialog] illustrationsList:", list);
-    return list;
   }, [illustrations]);
 
   const gsToHttp = (url: string) => {
@@ -80,125 +61,79 @@ export default function ImagePageDialog({
     const bucket = parts.shift();
     const path = parts.join("/");
     if (!bucket || !path) return url;
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-      path
-    )}?alt=media`;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
   };
 
-  /**
-   * Tạo quan hệ page-illustration (KHÔNG update page ở đây nữa)
-   */
-  const linkPageIllustration = async (): Promise<boolean> => {
-    console.log("[linkPageIllustration] start", {
-      linked,
-      pageId,
-      selectedIllustrationId,
-    });
-
-    if (linked) {
-      console.log("[linkPageIllustration] already linked -> skip");
-      return true;
-    }
-
+  const handleSave = async () => {
     if (!pageId) {
-      console.error("[linkPageIllustration] NO pageId");
-      toast({
-        title: "Lỗi",
-        description: "Không có page để gắn illustration.",
-        variant: "destructive",
-      });
-      return false;
+      toast({ title: "Lỗi", description: "Không có page để gắn ảnh.", variant: "destructive" });
+      return;
     }
     if (!selectedIllustrationId) {
-      console.error("[linkPageIllustration] NO selectedIllustrationId");
-      toast({
-        title: "Chưa chọn ảnh",
-        description: "Vui lòng chọn một ảnh trước.",
-        variant: "destructive",
-      });
-      return false;
+      toast({ title: "Chưa chọn ảnh", description: "Vui lòng chọn một ảnh.", variant: "destructive" });
+      return;
+    }
+
+    const found = illustrationsList.find((i) => i.id === selectedIllustrationId);
+    if (!found) {
+      toast({ title: "Lỗi", description: "Không tìm thấy ảnh đã chọn.", variant: "destructive" });
+      return;
     }
 
     try {
-      const payload = [
+      // 1) update page content to image url
+      await updatePage.mutateAsync({
+        id: pageId,
+        data: {
+          pageNumber: pageNumber ?? undefined,
+          content: found.url || "",
+          chapterId: chapterId ?? undefined,
+          pageType: "PICTURE", // ensure page type is picture when updating with image
+          isActived: "ACTIVE",
+        },
+      });
+
+      // 2) create page-illustration relation
+      await createPageIllustration.mutateAsync([
         {
           pageId,
           illustrationId: selectedIllustrationId,
         },
-      ];
-      console.log(
-        "[linkPageIllustration] call createPageIllustration.mutateAsync with payload:",
-        payload
-      );
-      const res = await createPageIllustration.mutateAsync(payload);
-      console.log("[linkPageIllustration] success:", res);
-      setLinked(true);
-      return true;
+      ]);
+
+      toast({ title: "Lưu thành công", description: "Ảnh đã được gắn vào trang." });
+      onSaved?.();
+      onClose();
     } catch (err: any) {
-      console.error(
-        "[linkPageIllustration] ERROR:",
-        err?.response?.data || err
-      );
+      console.error("Lỗi lưu ảnh vào trang:", err);
       toast({
         title: "Lỗi",
-        description:
-          err?.response?.data?.message ||
-          "Không thể liên kết illustration với trang.",
+        description: err?.response?.data?.message || "Không thể lưu trang ảnh.",
         variant: "destructive",
       });
-      return false;
     }
   };
 
-  /**
-   * Lưu ảnh vào page (update page + tạo page-illustration)
-   * Dùng chung cho cả "Lưu ảnh vào trang" và "Thêm AR (marker)"
-   */
-  const savePictureToPage = async (): Promise<boolean> => {
-    console.log("[savePictureToPage] start", {
-      pageId,
-      pageNumber,
-      chapterId,
-      selectedIllustrationId,
-    });
-
+  // thêm handler gọi API để cập nhật page (giống nút Lưu) trước khi mở Marker
+  const handlePrepareMarker = async () => {
     if (!pageId) {
-      console.error("[savePictureToPage] NO pageId");
-      toast({
-        title: "Lỗi",
-        description: "Không có page để gắn ảnh.",
-        variant: "destructive",
-      });
-      return false;
+      toast({ title: "Lỗi", description: "Không có page để gắn ảnh.", variant: "destructive" });
+      return;
     }
     if (!selectedIllustrationId) {
-      console.error("[savePictureToPage] NO selectedIllustrationId");
-      toast({
-        title: "Chưa chọn ảnh",
-        description: "Vui lòng chọn một ảnh.",
-        variant: "destructive",
-      });
-      return false;
+      toast({ title: "Chưa chọn ảnh", description: "Vui lòng chọn một ảnh trước khi thêm AR.", variant: "destructive" });
+      return;
     }
 
-    const found = illustrationsList.find(
-      (i) => i.id === selectedIllustrationId
-    );
-    console.log("[savePictureToPage] found illustration:", found);
-
+    const found = illustrationsList.find((i) => i.id === selectedIllustrationId);
     if (!found) {
-      console.error("[savePictureToPage] selected illustration NOT FOUND");
-      toast({
-        title: "Lỗi",
-        description: "Không tìm thấy ảnh đã chọn.",
-        variant: "destructive",
-      });
-      return false;
+      toast({ title: "Lỗi", description: "Không tìm thấy ảnh đã chọn.", variant: "destructive" });
+      return;
     }
 
     try {
-      // 1) update page content + set pageType = "PICTURE"
-      const payload = {
+      // 1) update page content to image url
+      await updatePage.mutateAsync({
         id: pageId,
         data: {
           pageNumber: pageNumber ?? undefined,
@@ -207,122 +142,70 @@ export default function ImagePageDialog({
           pageType: "PICTURE",
           isActived: "ACTIVE",
         },
-      };
-      console.log(
-        "[savePictureToPage] call updatePage.mutateAsync with payload:",
-        payload
-      );
-      const updateRes = await updatePage.mutateAsync(payload);
-      console.log("[savePictureToPage] updatePage success:", updateRes);
-
-      // 2) đảm bảo có bản ghi page-illustration
-      const ok = await linkPageIllustration();
-      console.log("[savePictureToPage] linkPageIllustration result:", ok);
-      if (!ok) return false;
-
-      toast({
-        title: "Lưu thành công",
-        description: "Ảnh đã được gắn vào trang.",
       });
 
-      console.log("[savePictureToPage] DONE OK");
-      return true;
+      // 2) tạo quan hệ page-illustration (giống nút Lưu)
+      await createPageIllustration.mutateAsync([
+        {
+          pageId,
+          illustrationId: selectedIllustrationId,
+        },
+      ]);
+
+      toast({ title: "Cập nhật thành công", description: "Ảnh đã được gắn vào trang. Bạn có thể thêm AR." });
     } catch (err: any) {
-      console.error(
-        "[savePictureToPage] updatePage ERROR:",
-        err?.response?.data || err
-      );
+      console.error("Lỗi cập nhật trang trước khi thêm AR:", err);
       toast({
         title: "Lỗi",
-        description:
-          err?.response?.data?.message || "Không thể lưu trang ảnh.",
+        description: err?.response?.data?.message || "Không thể cập nhật trang.",
         variant: "destructive",
       });
-      return false;
     }
-  };
-
-  const handleSave = async () => {
-    console.log("[handleSave] CLICK");
-    const ok = await savePictureToPage();
-    console.log("[handleSave] savePictureToPage result:", ok);
-    if (!ok) return;
-
-    onSaved?.();
-    onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Gắn ảnh vào trang</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-2">
-          <div className="mb-3 text-sm text-gray-600">
-            Chọn illustration của bạn
-          </div>
+        {/* set a max height for dialog body and enable scrollbar */}
+        <div className="mt-2 max-h-[80vh] overflow-auto pr-2">
+          <div className="mb-3 text-sm text-gray-600">Chọn illustration của bạn</div>
 
-          {/* list ảnh có scroll riêng */}
-          <div className="max-h-80 overflow-y-auto pr-1 mb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {illustrationsList.length === 0 && (
-                <div className="text-sm text-gray-500 col-span-full">
-                  Không có ảnh.
-                </div>
-              )}
-              {illustrationsList.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => {
-                    console.log("[UI] click illustration", it);
-                    setSelectedIllustrationId(it.id);
-                  }}
-                  className={`rounded border p-1 overflow-hidden focus:outline-none ${
-                    selectedIllustrationId === it.id
-                      ? "border-purple-500 ring-2 ring-purple-200"
-                      : "border-white/10 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={gsToHttp(it.url)}
-                      alt={it.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        console.error(
-                          "[UI] image onError, src =",
-                          (e.currentTarget as HTMLImageElement).src
-                        );
-                        (
-                          e.currentTarget.parentElement as HTMLElement
-                        ).innerHTML = `<div class="p-2 text-xs text-center text-gray-600">${it.title}</div>`;
-                      }}
-                    />
-                  </div>
-                  <div className="text-xs mt-2 text-left text-gray-700 truncate">
-                    {it.title}
-                  </div>
-                </button>
-              ))}
+          {/* thumbnails area: limit height and allow internal scroll if many items */}
+          <div className="grid-container mb-4">
+            <div className="overflow-auto max-h-[26vh] pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {/* thumbnails */}
+                {illustrationsList.length === 0 && <div className="text-sm text-gray-500 col-span-full">Không có ảnh.</div>}
+                {illustrationsList.map((it) => (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => setSelectedIllustrationId(it.id)}
+                    className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id ? "border-purple-500 ring-2 ring-purple-200" : "border-white/10 hover:border-gray-300"}`}
+                  >
+                    <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
+                      <img src={gsToHttp(it.url)} alt={it.title} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).innerHTML = `<div class="p-2 text-xs text-center text-gray-600">${it.title}</div>`; }} />
+                    </div>
+                    <div className="text-xs mt-2 text-left text-gray-700 truncate">{it.title}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Preview */}
+          {/* preview area: reduce image max size to avoid overflow */}
           <div className="border border-gray-200 rounded p-3 bg-gray-50">
             <div className="text-sm text-gray-600 mb-2">Preview</div>
             {selectedIllustrationId ? (
               <div className="flex items-center justify-center">
                 <img
-                  src={gsToHttp(
-                    illustrationsList.find(
-                      (i) => i.id === selectedIllustrationId
-                    )?.url || ""
-                  )}
+                  src={gsToHttp(illustrationsList.find(i => i.id === selectedIllustrationId)?.url || "")}
                   alt="Preview"
-                  className="max-h-[60vh] object-contain rounded"
+                  className="max-h-[40vh] max-w-[70%] w-full object-contain rounded"
                 />
               </div>
             ) : (
@@ -332,57 +215,27 @@ export default function ImagePageDialog({
         </div>
 
         <DialogFooter className="mt-4 flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              console.log("[UI] click Hủy");
-              onClose();
-            }}
-          >
-            Huỷ
-          </Button>
-
-          {/* Thêm AR: lưu page + tạo page-illustration rồi mở dialog marker */}
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
           <Button
             variant="outline"
-            disabled={createPageIllustration.isPending || updatePage.isPending}
-            onClick={async () => {
-              console.log("[UI] CLICK Thêm AR (marker)", {
-                pageId,
-                selectedIllustrationId,
-              });
-              const ok = await savePictureToPage();
-              console.log("[UI] Thêm AR -> savePictureToPage result:", ok);
-              if (!ok) return;
-
-              console.log("[UI] open MarkerPageDialog");
-              setOpenMarkerDialog(true);
-            }}
-          >
-            Thêm AR (marker)
-          </Button>
-
-          <Button
-            onClick={handleSave}
+            onPointerDown={handlePrepareMarker}   // gọi update trước khi mở dialog
+            onClick={() => setOpenMarkerDialog(true)} // giữ nguyên theo yêu cầu
             disabled={updatePage.isPending || createPageIllustration.isPending}
           >
-            {updatePage.isPending || createPageIllustration.isPending
-              ? "Đang lưu..."
-              : "Lưu ảnh vào trang"}
+            {updatePage.isPending || createPageIllustration.isPending ? "Đang cập nhật..." : "Thêm AR (marker)"}
+          </Button>
+          <Button onClick={handleSave} disabled={updatePage.isPending || createPageIllustration.isPending}>
+            {updatePage.isPending || createPageIllustration.isPending ? "Đang lưu..." : "Lưu ảnh vào trang"}
           </Button>
         </DialogFooter>
       </DialogContent>
 
       <MarkerPageDialog
         isOpen={openMarkerDialog}
-        onClose={() => {
-          console.log("[MarkerPageDialog] onClose");
-          setOpenMarkerDialog(false);
-        }}
-        pageId={pageId ?? undefined}
+        onClose={() => setOpenMarkerDialog(false)}
+        pageId={pageId}
         pageNumber={pageNumber}
         onSaved={async () => {
-          console.log("[MarkerPageDialog] onSaved");
           setOpenMarkerDialog(false);
           onSaved?.();
         }}

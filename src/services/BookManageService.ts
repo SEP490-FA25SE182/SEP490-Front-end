@@ -96,11 +96,9 @@ export const deleteChapter = async (id: string): Promise<void> => {
 
 
 export const createPage = async (data: Page): Promise<Page> => {
-  console.log("➡️ createPage payload:", data);
-  const res = await axios.post<Page>(`${BASE_URL}/pages`, data);
-  console.log("⬅️ createPage response:", res.data);
-  return res.data;
-}
+    const res = await axios.post<Page>(`${BASE_URL}/pages`, data);
+    return res.data;
+};
 
 export const getAllPages = async (params?: {
     page?: number;
@@ -122,10 +120,8 @@ export const getPageById = async (id: string): Promise<Page> => {
 
 /** Cập nhật page (PUT /api/rookie/users/books/pages/{id}) */
 export const updatePage = async (id: string, data: Partial<Page>): Promise<Page> => {
-  console.log("➡️ updatePage payload:", id, data);
-  const res = await axios.put<Page>(`${BASE_URL}/pages/${id}`, data);
-  console.log("⬅️ updatePage response:", res.data);
-  return res.data;
+    const res = await axios.put<Page>(`${BASE_URL}/pages/${id}`, data);
+    return res.data;
 };
 
 /** Xóa page */

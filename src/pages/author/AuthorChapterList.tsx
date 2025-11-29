@@ -1,4 +1,20 @@
 import { useState, useMemo } from "react";
+// publicationStatus hiển thị theo yêu cầu: 0: Chưa xuất bản, 1: Đã xuất bản, 2: Đang lưu, 3: Pending
+const publicationStatusLabelLocal = (status: number | string | undefined) => {
+  switch (Number(status)) {
+    case 0:
+      return "Chưa xuất bản";
+    case 1:
+      return "Đã xuất bản";
+    case 2:
+      return "Đang lưu";
+    case 3:
+      return "Pending";
+    default:
+      return "Không xác định";
+  }
+};
+
 import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -183,9 +199,7 @@ export default function AuthorChapterList() {
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-2 text-sm">
                   <div>
                     <span className="font-medium text-gray-200">Trạng thái xuất bản:</span>{" "}
-                    <span className="text-gray-300">
-                      {book?.publicationStatus || "Chưa xác định"}
-                    </span>
+                    <span className="text-gray-300">{publicationStatusLabelLocal(book?.publicationStatus)}</span>
                   </div>
                 </div>
               </div>

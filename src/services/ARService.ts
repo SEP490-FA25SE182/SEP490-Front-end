@@ -20,6 +20,8 @@ export interface Marker {
 export interface MarkerSearchParams {
   markerCode?: string;
   markerType?: string;
+  pageId?: string;   // added
+  userId?: string;   // added
   page?: number;
   size?: number;
   sort?: string[];

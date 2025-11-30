@@ -20,6 +20,8 @@ export interface Marker {
 export interface MarkerSearchParams {
   markerCode?: string;
   markerType?: string;
+  pageId?: string;   // added
+  userId?: string;   // added
   page?: number;
   size?: number;
   sort?: string[];
@@ -147,6 +149,20 @@ export const useGetAllMarkers = () => {
   return useQuery({
     queryKey: ["markers", "all"],
     queryFn: () => getAllMarkers(),
+  });
+};
+
+export const attachMarkerToPage = async (
+  markerId: string,
+  pageId: string
+): Promise<void> => {
+  await axios.post(`${API_BASE_URL}/markers/${markerId}/pages/${pageId}`);
+};
+
+export const useAttachMarkerToPage = () => {
+  return useMutation({
+    mutationFn: ({ markerId, pageId }: { markerId: string; pageId: string }) =>
+      attachMarkerToPage(markerId, pageId),
   });
 };
 

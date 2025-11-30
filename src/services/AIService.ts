@@ -97,6 +97,40 @@ export interface GenerateTTSMeta {
   model: string;
 }
 
+// thêm interface cho meta upload (filename + language)
+export interface UploadTTSMeta {
+  filename: string;
+  language: string;
+}
+
+/**
+ * Upload file + meta (filename, language) tới endpoint /audios/tts/upload
+ * Yêu cầu header X-User-Id
+ */
+export const uploadTTSFile = async (
+  userId: string,
+  meta: UploadTTSMeta,
+  file: File
+): Promise<Audio> => {
+  const formData = new FormData();
+  formData.append("meta", JSON.stringify(meta));
+  formData.append("file", file);
+
+  const response = await axios.post(
+    `${API_BASE_URL}/audios/tts/upload`,
+    formData,
+    {
+      headers: {
+        "X-User-Id": userId,
+        "Content-Type": "multipart/form-data",
+      },
+      withCredentials: false,
+    }
+  );
+
+  return response.data;
+};
+
 /* ====================== API CALLS ====================== */
 
 /**
@@ -617,5 +651,20 @@ export const useUpdatePageIllustration = () => {
       id: string;
       data: PageIllustration;
     }) => updatePageIllustration(id, data),
+  });
+};
+
+/** Hook: Upload TTS file */
+export const useUploadTTSFile = () => {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      meta,
+      file,
+    }: {
+      userId: string;
+      meta: UploadTTSMeta;
+      file: File;
+    }) => uploadTTSFile(userId, meta, file),
   });
 };

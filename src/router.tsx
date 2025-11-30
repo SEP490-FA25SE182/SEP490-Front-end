@@ -27,6 +27,7 @@ import ImagePageCreate from "./pages/author/ImagePageCreate";
 import TextPageEdit from "./pages/author/TextPageEdit";
 import ImagePageEdit from "./pages/author/ImagePageEdit";
 import AuthorModelView from "./pages/author/AuthorModelView";
+import MarkerPageCreate from "./pages/author/MarkerPageCreate";
 
 import AdminDashboardPage from "./pages/admin/AdminDashboard";
 
@@ -72,6 +73,7 @@ export default function AppRouter() {
       <Route path="/author/chapters/:chapterId/pages/create-image" element={<ImageCreate />} />
       <Route path="/author/page/:pageId" element={<AuthorPageDetail />} />
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
+      <Route path="/author/pages/:pageId/edit-ar" element={<MarkerPageCreate />} />
 
 
 

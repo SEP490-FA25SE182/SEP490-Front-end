@@ -493,6 +493,32 @@ export default function AuthorModelView() {
     }
   };
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Nếu focus đang ở input / textarea / contenteditable
+      if (
+        target.closest("input, textarea, [contenteditable='true']") ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA"
+      ) {
+        // Chặn Unity bắt phím
+        e.stopImmediatePropagation();
+        // KHÔNG preventDefault, để browser vẫn nhập vào input
+      }
+    };
+
+    // capture = true để chạy trước listener của Unity
+    document.addEventListener("keydown", handler, true);
+
+    return () => {
+      document.removeEventListener("keydown", handler, true);
+    };
+  }, []);
+
+
   const projectTitle = loadingMarker
     ? "Project (đang tải marker...)"
     : markerDetail?.markerCode

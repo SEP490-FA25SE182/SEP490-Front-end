@@ -1,5 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
-import { Menu, X, Edit, Trash2, Search, MoreVertical, Image, AudioLines, StickyNote, Plus } from "lucide-react";
+import {
+  Menu,
+  X,
+  Edit,
+  Trash2,
+  Search,
+  MoreVertical,
+  Image,
+  AudioLines,
+  Plus,
+  TextInitial,
+  BookImage,
+} from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +50,15 @@ import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import CreateAudioDialog from "@/components/dialog/CreateAudioDialog";
 import { useGetAllMarkers, type Marker, getMarkerById } from "@/services/ARService";
+import EmptyPageDialog from "@/components/dialog/EmptyPageDialog";
+
+// 🔹 THÊM: dùng AIService để lấy page-illustration + illustration
+import {
+  useSearchPageIllustrations,
+  useGetAllIllustrations,
+  type Illustration,
+  type PageIllustration,
+} from "@/services/AIService";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -45,6 +66,7 @@ const AuthorPageList = () => {
   const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
   const [openAudioDialog, setOpenAudioDialog] = useState(false);
+  const [openEmptyDialog, setOpenEmptyDialog] = useState(false);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(undefined);
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
@@ -62,6 +84,61 @@ const AuthorPageList = () => {
 
   // Markers (right panel)
   const { data: markersResp, isLoading: loadingMarkers } = useGetAllMarkers();
+
+  // 🔹 Lấy quan hệ page-illustration & danh sách illustration
+  const { data: pageIllustrationsResp } = useSearchPageIllustrations();
+  const { data: illustrationsResp } = useGetAllIllustrations();
+
+  // Chuẩn hóa page-illustrations
+  const pageIllustrations: PageIllustration[] = useMemo(() => {
+    if (!pageIllustrationsResp) return [];
+    if (Array.isArray((pageIllustrationsResp as any).content)) {
+      return (pageIllustrationsResp as any).content;
+    }
+    return Array.isArray(pageIllustrationsResp)
+      ? (pageIllustrationsResp as PageIllustration[])
+      : [];
+  }, [pageIllustrationsResp]);
+
+  // Chuẩn hóa illustrations
+  const illustrations: Illustration[] = useMemo(() => {
+    if (!illustrationsResp) return [];
+    return Array.isArray(illustrationsResp)
+      ? (illustrationsResp as Illustration[])
+      : Array.isArray((illustrationsResp as any).content)
+        ? ((illustrationsResp as any).content as Illustration[])
+        : [];
+  }, [illustrationsResp]);
+
+  // 🔹 Map nhanh pageId → imageUrl
+  const pageImageMap: Record<string, string> = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!pageIllustrations.length) return map;
+
+    pageIllustrations.forEach((pi: any) => {
+      const pid = pi.pageId || pi.page?.pageId;
+      const illustrationId =
+        pi.illustrationId || pi.illustration?.illustrationId;
+
+      if (!pid || !illustrationId) return;
+
+      const illuFromList = illustrations.find(
+        (it) => it.illustrationId === illustrationId
+      );
+      const illu: any = illuFromList || pi.illustration;
+
+      if (illu?.imageUrl) {
+        map[pid] = illu.imageUrl;
+      }
+    });
+
+    return map;
+  }, [pageIllustrations, illustrations]);
+
+  const getImageUrlByPageId = (pageId?: string) => {
+    if (!pageId) return undefined;
+    return pageImageMap[pageId];
+  };
 
   // Delete
   const [openDeleteAlert, setOpenDeleteAlert] = useState(false);
@@ -105,9 +182,9 @@ const AuthorPageList = () => {
 
     return list
       .filter((p: any) => p.isActived !== "INACTIVE")
-      .filter((p: any) =>
-        searchTerm === "" ||
-        p.pageNumber.toString().includes(searchTerm)
+      .filter(
+        (p: any) =>
+          searchTerm === "" || p.pageNumber.toString().includes(searchTerm)
       )
       .sort((a: any, b: any) => a.pageNumber - b.pageNumber);
   }, [pagesResp, searchTerm]);
@@ -115,15 +192,33 @@ const AuthorPageList = () => {
   // Markers list normalized
   const markers: Marker[] = useMemo(() => {
     if (!markersResp) return [];
-    return Array.isArray(markersResp) ? markersResp : (markersResp as any).content || [];
+    return Array.isArray(markersResp)
+      ? markersResp
+      : (markersResp as any).content || [];
   }, [markersResp]);
 
   const isFirebaseImageUrl = (url: string) => {
     if (!url) return false;
     return (
-      (url.includes("firebasestorage.googleapis.com") && url.includes("alt=media")) ||
+      (url.includes("firebasestorage.googleapis.com") &&
+        url.includes("alt=media")) ||
       url.startsWith("gs://")
     );
+  };
+
+  const isImageUrl = (url?: string) => {
+    if (!url) return false;
+    return (
+      url.startsWith("gs://") ||
+      url.includes("firebasestorage.googleapis.com") ||
+      /^https?:\/\/.+\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url)
+    );
+  };
+
+  // 🔹 SỬA: xác định trang ảnh dựa trên pageType + quan hệ page-illustration + content
+  const isImagePage = (page: Page) => {
+    const relationUrl = getImageUrlByPageId(page.pageId);
+    return page.pageType === "PICTURE" || !!relationUrl || isImageUrl(page.content);
   };
 
   const getDisplayImageUrl = (url?: string): string => {
@@ -131,7 +226,9 @@ const AuthorPageList = () => {
     if (url.startsWith("gs://")) {
       const bucket = url.split("/")[2];
       const path = url.split("/").slice(3).join("/");
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
     }
     return url;
   };
@@ -139,12 +236,12 @@ const AuthorPageList = () => {
   const truncateText = (text: string, wordLimit: number = 10): string => {
     const words = text?.trim().split(/\s+/) || [];
     if (words.length <= wordLimit) return text;
-    return words.slice(0, wordLimit).join(' ') + '...';
+    return words.slice(0, wordLimit).join(" ") + "...";
   };
 
   // Hàm xử lý chuyển đến trang edit phù hợp
   const handleEdit = (page: Page) => {
-    const isImage = isFirebaseImageUrl(page.content);
+    const isImage = isImagePage(page);
     if (isImage) {
       navigate(`/author/pages/${page.pageId}/image-edit`);
     } else {
@@ -156,7 +253,10 @@ const AuthorPageList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
   const totalPages = Math.max(1, Math.ceil(pages.length / perPage));
-  const currentPages = pages.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const currentPages = pages.slice(
+    (currentPage - 1) * perPage,
+    currentPage * perPage
+  );
 
   const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
   const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
@@ -203,10 +303,19 @@ const AuthorPageList = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setOpenCreateDialog(true)}>
-                      <StickyNote className="w-4 h-4 mr-2" /> Tạo trang trống
+                    <DropdownMenuItem onClick={() => setOpenEmptyDialog(true)}>
+                      <BookImage className="w-4 h-4 mr-2" /> Tạo trang ảnh
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/author/chapters/${chapterId}/pages/create-image`)}>
+                    <DropdownMenuItem onClick={() => setOpenCreateDialog(true)}>
+                      <TextInitial className="w-4 h-4 mr-2" /> Tạo trang chữ
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        navigate(
+                          `/author/chapters/${chapterId}/pages/create-image`
+                        )
+                      }
+                    >
                       <Image className="w-4 h-4 mr-2" /> Tạo ảnh
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setOpenAudioDialog(true)}>
@@ -227,11 +336,15 @@ const AuthorPageList = () => {
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-300">
               <div>
                 <span className="text-gray-400">Chương số:</span>{" "}
-                <span className="text-white">{chapter?.chapterNumber || "-"}</span>
+                <span className="text-white">
+                  {chapter?.chapterNumber || "-"}
+                </span>
               </div>
               <div>
                 <span className="text-gray-400">Mô tả:</span>{" "}
-                <span className="text-white">{chapter?.decription || "Không có"}</span>
+                <span className="text-white">
+                  {chapter?.decription || "Không có"}
+                </span>
               </div>
             </div>
           </div>
@@ -256,7 +369,14 @@ const AuthorPageList = () => {
           <div className="flex-1 overflow-auto p-6 bg-[#0f172a]">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
               {currentPages.map((page) => {
-                const isImage = isFirebaseImageUrl(page.content);
+                const relationUrl = getImageUrlByPageId(page.pageId);
+                const contentIsImage = isImageUrl(page.content);
+                const imageUrl =
+                  relationUrl || (contentIsImage ? page.content : undefined);
+
+                const isImage = page.pageType === "PICTURE" || !!imageUrl;
+                const hasImageUrl = !!imageUrl;
+
                 return (
                   <div key={page.pageId} className="group relative">
                     {/* whole card clickable -> go to page detail */}
@@ -278,11 +398,19 @@ const AuthorPageList = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
                             {/* removed 'Xem chi tiết' from menu - whole card is clickable */}
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(page); }}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(page);
+                              }}
+                            >
                               <Edit className="mr-2 h-4 w-4" /> Sửa
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); handleConfirmDelete(page); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConfirmDelete(page);
+                              }}
                               className="text-red-600 focus:text-red-600"
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Xóa
@@ -294,15 +422,24 @@ const AuthorPageList = () => {
                       <div className="flex flex-col items-center space-y-2">
                         <div className="relative w-16 h-20 flex items-center justify-center rounded overflow-hidden bg-white/5">
                           {isImage ? (
-                            <img
-                              src={getDisplayImageUrl(page.content)}
-                              alt={`Trang ${page.pageNumber}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.innerHTML = '<svg class="w-full h-full text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>';
-                              }}
-                            />
+                            hasImageUrl ? (
+                              <img
+                                src={getDisplayImageUrl(imageUrl)}
+                                alt={`Trang ${page.pageNumber}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  e.currentTarget.parentElement!.innerHTML =
+                                    '<div class="p-2 text-[8px] text-center text-gray-300">Không thể tải ảnh.</div>';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center p-1">
+                                <p className="text-[8px] text-gray-300 text-center leading-tight">
+                                  Trang ảnh (chưa có URL ảnh hợp lệ)
+                                </p>
+                              </div>
+                            )
                           ) : (
                             <div className="w-full h-full flex items-center justify-center p-1">
                               <p className="text-[8px] text-gray-300 text-center leading-tight overflow-hidden">
@@ -316,11 +453,13 @@ const AuthorPageList = () => {
                           Trang {page.pageNumber}
                         </div>
 
-                        <div className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-purple-500/20 text-purple-300'
-                          }`}>
-                          {isImage ? 'Trang Ảnh' : 'Trang Chữ'}
+                        <div
+                          className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
+                              ? "bg-blue-500/20 text-blue-300"
+                              : "bg-purple-500/20 text-purple-300"
+                            }`}
+                        >
+                          {isImage ? "Trang Ảnh" : "Trang Chữ"}
                         </div>
                       </div>
                     </div>
@@ -348,13 +487,19 @@ const AuthorPageList = () => {
                         <PaginationItem>
                           <PaginationPrevious
                             onClick={handlePrev}
-                            className={`text-white hover:bg-white/10 ${currentPage === 1 ? "opacity-50 pointer-events-none" : ""}`}
+                            className={`text-white hover:bg-white/10 ${currentPage === 1
+                                ? "opacity-50 pointer-events-none"
+                                : ""
+                              }`}
                           />
                         </PaginationItem>
                         <PaginationItem>
                           <PaginationNext
                             onClick={handleNext}
-                            className={`text-white hover:bg-white/10 ${currentPage === totalPages ? "opacity-50 pointer-events-none" : ""}`}
+                            className={`text-white hover:bg-white/10 ${currentPage === totalPages
+                                ? "opacity-50 pointer-events-none"
+                                : ""
+                              }`}
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -379,7 +524,9 @@ const AuthorPageList = () => {
           </div>
 
           <div className="p-4 overflow-auto">
-            {loadingMarkers && <div className="text-gray-400">Đang tải markers...</div>}
+            {loadingMarkers && (
+              <div className="text-gray-400">Đang tải markers...</div>
+            )}
             {!loadingMarkers && markers.length === 0 && (
               <div className="text-gray-400 mb-3">Chưa có marker nào.</div>
             )}
@@ -402,26 +549,25 @@ const AuthorPageList = () => {
                 <div
                   key={m.markerId}
                   className="group relative bg-white/5 hover:bg-white/10 rounded-lg p-0 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 overflow-hidden cursor-pointer"
-                  // Trong AuthorPageList.tsx - phần click vào marker card
                   onClick={async () => {
                     try {
                       const marker = await getMarkerById(m.markerId as string);
-
-                      // TRUYỀN THÊM chapterId QUA location.state
                       navigate(`/author/model-view/${marker.markerId}`, {
                         state: {
                           marker,
-                          chapterId: chapterId  // <-- Đây là điểm quan trọng!
-                        }
+                          chapterId: chapterId, // truyền thêm chapterId
+                        },
                       });
                     } catch (err) {
-                      toast({ title: "Lỗi", description: "Không lấy được marker.", variant: "destructive" });
+                      toast({
+                        title: "Lỗi",
+                        description: "Không lấy được marker.",
+                        variant: "destructive",
+                      });
                     }
                   }}
                 >
-                  <div
-                    className="w-full h-28 bg-white/5 flex items-center justify-center overflow-hidden"
-                  >
+                  <div className="w-full h-28 bg-white/5 flex items-center justify-center overflow-hidden">
                     {m.imageUrl ? (
                       <img
                         src={getDisplayImageUrl(m.imageUrl)}
@@ -437,7 +583,9 @@ const AuthorPageList = () => {
 
                   <div className="p-3 flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-sm text-white font-medium truncate">{m.markerCode || "Untitled"}</div>
+                      <div className="text-sm text-white font-medium truncate">
+                        {m.markerCode || "Untitled"}
+                      </div>
                       <div className="text-xs text-gray-400">{m.markerType}</div>
                     </div>
 
@@ -453,10 +601,21 @@ const AuthorPageList = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedMarkerId(m.markerId); setAssetDialogOpen(true); }}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMarkerId(m.markerId);
+                              setAssetDialogOpen(true);
+                            }}
+                          >
                             Thêm asset
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); /* open edit marker flow if exists */ }}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              /* open edit marker flow if exists */
+                            }}
+                          >
                             Chỉnh sửa
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -509,6 +668,17 @@ const AuthorPageList = () => {
         chapterId={chapterId}
         onCreated={async () => {
           await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+        }}
+      />
+
+      <EmptyPageDialog
+        isOpen={openEmptyDialog}
+        onClose={() => setOpenEmptyDialog(false)}
+        chapterId={chapterId}
+        onCreated={async () => {
+          // refresh pages list after created
+          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+          setOpenEmptyDialog(false);
         }}
       />
 

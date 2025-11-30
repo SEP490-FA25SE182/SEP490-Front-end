@@ -65,3 +65,21 @@ export const deleteGenre = async (id: string): Promise<void> => {
     },
   });
 };
+
+// 🟢 Gắn nhiều genre vào 1 sách
+export const attachGenresToBook = async (
+  bookId: string,
+  genreIds: string[]
+): Promise<void> => {
+  await axios.post(
+    `${API_BASE_URL}/users/books/${bookId}/genres`,
+    genreIds, // body là array<string>, đúng theo Swagger
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    }
+  );
+};
+

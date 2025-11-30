@@ -40,7 +40,7 @@ import BookCreateDialog from "@/components/dialog/CreateBookDialog";
 export default function AuthorBookList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedStatus] = useState('all');
   const [selectedPublication, setSelectedPublication] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const booksPerPage = 12;
@@ -62,6 +62,15 @@ export default function AuthorBookList() {
   // create book dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
+  // helper: sort by updatedAt desc (newest first)
+  const sortBooksByUpdatedDesc = (list: any[]) => {
+    return [...list].sort((a, b) => {
+      const aTime = new Date(a.updatedAt ?? a.updated_at ?? 0).getTime();
+      const bTime = new Date(b.updatedAt ?? b.updated_at ?? 0).getTime();
+      return bTime - aTime;
+    });
+  };
+
   // fetch books (callable so we can refresh after create)
   const fetchBooks = async () => {
     try {
@@ -71,7 +80,8 @@ export default function AuthorBookList() {
         page: 0,
         size: 200,
       });
-      setBooks(res?.content ?? []);
+      // sắp xếp theo updatedAt (mới nhất trước)
+      setBooks(sortBooksByUpdatedDesc(res?.content ?? []));
     } catch (err) {
       console.error("Lỗi khi tải sách:", err);
     } finally {
@@ -157,7 +167,8 @@ export default function AuthorBookList() {
     setIsDeleting(true);
     try {
       await apiDeleteBook(deletingBook.bookId ?? deletingBook.book_id);
-      setBooks(prev => prev.filter(b => String(b.bookId ?? b.book_id) !== String(deletingBook.bookId ?? deletingBook.book_id)));
+      // lọc rồi sắp xếp lại để giữ thứ tự updatedAt
+      setBooks(prev => sortBooksByUpdatedDesc(prev.filter(b => String(b.bookId ?? b.book_id) !== String(deletingBook.bookId ?? deletingBook.book_id))));
       toast({
         title: "Xóa thành công",
         description: `Đã xóa sách "${deletingBook.bookName ?? deletingBook.book_name}".`,
@@ -216,18 +227,6 @@ export default function AuthorBookList() {
                 className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
               />
             </div>
-
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[180px] border-white/20 text-white bg-white/10">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="0">Nháp</SelectItem>
-                <SelectItem value="1">Chờ duyệt</SelectItem>
-                <SelectItem value="2">Đã xuất bản</SelectItem>
-              </SelectContent>
-            </Select>
 
             <Select value={selectedPublication} onValueChange={setSelectedPublication}>
               <SelectTrigger className="w-[180px] border-white/20 text-white bg-white/10">

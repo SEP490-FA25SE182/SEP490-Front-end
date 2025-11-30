@@ -9,6 +9,11 @@ export interface Role {
   createdAt: string;
 }
 
+export interface CreateRoleRequest {
+  roleName: string;
+  isActived: string;
+}
+
 export interface UpdateRoleRequest {
   roleName: string;
   isActived: string;
@@ -33,6 +38,15 @@ export const getRoleById = async (id: string): Promise<Role> => {
   return response.data;
 };
 
+
+/* Tạo role mới */
+export const createRole = async (data: CreateRoleRequest[]): Promise<Role[]> => {
+  return (await axios.post(`${API_BASE_URL}/users/roles`, data)).data;
+};
+
+
+
+
 /**
  * Cập nhật thông tin role theo ID
  * @param id ID của role
@@ -45,6 +59,12 @@ export const updateRoleById = async (
 ): Promise<Role> => {
   const response = await axios.put<Role>(`${API_BASE_URL}/users/roles/${id}`, data);
   return response.data;
+};
+
+
+/** Xoá role theo ID */
+export const deleteRoleById = async (id: string): Promise<void> => {
+  await axios.delete(`${API_BASE_URL}/users/roles/${id}`);
 };
 
 
@@ -65,6 +85,14 @@ export const useGetRoleById = (id: string) => {
   });
 };
 
+/** Hook: Tạo role */
+export const useCreateRole = () => {
+  return useMutation({
+    mutationFn: (data: CreateRoleRequest) => createRole([data]),
+  });
+};
+
+
 /** Hook: Cập nhật role */
 export const useUpdateRoleById = () => {
   return useMutation({
@@ -72,3 +100,11 @@ export const useUpdateRoleById = () => {
       updateRoleById(id, data),
   });
 };
+
+/** Hook: Xoá role */
+export const useDeleteRole = () => {
+  return useMutation({
+    mutationFn: (id: string) => deleteRoleById(id),
+  });
+};
+

@@ -8,6 +8,8 @@ export interface CreateOrderRequest {
   status: number;
   cartId: string;
   walletId: string;
+  reason?: string;
+  imageUrl?: string;
   
 }
 
@@ -21,6 +23,8 @@ export interface OrderResponse {
   createdAt?: string;
   updatedAt?: string;
   userAddressId: string;
+  reason?: string;
+  imageUrl?: string;
 
 }
 

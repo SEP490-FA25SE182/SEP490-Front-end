@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Loader2, Trash2} from "lucide-react";
+import { Menu, X, Loader2, Trash2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ import { OrderDetailService } from "@/services/OrderDetailService";
 import { getBookById } from "@/services/BookService";
 import { TransactionService } from "@/services/TransactionService";
 import { getWalletById, updateWallet } from "@/services/WalletService";
+import { resolveFirebaseUrl } from "@/firebase";
 
 import { formatVND } from "@/lib/money";
 import { toast } from "sonner";
@@ -39,6 +40,8 @@ export default function OrderManagementPage() {
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundOrder, setRefundOrder] = useState<OrderResponse | null>(null);
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
+  const [convertedImageUrl, setConvertedImageUrl] = useState("");
+
 
   // ===============================
   //  STATUS MAP
@@ -87,6 +90,15 @@ export default function OrderManagementPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+  if (refundOrder?.imageUrl) {
+    resolveFirebaseUrl(refundOrder.imageUrl).then((url) => {
+      setConvertedImageUrl(url);
+    });
+  }
+}, [refundOrder]);
+
 
   // ===============================
   //  OPEN REFUND DIALOG
@@ -190,22 +202,22 @@ export default function OrderManagementPage() {
   //  FILTERED LIST
   // ===============================
   const filteredOrders = orders
-  .slice() // tránh mutate state gốc
-  .sort((a, b) => {
-    const t1 = new Date(b.createdAt ?? "").getTime();
-    const t2 = new Date(a.createdAt ?? "").getTime();
-    return t1 - t2; // mới nhất lên đầu
-  })
-  .filter((order) => {
-    const matchStatus =
-      filterStatus === "all" || String(order.status) === filterStatus;
+    .slice() // tránh mutate state gốc
+    .sort((a, b) => {
+      const t1 = new Date(b.createdAt ?? "").getTime();
+      const t2 = new Date(a.createdAt ?? "").getTime();
+      return t1 - t2; // mới nhất lên đầu
+    })
+    .filter((order) => {
+      const matchStatus =
+        filterStatus === "all" || String(order.status) === filterStatus;
 
-    const matchSearch =
-      !searchQuery ||
-      order.orderId.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch =
+        !searchQuery ||
+        order.orderId.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchStatus && matchSearch;
-  });
+      return matchStatus && matchSearch;
+    });
 
 
   // ===============================
@@ -406,6 +418,28 @@ export default function OrderManagementPage() {
             <div className="space-y-4">
               <p><b>Mã đơn:</b> {refundOrder.orderId}</p>
               <p><b>Số tiền hoàn:</b> {formatVND(refundOrder.totalPrice)}</p>
+
+              {/* ⭐ HIỂN THỊ LÝ DO TRẢ HÀNG */}
+              {refundOrder.reason && (
+                <div className="bg-gray-100 p-3 rounded-lg border">
+                  <p className="font-semibold text-gray-700">Lý do trả hàng:</p>
+                  <p className="text-gray-800 whitespace-pre-wrap mt-1">
+                    {refundOrder.reason}
+                  </p>
+                </div>
+              )}
+
+              {/* ⭐ HIỂN THỊ ẢNH TRẢ HÀNG */}
+              {refundOrder.imageUrl && (
+                <div>
+                  <p className="font-semibold text-gray-700 mb-2">Ảnh minh chứng:</p>
+                  <img
+                    src={convertedImageUrl}
+                    alt="Ảnh trả hàng"
+                    className="w-full max-h-80 object-contain rounded-lg border"
+                  />
+                </div>
+              )}
 
               <h4 className="font-semibold">Sản phẩm trong đơn:</h4>
 

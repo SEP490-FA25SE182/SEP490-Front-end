@@ -1,5 +1,9 @@
-import { LayoutDashboard, Users, ShoppingBag, LogOut, UsersRoundIcon } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingBag, LogOut, UsersRoundIcon, Wallet } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import { getAllUsers } from "@/services/UserService";
+import { getRoleById } from "@/services/RoleService";
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -7,14 +11,40 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({ isOpen }: AdminSidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
+  const [currentRoleName, setCurrentRoleName] = useState("");
+  
+
+  
+
+  useEffect(() => {
+  if (!user?.email) return;
+
+  const fetchRole = async () => {
+    const allUsers = await getAllUsers();
+    const currentUser = allUsers.find(u => u.email === user.email);
+
+    if (!currentUser?.roleId) return;
+
+    const role = await getRoleById(currentUser.roleId);
+    setCurrentRoleName(role.roleName?.toLowerCase().trim() || "");
+  };
+
+  fetchRole();
+}, [user?.email]);
+
+const isAdmin = currentRoleName.includes("admin");
+
+
 
   const navItems = [
-    { path: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" />, label: "Tổng quan" },
-    { path: "/admin/users", icon: <Users className="w-5 h-5" />, label: "Người dùng" },
-    { path: "/admin/orders", icon: <ShoppingBag className="w-5 h-5" />, label: "Đơn hàng" },
-    { path: "/admin/authors", icon: <UsersRoundIcon className="w-5 h-5" />, label: "Tác giả" },
-    // { path: "/admin/settings", icon: <Settings className="w-5 h-5" />, label: "Cài đặt" },
-  ];
+    { path: "/admin/dashboard", icon: <LayoutDashboard />, label: "Tổng quan" },
+    isAdmin && { path: "/admin/roles", icon: <Users />, label: "Vai trò" },
+    { path: "/admin/users", icon: <Users />, label: "Người dùng" },
+    { path: "/admin/orders", icon: <ShoppingBag />, label: "Đơn hàng" },
+    { path: "/admin/authors", icon: <UsersRoundIcon />, label: "Tác giả" },
+    isAdmin && { path: "/admin/payment-method", icon: <Wallet />, label: "Phương thức thanh toán" },
+  ].filter(Boolean) as { path: string; icon: React.ReactNode; label: string }[];
 
   return (
     <div

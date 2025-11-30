@@ -197,7 +197,6 @@ const AuthorPageList = () => {
       : (markersResp as any).content || [];
   }, [markersResp]);
 
-
   const isImageUrl = (url?: string) => {
     if (!url) return false;
     return (
@@ -634,6 +633,16 @@ const AuthorPageList = () => {
       <MarkerCreateDialog
         isOpen={markerDialogOpen}
         onClose={() => setMarkerDialogOpen(false)}
+        {...({
+          onCreated: async (created: any) => {
+            await queryClient.invalidateQueries({ queryKey: ["markers", "all"] });
+            setMarkerDialogOpen(false);
+            if (created?.markerId) {
+              setSelectedMarkerId(created.markerId);
+              setAssetDialogOpen(true);
+            }
+          },
+        } as any)}
       />
 
       <Asset3DCreateDialog

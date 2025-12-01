@@ -11,14 +11,6 @@ import {
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -26,14 +18,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getAllBooks } from "@/services/BookService";
-import { getAllWallets, type Wallet } from "@/services/WalletService";
 
-// NOTE: payment history previously was hardcoded. Now we fetch wallets and show them as the history rows.
+// Recharts
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
+
+// NOTE: payment history previously was hardcoded. Now we fetch books and show charts.
 
 export default function AuthorIncome() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [books, setBooks] = useState<any[]>([]);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [, setLoading] = useState(false);
 
   // resolve current user id from localStorage (used to count books for this author)
@@ -59,11 +64,6 @@ export default function AuthorIncome() {
           ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
           : (filtered as any[]);
         setBooks(myBooks);
-
-        // fetch wallets (used as history source per request)
-        const walletsResp = await getAllWallets();
-        if (!mounted) return;
-        setWallets(walletsResp ?? []);
       } catch (err) {
         console.error("Error loading author income data:", err);
       } finally {
@@ -82,14 +82,11 @@ export default function AuthorIncome() {
   const publishedBooks = books.filter((b) => Number(b.publicationStatus) === 1).length;
   const pendingBooks = books.filter((b) => Number(b.publicationStatus) !== 1).length;
 
-  // revenue derived from wallets (sum of balances) — adjust if backend has dedicated revenue endpoint
+  // estimate revenue from books (fallback)
   const totalRevenue = useMemo(
-    () => wallets.reduce((s, w) => s + (Number(w.balance) || 0), 0),
-    [wallets]
+    () => books.reduce((s, b) => s + (Number(b.price) || 0) * (Number(b.quantity) || 1), 0),
+    [books]
   );
-  // royalty assumed 70% of revenue (previous behavior) → removed as requested; we only keep copyright fee here
-  const authorRoyalty = Math.round(totalRevenue * 0.7);
-  const copyrightFee = totalRevenue - authorRoyalty;
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -99,14 +96,14 @@ export default function AuthorIncome() {
     {
       title: "Tổng Doanh Thu",
       value: formatCurrency(totalRevenue),
-      desc: "Tổng từ ví / lịch sử",
+      desc: "Ước tính từ sách",
       icon: <DollarSign className="w-6 h-6" />,
       accent: "from-[#764BA2] to-[#667EEA]",
     },
     {
       title: "Phí tác quyền",
-      value: formatCurrency(copyrightFee),
-      desc: "Phí/chiết khấu nền tảng",
+      value: formatCurrency(Math.round(totalRevenue * 0.3)),
+      desc: "Phí/chiết khấu nền tảng (ước tính)",
       icon: <BookOpen className="w-6 h-6" />,
       accent: "from-[#334155] to-[#475569]",
     },
@@ -133,16 +130,77 @@ export default function AuthorIncome() {
     },
   ];
 
-  // Map wallets to table rows for display
-  const paymentRows = wallets.map((w) => ({
-    id: w.walletId,
-    book_name: "-", // wallet entries don't have book name; left intentionally blank
-    reader: w.userId,
-    date: w.createdAt,
-    amount: Number(w.balance) || 0,
-    commission: 0,
-    status: w.isActived === "ACTIVE" ? "completed" : "pending",
-  }));
+  // Timeframe state for line chart
+  type Timeframe = "week" | "month" | "quarter" | "year";
+  const [timeframe, setTimeframe] = useState<Timeframe>("month");
+
+  // Helper: generate time buckets and counts
+  function generateTimeSeries(booksList: any[], tf: Timeframe) {
+    const now = new Date();
+    const buckets: { label: string; start: Date; end: Date }[] = [];
+    const fmtDay = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" });
+    const fmtMonth = new Intl.DateTimeFormat("vi-VN", { month: "short", year: "numeric" });
+
+    if (tf === "week") {
+      for (let i = 6; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        buckets.push({ label: fmtDay.format(start), start, end });
+      }
+    } else if (tf === "month") {
+      // last 30 days
+      for (let i = 29; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        buckets.push({ label: fmtDay.format(start), start, end });
+      }
+    } else if (tf === "quarter") {
+      // last 12 weeks
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i * 7);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 7);
+        buckets.push({ label: `Wk ${Math.ceil((start.getDate() + start.getMonth() * 30) / 7)}`, start, end });
+      }
+    } else {
+      // year: last 12 months
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0, 0);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        buckets.push({ label: fmtMonth.format(start), start, end });
+      }
+    }
+
+    const series = buckets.map((b) => {
+      const count = booksList.filter((bk) => {
+        const d = bk?.createdAt ? new Date(bk.createdAt) : null;
+        return d && d >= b.start && d < b.end;
+      }).length;
+      return { name: b.label, count };
+    });
+
+    return series;
+  }
+
+  const lineData = useMemo(() => generateTimeSeries(books, timeframe), [books, timeframe]);
+
+  const pieData = useMemo(
+    () => [
+      { name: "Đã xuất bản", value: publishedBooks },
+      { name: "Chờ duyệt", value: pendingBooks },
+    ],
+    [publishedBooks, pendingBooks]
+  );
+
+  const COLORS = ["#10b981", "#f59e0b"];
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -184,81 +242,88 @@ export default function AuthorIncome() {
             ))}
           </div>
 
-          {/* Payment History (from getAllWallets) */}
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-            <div className="px-6 py-4 bg-[#1a2332] border-b border-white/10">
-              <h2 className="text-xl font-semibold text-white">Lịch Sử Thanh Toán (Wallets)</h2>
+          {/* Charts: Line chart + Pie chart */}
+          <div className="bg-white rounded-lg shadow-xl overflow-hidden p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimeframe("week")}
+                  className={`px-3 py-1 rounded ${timeframe === "week" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Tuần
+                </button>
+                <button
+                  onClick={() => setTimeframe("month")}
+                  className={`px-3 py-1 rounded ${timeframe === "month" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Tháng
+                </button>
+                <button
+                  onClick={() => setTimeframe("quarter")}
+                  className={`px-3 py-1 rounded ${timeframe === "quarter" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Quý
+                </button>
+                <button
+                  onClick={() => setTimeframe("year")}
+                  className={`px-3 py-1 rounded ${timeframe === "year" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Năm
+                </button>
+              </div>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                  <TableHead className="text-white font-medium">Mã</TableHead>
-                  <TableHead className="text-white font-medium">Tài khoản</TableHead>
-                  <TableHead className="text-white font-medium">Ngày</TableHead>
-                  <TableHead className="text-white font-medium">Số dư</TableHead>
-                  <TableHead className="text-white font-medium">Hoa Hồng</TableHead>
-                  <TableHead className="text-white font-medium">Trạng Thái</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="col-span-2 bg-white p-4 rounded">
+                <h3 className="text-sm text-gray-600 mb-2">Số sách tạo theo thời gian</h3>
+                <div style={{ width: "100%", height: 320 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={lineData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="count" stroke="#667eea" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
-              <TableBody>
-                {paymentRows.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-gray-900">{row.id}</TableCell>                   
-                    <TableCell>
-                      <div className="text-gray-600">{row.reader}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 text-sm">
-                        {row.date ? new Date(row.date).toLocaleDateString("vi-VN") : "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 font-semibold">{formatCurrency(row.amount)}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-green-600 font-semibold">{formatCurrency(row.commission)}</div>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          row.status === "completed" ? "bg-green-100 text-green-600" : "bg-yellow-100 text-yellow-600"
-                        }`}
+              <div className="bg-white p-4 rounded">
+                <h3 className="text-sm text-gray-600 mb-2">Trạng thái sách</h3>
+                <div style={{ width: "100%", height: 320 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label
                       >
-                        {row.status === "completed" ? "Hoàn thành" : "Chờ xử lý"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        {pieData.map((_entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Legend />
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
 
-            <div className="border-t px-6 py-4 bg-gray-50 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                Tổng cộng: <span className="font-semibold">{paymentRows.length} mục</span>
-              </div>
-              <div className="flex gap-6">
-                <div className="text-sm">
-                  <span className="text-gray-600">Tổng doanh thu: </span>
-                  <span className="font-bold text-purple-600">{formatCurrency(totalRevenue)}</span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-gray-600">Tổng hoa hồng: </span>
-                  <span className="font-bold text-green-600">{formatCurrency(totalCommission(wallets))}</span>
-                </div>
-              </div>
+            <div className="mt-6 text-sm text-gray-600">
+              Tổng sách: <span className="font-semibold">{totalBooks}</span>
+              <span className="ml-4">Đã xuất bản: <span className="font-semibold">{publishedBooks}</span></span>
+              <span className="ml-4">Chờ duyệt: <span className="font-semibold">{pendingBooks}</span></span>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// helper to compute total commission from wallets (here commission is placeholder 0)
-function totalCommission(wallets: Wallet[]) {
-  // if your backend provides commission per wallet entry, compute here.
-  // For now we sum 0 to keep layout consistent.
-  return wallets.reduce((s) => s + 0, 0);
 }

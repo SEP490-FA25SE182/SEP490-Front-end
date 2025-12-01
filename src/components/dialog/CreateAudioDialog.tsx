@@ -15,6 +15,7 @@ import { useGenerateTTS, useUploadTTSFile } from "@/services/AIService";
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { getUserByEmail } from "@/services/UserService";
+import LoadingThreeDotsJumping from "@/components/loading/LoadingThreeDotsJumping";
 
 interface Props {
   isOpen: boolean;
@@ -393,6 +394,18 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
             </div>
           )}
         </div>
+
+        {/* 🔄 Loading Jumping Dots khi đang xử lý */}
+        {isProcessing && (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <LoadingThreeDotsJumping />
+            <p className="text-xs text-gray-500 text-center">
+              {mode === "import"
+                ? "Đang xử lý audio..."
+                : "Đang tạo audio bằng AI, vui lòng chờ..."}
+            </p>
+          </div>
+        )}
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={() => onClose()} className="mr-2">

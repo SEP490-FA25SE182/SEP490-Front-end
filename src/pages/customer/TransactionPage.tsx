@@ -18,6 +18,8 @@ import { getBookById } from "@/services/BookService";
 import { FeedbackService, type CreateFeedbackRequest, type Feedback } from "@/services/FeedbackService";
 import { Star } from "lucide-react";
 import { TransactionService, type TransactionRequest } from "@/services/TransactionService";
+import { UploadService } from "@/services/FirebaseService";
+import { resolveFirebaseUrl } from "@/firebase";
 
 
 
@@ -37,6 +39,14 @@ export default function TransactionPage() {
   const [existingFeedback, setExistingFeedback] = useState<Feedback | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [userFeedbackMap, setUserFeedbackMap] = useState<Record<string, boolean>>({});
+  const [openReturnDialog, setOpenReturnDialog] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnImageUrl, setReturnImageUrl] = useState("");
+  const [selectedReturnOrder, setSelectedReturnOrder] = useState<OrderResponse | null>(null);
+  const [isReturnSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [previewReturnImageUrl, setPreviewReturnImageUrl] = useState("");
+
 
 
 
@@ -122,73 +132,146 @@ export default function TransactionPage() {
     fetchOrders();
   }, [user, filter]); // 🆕 Thêm filter vào dependency
 
-
-  async function getPaymentTransaction(orderId: string) {
-  const res = await TransactionService.search({ orderId });
-
-  console.log("RAW TRANSACTION SEARCH:", res);
-
-  // ⚡ CASE 1: BE trả về dạng { content: [...] }
-  const list = Array.isArray(res?.content) ? res.content : [];
-
-  // Tìm transaction PAYMENT
-  return (
-    list.find((t) => t.transType === "PAYMENT") ||
-    null
-  );
-}
-
-  async function handleReturn(order: OrderResponse, onSuccess?: () => void) {
-  try {
-    if (!window.confirm("Bạn có chắc muốn trả hàng và hoàn tiền?")) return;
-
-    toast.loading("Đang xử lý trả hàng...");
-
-    // 1️⃣ Update Order → RETURN (6)
-    await OrderService.updateOrder(order.orderId, { status: 6 });
-
-    // 2️⃣ Lấy transaction PAYMENT cũ
-    const paymentTrans = await getPaymentTransaction(order.orderId);
-
-    if (!paymentTrans) {
-      toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
+  useEffect(() => {
+    if (!returnImageUrl) {
+      setPreviewReturnImageUrl("");
       return;
     }
 
-    // 3️⃣ Tạo REFUND transaction dựa theo PAYMENT cũ
-    const payload: TransactionRequest = {
-      totalPrice: order.totalPrice,
-      status: 1,
-      orderId: order.orderId,
-      paymentMethodId: paymentTrans.paymentMethodId,  
-      walletId: paymentTrans.walletId,                
-      transType: "REFUND",
-      isActived: "ACTIVE",
-    };
+    resolveFirebaseUrl(returnImageUrl).then((url) => {
+      setPreviewReturnImageUrl(url);
+    });
+  }, [returnImageUrl]);
 
-    console.log("📦 REFUND PAYLOAD:", payload);
+  const handleReturnImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    await TransactionService.create(payload);
+    try {
+      setIsUploadingImage(true);
+      toast.loading("Đang tải ảnh...");
 
-    // 4️⃣ Cập nhật UI
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.orderId === order.orderId ? { ...o, status: 6 } : o
-      )
+      const gsUrl = await UploadService.uploadImageToFirebase(file, "return");
+      // folder “return” để tách biệt với “blog”
+
+      setReturnImageUrl(gsUrl);
+
+      toast.success("Tải ảnh thành công!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể tải ảnh!");
+    } finally {
+      toast.dismiss();
+      setIsUploadingImage(false);
+    }
+  };
+
+
+
+  async function getPaymentTransaction(orderId: string) {
+    const res = await TransactionService.search({ orderId });
+
+    console.log("RAW TRANSACTION SEARCH:", res);
+
+    // ⚡ CASE 1: BE trả về dạng { content: [...] }
+    const list = Array.isArray(res?.content) ? res.content : [];
+
+    // Tìm transaction PAYMENT
+    return (
+      list.find((t) => t.transType === "PAYMENT") ||
+      null
     );
-
-    toast.success("Yêu cầu trả hàng đã được tạo thành công!");
-
-    if (onSuccess) onSuccess();
-  } catch (err) {
-    console.error("❌ Lỗi refund:", err);
-    toast.error("Không thể xử lý yêu cầu trả hàng.");
-  } finally {
-    toast.dismiss();
   }
-}
+
+  async function handleReturn(
+    order: OrderResponse,
+    reason: string,
+    imageUrl: string,
+    onSuccess?: () => void
+  ) {
+    try {
+      if (!window.confirm("Bạn có chắc muốn trả hàng và hoàn tiền?")) return;
+
+      toast.loading("Đang xử lý trả hàng...");
+
+      // 1️⃣ Update Order → RETURN (6) + gửi thêm reason + imageUrl
+      await OrderService.updateOrder(order.orderId, {
+        status: 6,
+        reason,
+        imageUrl
+      });
+
+      // 2️⃣ Lấy transaction PAYMENT cũ
+      const paymentTrans = await getPaymentTransaction(order.orderId);
+
+      if (!paymentTrans) {
+        toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
+        return;
+      }
+
+      // 3️⃣ Tạo REFUND transaction dựa theo PAYMENT cũ
+      const payload: TransactionRequest = {
+        totalPrice: order.totalPrice,
+        status: 1,
+        orderId: order.orderId,
+        paymentMethodId: paymentTrans.paymentMethodId,
+        walletId: paymentTrans.walletId,
+        transType: "REFUND",
+        isActived: "ACTIVE",
+      };
+
+      console.log("📦 REFUND PAYLOAD:", payload);
+
+      await TransactionService.create(payload);
+
+      // 4️⃣ Cập nhật UI
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId
+            ? { ...o, status: 6, reason, imageUrl }
+            : o
+        )
+      );
+
+      toast.success("Yêu cầu trả hàng đã được tạo thành công!");
+
+      if (onSuccess) onSuccess();
+
+    } catch (err) {
+      console.error("❌ Lỗi refund:", err);
+      toast.error("Không thể xử lý yêu cầu trả hàng.");
+    } finally {
+      toast.dismiss();
+    }
+  }
 
 
+
+
+  async function handleConfirmReceived(order: OrderResponse, onSuccess?: () => void) {
+    try {
+      toast.loading("Đang xác nhận...");
+
+      // Cập nhật đơn → 4 (Đã giao thành công)
+      await OrderService.updateOrder(order.orderId, { status: 4 });
+
+      // Cập nhật UI
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId ? { ...o, status: 4 } : o
+        )
+      );
+
+      toast.success("Cảm ơn bạn! Đơn hàng đã được xác nhận.");
+      if (onSuccess) onSuccess();
+
+    } catch (err) {
+      console.error("❌ Lỗi xác nhận đơn:", err);
+      toast.error("Không thể xác nhận đơn hàng.");
+    } finally {
+      toast.dismiss();
+    }
+  }
 
 
 
@@ -396,12 +479,31 @@ export default function TransactionPage() {
 
               </div>
 
+
               <div className="flex justify-between mt-6 items-center">
+
+                {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
+                {Number(selected?.status) === 3 && (
+                  <Button
+                    className="bg-green-600 text-white hover:bg-green-700"
+                    onClick={() =>
+                      handleConfirmReceived(selected as OrderResponse, () => setSelected(null))
+                    }
+                  >
+                    Đã nhận hàng
+                  </Button>
+                )}
+
+                {/* 🟥 Nút “Trả hàng” khi status = 4 (Đã giao) */}
                 {Number(selected?.status) === 4 && (
                   <Button
                     variant="destructive"
-                    onClick={() =>
-                      handleReturn(selected as OrderResponse, () => setSelected(null))
+                    onClick={() => {
+                      setSelectedReturnOrder(selected);
+                      setReturnReason("");
+                      setReturnImageUrl("");
+                      setOpenReturnDialog(true);
+                    }
                     }
                   >
                     Trả hàng
@@ -412,6 +514,7 @@ export default function TransactionPage() {
                   Đóng
                 </Button>
               </div>
+
 
             </>
           )}
@@ -561,6 +664,76 @@ export default function TransactionPage() {
                   : "✏️ Chỉnh sửa"}
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔹 DIALOG TRẢ HÀNG */}
+      <Dialog open={openReturnDialog} onOpenChange={setOpenReturnDialog}>
+        <DialogContent className="max-w-md bg-white text-gray-800">
+          <DialogHeader>
+            <DialogTitle>Yêu cầu trả hàng</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-3">
+            {/* Lý do trả hàng */}
+            <div>
+              <label className="text-sm font-medium">Lý do</label>
+              <textarea
+                className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-red-400"
+                rows={3}
+                placeholder="Vui lòng nhập lý do trả hàng..."
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
+            </div>
+
+            {/* Hình ảnh */}
+            <div>
+              <label className="text-sm font-medium">Ảnh minh chứng</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleReturnImageUpload}
+                className="border rounded px-3 py-2 w-full text-sm bg-white"
+              />
+
+              {isUploadingImage && (
+                <p className="text-sm text-gray-500 mt-1">Đang tải ảnh lên...</p>
+              )}
+
+              {returnImageUrl && (
+                <img
+                  src={previewReturnImageUrl}
+                  alt="Ảnh tải lên"
+                  className="w-32 h-auto mt-2 rounded border"
+                />
+              )}
+
+
+              {/* Nếu bạn dùng upload Firebase → mình có thể viết giúp ngay */}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 mt-5">
+            <Button variant="outline" onClick={() => setOpenReturnDialog(false)}>
+              Huỷ
+            </Button>
+
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={isReturnSubmitting}
+              onClick={() => handleReturn(
+                selectedReturnOrder!,
+                returnReason,
+                returnImageUrl,
+                () => setSelected(null)
+              )}
+
+            >
+              {isReturnSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

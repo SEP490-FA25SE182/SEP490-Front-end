@@ -21,9 +21,14 @@ export interface CreateUserRequest {
   birthDate: string;
   gender: string;
   email: string;
+  password: string;
   phoneNumber: string;
   avatarUrl?: string;
+  roleId: string;
+  isActived: string;
+  royalty: number;
 }
+
 
 export interface UpdateUserRequest extends Partial<CreateUserRequest> { }
 
@@ -59,9 +64,16 @@ export const searchUsers = async (keyword: string): Promise<User[]> => {
 };
 
 export const createUser = async (data: CreateUserRequest): Promise<User> => {
-  const response = await axios.post(`${API_BASE_URL}/users`, data);
-  return response.data;
+  const response = await axios.post(`${API_BASE_URL}/users`, [data], {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+
+  return Array.isArray(response.data) ? response.data[0] : response.data;
 };
+
 
 export const updateUser = async (id: string, data: any): Promise<User> => {
   const response = await axios.put(`${API_BASE_URL}/users/${id}`, data, {

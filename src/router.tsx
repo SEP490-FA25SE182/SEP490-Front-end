@@ -41,6 +41,8 @@ import ModeratorChapterList from "./pages/moderator/ModeratorChapterList";
 import ModeratorPageList from "./pages/moderator/ModeratorPageList";
 import ModeratorPageDetail from "./pages/moderator/ModeratorPageDetail";
 import ModeratorPage from "./pages/moderator/ModeratorPage";
+import RoleManagementPage from "./pages/admin/RoleManagement";
+import PaymentMethodManagementPage from "./pages/admin/PaymentMethodManagement";
 
 export default function AppRouter() {
   return (
@@ -82,17 +84,14 @@ export default function AppRouter() {
         path="/moderator/authors/:authorId/books"
         element={<ModeratorBookList />}
       />
-
       <Route
         path="/moderator/books/:bookId/chapters"
         element={<ModeratorChapterList />}
       />
-
       <Route
         path="/moderator/chapters/:chapterId/pages"
         element={<ModeratorPageList />}
       />
-
       <Route
         path="/moderator/pages/:pageId"
         element={<ModeratorPageDetail />}
@@ -104,6 +103,8 @@ export default function AppRouter() {
       <Route path="/admin/users" element={<UserManagementPage />} />
       <Route path="/admin/orders" element={<OrderManagementPage />} />
       <Route path="/admin/authors" element={<AuthorManagementPage />} />
+      <Route path="/admin/roles" element={<RoleManagementPage />} />
+      <Route path="/admin/payment-method" element={<PaymentMethodManagementPage />} />
 
       <Route path="/moderator" element={<ModeratorPage />} />
     </Routes>

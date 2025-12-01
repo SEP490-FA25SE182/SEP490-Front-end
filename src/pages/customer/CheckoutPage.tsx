@@ -691,12 +691,15 @@ export default function CheckoutPage() {
           </Card>
 
           {/* ====================== ĐƠN HÀNG ====================== */}
-          <Card className="bg-white/5 border-white/10 backdrop-blur">
+          <Card className="bg-white/5 border-white/10 backdrop-blur ">
             <CardHeader>
               <CardTitle className="text-white">Đơn hàng của bạn</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3 max-h-72 overflow-auto pr-1">
+              <div className="space-y-3 max-h-72 overflow-auto pr-1
+              [scrollbar-width:none]
+              [-ms-overflow-style:none]
+              [&::-webkit-scrollbar]:hidden">
                 {linesToPay.map((l, idx) => {
                   const name = getBookName(l.book);
                   const unit = getUnit(l.book);

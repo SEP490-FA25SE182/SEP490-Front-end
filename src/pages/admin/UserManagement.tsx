@@ -20,12 +20,14 @@ import {
 } from "@/components/ui/select";
 import {
   getAllUsers,
+  createUser,
   updateUser,
   deleteUser,
   searchUsers,
   getRoleById,
   type User,
 } from "@/services/UserService";
+import { useGetAllRoles } from "@/services/RoleService";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
@@ -43,6 +45,22 @@ export default function UserManagementPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [royaltyValue, setRoyaltyValue] = useState<number>(0);
   const [savingRoyalty, setSavingRoyalty] = useState(false);
+
+  const [openCreateModal, setOpenCreateModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    phoneNumber: "",
+    roleId: "",
+    gender: "",
+    birthDate: "",
+  });
+
+  const [creating, setCreating] = useState(false);
+
+  const { data: roleList } = useGetAllRoles();
+
 
 
 
@@ -207,6 +225,55 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUser.fullName.trim() || !newUser.email.trim() || !newUser.password.trim()) {
+      toast.error("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+    if (!newUser.roleId) {
+      toast.error("Vui lòng chọn vai trò");
+      return;
+    }
+
+    try {
+      setCreating(true);
+
+      const body = {
+        ...newUser,
+        isActived: "ACTIVE",
+        avatarUrl: "",
+        royalty: 0,
+      };
+      await createUser(body);
+
+      toast.success("Tạo tài khoản thành công!");
+
+      // refresh list
+      const resUsers = await getAllUsers();
+      setUsers(resUsers);
+
+      // đóng modal
+      setOpenCreateModal(false);
+
+      // reset form
+      setNewUser({
+        fullName: "",
+        email: "",
+        password: "",
+        phoneNumber: "",
+        roleId: "",
+        gender: "",
+        birthDate: "",
+      });
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Tạo tài khoản thất bại");
+    } finally {
+      setCreating(false);
+    }
+  };
+
 
   //--------------------------------RENDER--------------------------------
   return (
@@ -244,6 +311,17 @@ export default function UserManagementPage() {
           <Button onClick={handleSearch} className="bg-purple-600 hover:bg-purple-700">
             Tìm kiếm
           </Button>
+
+          {isCurrentUserAdmin && (
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => setOpenCreateModal(true)}
+            >
+              + Tạo tài khoản
+            </Button>
+          )}
+
+
           <Select value={filterRole} onValueChange={setFilterRole}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
               <SelectValue placeholder="Vai trò" />
@@ -355,6 +433,7 @@ export default function UserManagementPage() {
         </div>
       </div>
 
+      {/* Royalty Modal*/}
       {openRoyaltyModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6">
@@ -399,6 +478,140 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Create User Modal*/}
+      {openCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-[420px] p-6 relative text-gray-900">
+
+            {/* Close button */}
+            <button
+              className="absolute right-4 top-4 text-gray-600 hover:text-black"
+              onClick={() => setOpenCreateModal(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4">Tạo tài khoản mới</h2>
+
+            {/* Fullname */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Họ tên</label>
+              <Input
+                value={newUser.fullName}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, fullName: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Email</label>
+              <Input
+                value={newUser.email}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, email: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+
+            {/* Password */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Mật khẩu</label>
+              <Input
+                type="password"
+                value={newUser.password}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, password: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+
+            {/* Phone */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Số điện thoại</label>
+              <Input
+                value={newUser.phoneNumber}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, phoneNumber: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+            {/* Gender */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Giới tính</label>
+              <Select
+                value={newUser.gender}
+                onValueChange={(v) => setNewUser({ ...newUser, gender: v })}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Chọn giới tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MALE">Nam</SelectItem>
+                  <SelectItem value="FEMALE">Nữ</SelectItem>
+                  <SelectItem value="OTHER">Khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Birthdate */}
+            <div className="mb-3">
+              <label className="text-sm text-gray-600">Ngày sinh</label>
+              <Input
+                type="date"
+                value={newUser.birthDate}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, birthDate: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+
+
+            {/* Role dropdown */}
+            <div className="mb-4">
+              <label className="text-sm text-gray-600">Vai trò</label>
+              <Select
+                value={newUser.roleId}
+                onValueChange={(v) => setNewUser({ ...newUser, roleId: v })}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleList?.map((r) => (
+                    <SelectItem key={r.roleId} value={r.roleId}>
+                      {r.roleName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
+                Hủy
+              </Button>
+
+              <Button
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={handleCreateUser}
+                disabled={creating}
+              >
+                {creating ? "Đang tạo..." : "Tạo tài khoản"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
     </div>
 

@@ -154,6 +154,8 @@ export default function AuthorBookList() {
     setCurrentPage(1);
   }, [searchQuery, selectedStatus, selectedPublication]);
 
+  
+  
 
   const confirmDeleteBook = (book: any) => {
     setDeletingBook(book);

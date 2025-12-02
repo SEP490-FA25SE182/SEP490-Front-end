@@ -181,8 +181,8 @@ export default function RoleManagementPage() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tất cả</SelectItem>
-                            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                            <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                            <SelectItem value="ACTIVE">Hoạt động</SelectItem>
+                            <SelectItem value="INACTIVE">Không hoạt động</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -301,8 +301,8 @@ export default function RoleManagementPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                                    <SelectItem value="ACTIVE">Hoạt động</SelectItem>
+                                    <SelectItem value="INACTIVE">Không hoạt động</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, } from 'lucide-react';
-import { getBooks, deleteBook as apiDeleteBook } from "@/services/BookService";
+import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { getBooks, deleteBook as apiDeleteBook, updateBookStatusFull } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,10 @@ export default function AuthorBookList() {
   const [deletingBook, setDeletingBook] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-
+  // send-for-review dialog state
+  const [openSendAlert, setOpenSendAlert] = useState(false);
+  const [sendReviewBook, setSendReviewBook] = useState<any | null>(null);
+  const [isSendingReview, setIsSendingReview] = useState(false);
 
   // create book dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -172,9 +175,6 @@ export default function AuthorBookList() {
     setCurrentPage(1);
   }, [searchQuery, selectedStatus, selectedPublication]);
 
-  
-  
-
   const confirmDeleteBook = (book: any) => {
     setDeletingBook(book);
     setOpenDeleteAlert(true);
@@ -186,7 +186,15 @@ export default function AuthorBookList() {
     try {
       await apiDeleteBook(deletingBook.bookId ?? deletingBook.book_id);
       // lọc rồi sắp xếp lại để giữ thứ tự updatedAt
-      setBooks(prev => sortBooksByUpdatedDesc(prev.filter(b => String(b.bookId ?? b.book_id) !== String(deletingBook.bookId ?? deletingBook.book_id))));
+      setBooks(prev =>
+        sortBooksByUpdatedDesc(
+          prev.filter(
+            b =>
+              String(b.bookId ?? b.book_id) !==
+              String(deletingBook.bookId ?? deletingBook.book_id)
+          )
+        )
+      );
       toast({
         title: "Xóa thành công",
         description: `Đã xóa sách "${deletingBook.bookName ?? deletingBook.book_name}".`,
@@ -204,6 +212,59 @@ export default function AuthorBookList() {
       setDeletingBook(null);
     }
   };
+
+  // -------- SEND FOR REVIEW --------
+  const handleSendForReviewConfirmed = async () => {
+    const book = sendReviewBook;
+    if (!book) return;
+    setIsSendingReview(true);
+
+    try {
+      // 3 = PENDING (chờ duyệt)
+      await updateBookStatusFull({ ...book } as any, 3);
+
+      setBooks(prev =>
+        prev.map(b => {
+          const idB = b.bookId ?? b.book_id;
+          const id = book.bookId ?? book.book_id;
+          if (String(idB) === String(id)) {
+            return { ...b, publicationStatus: 3 };
+          }
+          return b;
+        })
+      );
+
+      toast({
+        title: "Đã gửi duyệt",
+        description: `Sách "${book.bookName ?? book.book_name}" đã được gửi đi duyệt.`,
+      });
+    } catch (err) {
+      console.error("Gửi duyệt thất bại:", err);
+      toast({
+        title: "Gửi duyệt thất bại",
+        description: "Không thể gửi sách đi duyệt. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingReview(false);
+      setOpenSendAlert(false);
+      setSendReviewBook(null);
+    }
+  };
+
+  const confirmSendForReview = (book: any) => {
+    const publication = book.publicationStatus ?? book.publication_status;
+    if (String(publication) === "3" || publication === 3) {
+      toast({
+        title: "Đã gửi duyệt",
+        description: "Quyển sách này đã được gửi đi duyệt trước đó.",
+      });
+      return;
+    }
+    setSendReviewBook(book);
+    setOpenSendAlert(true);
+  };
+  // ---------------------------------
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -283,7 +344,7 @@ export default function AuthorBookList() {
 
               return (
                 <div key={id} className="group relative">
-                  {/* make whole card clickable -> go to chapters of this book */}
+                  {/* whole card clickable -> go to chapters of this book */}
                   <div
                     className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
                     onClick={() => navigate(`/author/books/${id}/chapters`, { state: { book } })}
@@ -302,12 +363,18 @@ export default function AuthorBookList() {
                             <MoreVertical className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); navigate(`/author/authoreditbook/${id}`); }}
                             className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
                           >
                             <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
+                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
+                          >
+                            <CircleCheck className="mr-2 h-4 w-4" /> Đưa đi duyệt
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}
@@ -334,7 +401,7 @@ export default function AuthorBookList() {
                       </div>
 
                       {/* Book Name */}
-                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
+                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-8">
                         {name}
                       </div>
 
@@ -344,8 +411,8 @@ export default function AuthorBookList() {
                       </div>
                     </div>
                   </div>
-                 </div>
-               );
+                </div>
+              );
             })}
           </div>
 
@@ -407,6 +474,32 @@ export default function AuthorBookList() {
               disabled={isDeleting}
             >
               {isDeleting ? "Đang xóa..." : "Xóa"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send-for-review confirmation dialog */}
+      <AlertDialog open={openSendAlert} onOpenChange={setOpenSendAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gửi sách đi duyệt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn gửi sách "
+              {sendReviewBook?.bookName ?? sendReviewBook?.book_name}
+              " đi duyệt? Sau khi gửi, bạn sẽ không thể sửa hoặc xóa sách.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setOpenSendAlert(false)}>
+              Huỷ
+            </Button>
+            <Button
+              onClick={handleSendForReviewConfirmed}
+              disabled={isSendingReview}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isSendingReview ? "Đang gửi..." : "Gửi duyệt"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

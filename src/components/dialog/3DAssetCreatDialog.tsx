@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail } from "@/services/UserService";
 import { getCurrentUserId } from "@/utils/authStorage";
+import SpinningCubeLoader from "@/components/loading/SpinningCubeLoader";
 
 interface Props {
   isOpen: boolean;
@@ -234,6 +235,16 @@ const Asset3DCreateDialog: React.FC<Props> = ({ isOpen, onClose, markerId, userI
             Ghi chú: textureImageUrl / texturePrompt nên liên quan đến Prompt chính để kết quả phù hợp.
           </div>
         </div>
+
+        {/* 🔄 Loader cube hiển thị khi đang gửi request */}
+        {generateAsset.isPending && (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <SpinningCubeLoader />
+            <p className="text-xs text-gray-600 text-center">
+              Đang tạo 3D model, vui lòng chờ...
+            </p>
+          </div>
+        )}
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={onClose} className="mr-2">Huỷ</Button>

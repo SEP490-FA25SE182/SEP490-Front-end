@@ -1,5 +1,7 @@
-import { BookOpenText, CircleDollarSign, LogOut } from 'lucide-react';
+import { BookOpenText, CircleDollarSign, LogOut, CircleUser } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { getCurrentUserId } from "@/utils/authStorage";
+
 
 interface AuthorSidebarProps {
   isOpen: boolean;
@@ -7,6 +9,7 @@ interface AuthorSidebarProps {
 
 export default function AuthorSidebar({ isOpen }: AuthorSidebarProps) {
   const location = useLocation();
+  const currentUserId = getCurrentUserId(); 
 
   const navItems = [
     {
@@ -18,6 +21,11 @@ export default function AuthorSidebar({ isOpen }: AuthorSidebarProps) {
       path: '/author/authorbooklist',
       icon: <BookOpenText className="w-5 h-5" />,
       label: 'Sách của bạn',
+    },
+    {
+      path: currentUserId ? `/author/profile/${currentUserId}` : "/login",
+      icon: <CircleUser className="w-5 h-5" />,
+      label: "Hồ sơ tác giả",
     },
   ];
 

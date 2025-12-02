@@ -110,16 +110,34 @@ export default function AuthorBookList() {
     const p = String(publication ?? "").toUpperCase();
 
     const map: Record<string, { text: string; className: string }> = {
-      "0": { text: "Chưa xuất bản", className: "bg-gray-500/20 text-gray-300" },
+      "0": { text: "Nháp (đang làm)", className: "bg-gray-500/20 text-gray-300" },
       "1": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
-      "DRAFT": { text: "Nháp", className: "bg-gray-500/20 text-gray-300" },
+      "2": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
+      "3": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
+      "DRAFT": { text: "Nháp (đang làm)", className: "bg-gray-500/20 text-gray-300" },
       "PENDING": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
       "PUBLISHED": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
+      "ARCHIVED": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
       "ACTIVE": { text: "Hoạt động", className: "bg-green-500/20 text-green-300" },
       "INACTIVE": { text: "Không hoạt động", className: "bg-gray-500/20 text-gray-300" },
     };
 
     return map[p] ?? { text: publication ?? "-", className: "bg-gray-500/20 text-gray-300" };
+  };
+
+  // helper to match publication filter (supports numeric or token forms)
+  const PUB_TOKEN: Record<string, string> = { "0": "DRAFT", "1": "PUBLISHED", "2": "ARCHIVED", "3": "PENDING" };
+  const publicationMatches = (publication: any, selected: string) => {
+    if (selected === "all") return true;
+    const pubStr = String(publication ?? "").trim();
+    if (!pubStr) return false;
+    if (pubStr === selected) return true;
+    if (pubStr.toUpperCase() === selected.toUpperCase()) return true;
+    const mapped = PUB_TOKEN[pubStr];
+    if (mapped && mapped.toUpperCase() === selected.toUpperCase()) return true;
+    // also allow selected being numeric string and publication token present
+    if (Object.values(PUB_TOKEN).includes(pubStr.toUpperCase()) && String(Object.keys(PUB_TOKEN).find(k => PUB_TOKEN[k] === pubStr.toUpperCase())) === selected) return true;
+    return false;
   };
 
   // Filter books
@@ -131,7 +149,7 @@ export default function AuthorBookList() {
 
       const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = selectedStatus === 'all' || String(progress) === selectedStatus;
-      const matchesPublication = selectedPublication === 'all' || String(publication) === selectedPublication;
+      const matchesPublication = publicationMatches(publication, selectedPublication);
 
       return matchesSearch && matchesStatus && matchesPublication;
     });
@@ -234,8 +252,10 @@ export default function AuthorBookList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="0">Chưa xuất bản</SelectItem>
+                <SelectItem value="0">Nháp (đang làm)</SelectItem>
                 <SelectItem value="1">Đã xuất bản</SelectItem>
+                <SelectItem value="2">Đã được duyệt</SelectItem>
+                <SelectItem value="3">Chờ duyệt</SelectItem>
               </SelectContent>
             </Select>
 

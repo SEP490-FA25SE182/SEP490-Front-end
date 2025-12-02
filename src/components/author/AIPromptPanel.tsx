@@ -16,6 +16,7 @@ import {
   useCreateAIGenerationTarget,
   useGenerateIllustrationWithImage,
 } from "@/services/AIService";
+import SpinningCubeLoader from "@/components/loading/SpinningCubeLoader";
 
 interface AIPromptPanelProps {
   onGenerated?: (payload: { imageUrl: string; aiGeneration?: any }) => void;
@@ -308,6 +309,8 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
           className="bg-transparent border-white/20 text-white"
         />
       </div>
+
+      {generateWithImage.isPending && <SpinningCubeLoader />}
 
       {/* Generate */}
       <Button

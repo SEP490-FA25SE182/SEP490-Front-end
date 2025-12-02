@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { Menu, X, DollarSign, TrendingUp, CreditCard, Users, Calendar } from 'lucide-react';
-import AuthorSidebar from '@/components/author/AuthorSidebar';
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Menu,
+  X,
+  DollarSign,
+  TrendingUp,
+  BookOpen,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
+import AuthorSidebar from "@/components/author/AuthorSidebar";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -17,110 +17,196 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getAllBooks } from "@/services/BookService";
 
-// Sample payment data
-const paymentData = [
-  {
-    id: "PAY001",
-    book_name: "Book Title 1",
-    date: "2025-10-15",
-    amount: 150000,
-    commission: 105000,
-    status: "completed",
-    reader: "Nguyễn Văn A"
-  },
-  {
-    id: "PAY002",
-    book_name: "Book Title 3",
-    date: "2025-10-14",
-    amount: 200000,
-    commission: 140000,
-    status: "completed",
-    reader: "Trần Thị B"
-  },
-  {
-    id: "PAY003",
-    book_name: "Book Title 5",
-    date: "2025-10-12",
-    amount: 120000,
-    commission: 84000,
-    status: "pending",
-    reader: "Lê Văn C"
-  },
-  {
-    id: "PAY004",
-    book_name: "Book Title 2",
-    date: "2025-10-10",
-    amount: 180000,
-    commission: 126000,
-    status: "completed",
-    reader: "Phạm Thị D"
-  },
-  {
-    id: "PAY005",
-    book_name: "Book Title 1",
-    date: "2025-10-08",
-    amount: 150000,
-    commission: 105000,
-    status: "completed",
-    reader: "Hoàng Văn E"
-  },
-  {
-    id: "PAY006",
-    book_name: "Book Title 7",
-    date: "2025-10-07",
-    amount: 90000,
-    commission: 63000,
-    status: "completed",
-    reader: "Võ Thị F"
-  },
-  {
-    id: "PAY007",
-    book_name: "Book Title 3",
-    date: "2025-10-05",
-    amount: 200000,
-    commission: 140000,
-    status: "failed",
-    reader: "Đặng Văn G"
-  },
-  {
-    id: "PAY008",
-    book_name: "Book Title 9",
-    date: "2025-10-03",
-    amount: 175000,
-    commission: 122500,
-    status: "completed",
-    reader: "Bùi Thị H"
-  }
-];
+// Recharts
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
-const statusLabels = {
-  completed: { text: 'Hoàn thành', color: 'bg-green-100 text-green-600' },
-  pending: { text: 'Chờ xử lý', color: 'bg-yellow-100 text-yellow-600' },
-  failed: { text: 'Thất bại', color: 'bg-red-100 text-red-600' }
-};
+// NOTE: payment history previously was hardcoded. Now we fetch books and show charts.
 
 export default function AuthorIncome() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [books, setBooks] = useState<any[]>([]);
+  const [, setLoading] = useState(false);
 
-  // Calculate statistics
-  const totalRevenue = paymentData.reduce((sum, payment) => sum + payment.amount, 0);
-  const totalCommission = paymentData.reduce((sum, payment) => sum + payment.commission, 0);
-  const completedPayments = paymentData.filter(p => p.status === 'completed').length;
-  const pendingPayments = paymentData.filter(p => p.status === 'pending').length;
+  // resolve current user id from localStorage (used to count books for this author)
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = currentUser?.userId;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
+  useEffect(() => {
+    let mounted = true;
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        // fetch books (fetch many so we get all author's books)
+        const booksResp = await getAllBooks({ size: 1000 });
+        if (!mounted) return;
+        // if returned items contain authorId, filter by current user if available
+        // guard against non-array responses and ensure .content exists and is an array
+        const filtered = Array.isArray(booksResp)
+          ? (booksResp as any[])
+          : booksResp && typeof booksResp === "object" && "content" in booksResp && Array.isArray((booksResp as any).content)
+          ? (booksResp as any).content
+          : [];
+        const myBooks = userId
+          ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
+          : (filtered as any[]);
+        setBooks(myBooks);
+      } catch (err) {
+        console.error("Error loading author income data:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetch();
+    return () => {
+      mounted = false;
+    };
+  }, [userId]);
+
+  // compute metrics from fetched data
+  const totalBooks = books.length;
+  const publishedBooks = books.filter((b) => Number(b.publicationStatus) === 1).length;
+  const pendingBooks = books.filter((b) => Number(b.publicationStatus) !== 1).length;
+
+  // estimate revenue from books (fallback)
+  const totalRevenue = useMemo(
+    () => books.reduce((s, b) => s + (Number(b.price) || 0) * (Number(b.quantity) || 1), 0),
+    [books]
+  );
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
+
+  // Cards array: only 5 cards requested
+  const cards = [
+    {
+      title: "Tổng Doanh Thu",
+      value: formatCurrency(totalRevenue),
+      desc: "Ước tính từ sách",
+      icon: <DollarSign className="w-6 h-6" />,
+      accent: "from-[#764BA2] to-[#667EEA]",
+    },
+    {
+      title: "Phí tác quyền",
+      value: formatCurrency(Math.round(totalRevenue * 0.3)),
+      desc: "Phí/chiết khấu nền tảng (ước tính)",
+      icon: <BookOpen className="w-6 h-6" />,
+      accent: "from-[#334155] to-[#475569]",
+    },
+    {
+      title: "Tổng số sách",
+      value: String(totalBooks),
+      desc: "Số sách của bạn",
+      icon: <BookOpen className="w-6 h-6" />,
+      accent: "from-[#0ea5e9] to-[#667eea]",
+    },
+    {
+      title: "Sách chờ duyệt",
+      value: String(pendingBooks),
+      desc: "Cần duyệt xuất bản",
+      icon: <Clock className="w-6 h-6" />,
+      accent: "from-[#f59e0b] to-[#f97316]",
+    },
+    {
+      title: "Sách đã xuất bản",
+      value: String(publishedBooks),
+      desc: "Sách đã công khai",
+      icon: <CheckCircle className="w-6 h-6" />,
+      accent: "from-[#10b981] to-[#059669]",
+    },
+  ];
+
+  // Timeframe state for line chart
+  type Timeframe = "week" | "month" | "quarter" | "year";
+  const [timeframe, setTimeframe] = useState<Timeframe>("month");
+
+  // Helper: generate time buckets and counts
+  function generateTimeSeries(booksList: any[], tf: Timeframe) {
+    const now = new Date();
+    const buckets: { label: string; start: Date; end: Date }[] = [];
+    const fmtDay = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" });
+    const fmtMonth = new Intl.DateTimeFormat("vi-VN", { month: "short", year: "numeric" });
+
+    if (tf === "week") {
+      for (let i = 6; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        buckets.push({ label: fmtDay.format(start), start, end });
+      }
+    } else if (tf === "month") {
+      // last 30 days
+      for (let i = 29; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        buckets.push({ label: fmtDay.format(start), start, end });
+      }
+    } else if (tf === "quarter") {
+      // last 12 weeks
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - i * 7);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 7);
+        buckets.push({ label: `Wk ${Math.ceil((start.getDate() + start.getMonth() * 30) / 7)}`, start, end });
+      }
+    } else {
+      // year: last 12 months
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0, 0);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        buckets.push({ label: fmtMonth.format(start), start, end });
+      }
+    }
+
+    const series = buckets.map((b) => {
+      const count = booksList.filter((bk) => {
+        const d = bk?.createdAt ? new Date(bk.createdAt) : null;
+        return d && d >= b.start && d < b.end;
+      }).length;
+      return { name: b.label, count };
+    });
+
+    return series;
+  }
+
+  const lineData = useMemo(() => generateTimeSeries(books, timeframe), [books, timeframe]);
+
+  const pieData = useMemo(
+    () => [
+      { name: "Đã xuất bản", value: publishedBooks },
+      { name: "Chờ duyệt", value: pendingBooks },
+    ],
+    [publishedBooks, pendingBooks]
+  );
+
+  const COLORS = ["#10b981", "#f59e0b"];
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
-      {/* Sidebar */}
       <AuthorSidebar isOpen={sidebarOpen} />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
@@ -137,147 +223,103 @@ export default function AuthorIncome() {
         </header>
 
         <div className="flex-1 overflow-auto p-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Total Revenue */}
-            <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-3 bg-white/20 rounded-lg">
-                    <DollarSign className="w-6 h-6" />
+          {/* single-row 5 cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-6 mb-8">
+            {cards.map((card) => (
+              <Card key={card.title} className={`text-white bg-gradient-to-l ${card.accent}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="p-3 bg-white/20 rounded-lg">{card.icon}</div>
+                    <TrendingUp className="w-5 h-5 text-green-300" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-300" />
-                </div>
-                <CardDescription className="text-white/70">Tổng Doanh Thu</CardDescription>
-                <CardTitle className="text-2xl">{formatCurrency(totalRevenue)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-green-300 text-xs">+12.5% so với tháng trước</p>
-              </CardContent>
-            </Card>
-
-            {/* Total Commission */}
-            <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-3 bg-white/20 rounded-lg">
-                    <CreditCard className="w-6 h-6" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-green-300" />
-                </div>
-                <CardDescription className="text-white/70">Hoa Hồng Nhận Được</CardDescription>
-                <CardTitle className="text-2xl">{formatCurrency(totalCommission)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white/70 text-xs">70% doanh thu</p>
-              </CardContent>
-            </Card>
-
-            {/* Completed Payments */}
-            <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-3 bg-white/20 rounded-lg">
-                    <Users className="w-6 h-6" />
-                  </div>
-                </div>
-                <CardDescription className="text-white/70">Giao Dịch Hoàn Thành</CardDescription>
-                <CardTitle className="text-2xl">{completedPayments}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white/70 text-xs">giao dịch</p>
-              </CardContent>
-            </Card>
-
-            {/* Pending Payments */}
-            <Card className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-3 bg-white/20 rounded-lg">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                </div>
-                <CardDescription className="text-white/70">Đang Chờ Xử Lý</CardDescription>
-                <CardTitle className="text-2xl">{pendingPayments}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white/70 text-xs">giao dịch</p>
-              </CardContent>
-            </Card>
+                  <CardDescription className="text-white/70">{card.title}</CardDescription>
+                  <CardTitle className="text-2xl">{card.value}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-white/70 text-xs">{card.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          {/* Payment History Table */}
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-            <div className="px-6 py-4 bg-[#1a2332] border-b border-white/10">
-              <h2 className="text-xl font-semibold text-white">Lịch Sử Thanh Toán</h2>
+          {/* Charts: Line chart + Pie chart */}
+          <div className="bg-white rounded-lg shadow-xl overflow-hidden p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimeframe("week")}
+                  className={`px-3 py-1 rounded ${timeframe === "week" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Tuần
+                </button>
+                <button
+                  onClick={() => setTimeframe("month")}
+                  className={`px-3 py-1 rounded ${timeframe === "month" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Tháng
+                </button>
+                <button
+                  onClick={() => setTimeframe("quarter")}
+                  className={`px-3 py-1 rounded ${timeframe === "quarter" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Quý
+                </button>
+                <button
+                  onClick={() => setTimeframe("year")}
+                  className={`px-3 py-1 rounded ${timeframe === "year" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                >
+                  Năm
+                </button>
+              </div>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                  <TableHead className="text-white font-medium">Mã GD</TableHead>
-                  <TableHead className="text-white font-medium">Tên Sách</TableHead>
-                  <TableHead className="text-white font-medium">Người Mua</TableHead>
-                  <TableHead className="text-white font-medium">Ngày</TableHead>
-                  <TableHead className="text-white font-medium">Doanh Thu</TableHead>
-                  <TableHead className="text-white font-medium">Hoa Hồng</TableHead>
-                  <TableHead className="text-white font-medium">Trạng Thái</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="col-span-2 bg-white p-4 rounded">
+                <h3 className="text-sm text-gray-600 mb-2">Số sách tạo theo thời gian</h3>
+                <div style={{ width: "100%", height: 320 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={lineData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="count" stroke="#667eea" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
-              <TableBody>
-                {paymentData.map((payment) => (
-                  <TableRow key={payment.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-gray-900">{payment.id}</TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 font-medium">{payment.book_name}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-600">{payment.reader}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 text-sm">
-                        {new Date(payment.date).toLocaleDateString('vi-VN')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-gray-900 font-semibold">
-                        {formatCurrency(payment.amount)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-green-600 font-semibold">
-                        {formatCurrency(payment.commission)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusLabels[payment.status as keyof typeof statusLabels].color
-                          }`}
+              <div className="bg-white p-4 rounded">
+                <h3 className="text-sm text-gray-600 mb-2">Trạng thái sách</h3>
+                <div style={{ width: "100%", height: 320 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label
                       >
-                        {statusLabels[payment.status as keyof typeof statusLabels].text}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        {pieData.map((_entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Legend />
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
 
-            {/* Summary Footer */}
-            <div className="border-t px-6 py-4 bg-gray-50 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                Tổng cộng: <span className="font-semibold">{paymentData.length} giao dịch</span>
-              </div>
-              <div className="flex gap-6">
-                <div className="text-sm">
-                  <span className="text-gray-600">Tổng doanh thu: </span>
-                  <span className="font-bold text-purple-600">{formatCurrency(totalRevenue)}</span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-gray-600">Tổng hoa hồng: </span>
-                  <span className="font-bold text-green-600">{formatCurrency(totalCommission)}</span>
-                </div>
-              </div>
+            <div className="mt-6 text-sm text-gray-600">
+              Tổng sách: <span className="font-semibold">{totalBooks}</span>
+              <span className="ml-4">Đã xuất bản: <span className="font-semibold">{publishedBooks}</span></span>
+              <span className="ml-4">Chờ duyệt: <span className="font-semibold">{pendingBooks}</span></span>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { useSearchQuizzes, type Quiz } from "@/services/QuizService";
 import { useGetChapterById } from "@/services/BookManageService";
 import {
@@ -17,8 +16,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Eye, Edit } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import QuizDetailDialog from "@/components/dialog/QuizDetailDialog";
+import QuizEditDialog from "@/components/dialog/QuizEditDialog";
 
 interface Props {
   isOpen: boolean;
@@ -28,10 +27,10 @@ interface Props {
 }
 
 const QuizChapterDialog: React.FC<Props> = ({ isOpen, onClose, chapterId }) => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [openDetailDialog, setOpenDetailDialog] = React.useState(false);
-  const [detailQuizId, setDetailQuizId] = React.useState<string | null>(null);
+  const [openDetailDialog, setOpenDetailDialog] = useState(false);
+  const [detailQuizId, setDetailQuizId] = useState<string | null>(null);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [editQuizId, setEditQuizId] = useState<string | null>(null);
 
   const params = {
     page: 0,
@@ -77,27 +76,24 @@ const QuizChapterDialog: React.FC<Props> = ({ isOpen, onClose, chapterId }) => {
                   const qId = q.quizId ?? q.id;
                   return (
                     <div key={qId ?? `${q.title}-${Math.random()}`} className="relative">
-                      {/* dropdown in top-right of each quiz card */}
+                      {/* dropdown for each quiz card */}
                       <div className="absolute top-2 right-2 z-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-6 w-6 rounded-full bg-white/80 flex items-center justify-center text-black hover:bg-white"
-                              aria-label="options"
+                            <Button
+                              onClick={(e) => { e.stopPropagation(); }}
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 bg-white/0 text-gray-600"
                             >
                               <MoreVertical className="h-4 w-4" />
-                            </button>
+                            </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuContent align="end" className="w-44">
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (!qId) {
-                                  toast({ title: "Không tìm thấy quizId", variant: "destructive" });
-                                  return;
-                                }
-                                setDetailQuizId(qId);
+                                setDetailQuizId(qId ?? null);
                                 setOpenDetailDialog(true);
                               }}
                             >
@@ -106,29 +102,18 @@ const QuizChapterDialog: React.FC<Props> = ({ isOpen, onClose, chapterId }) => {
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (!qId) {
-                                  toast({ title: "Không tìm thấy quizId", variant: "destructive" });
-                                  return;
-                                }
-                                // navigate to quiz edit page (adjust route if different)
-                                navigate(`/author/quizzes/${qId}/edit`);
+                                setEditQuizId(qId ?? null);
+                                setOpenEditDialog(true);
                               }}
                             >
-                              <Edit className="mr-2 h-4 w-4" /> Sửa nội dung
+                              <Edit className="mr-2 h-4 w-4" /> Sửa quiz
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-
                       <div
-                        // make card non-clickable — only dropdown is interactive
                         className="rounded border p-3 bg-white text-black shadow-sm transition"
-                        onClick={(e) => {
-                          // prevent accidental propagation to dialog background or parent handlers
-                          e.stopPropagation();
-                        }}
                         role="group"
-                        aria-disabled="true"
                       >
                         <div className="font-medium text-gray-900 truncate">{q.title}</div>
                         <div className="text-xs text-gray-600 mt-1">Tổng điểm: {q.totalScore ?? "-"}</div>
@@ -148,8 +133,8 @@ const QuizChapterDialog: React.FC<Props> = ({ isOpen, onClose, chapterId }) => {
           </div>
         </DialogFooter>
       </DialogContent>
-
-      {/* Quiz detail dialog instance */}
+      
+      {/* quiz detail dialog */}
       <QuizDetailDialog
         isOpen={openDetailDialog}
         onClose={() => {
@@ -158,6 +143,14 @@ const QuizChapterDialog: React.FC<Props> = ({ isOpen, onClose, chapterId }) => {
         }}
         quizId={detailQuizId ?? undefined}
       />
+     <QuizEditDialog
+       isOpen={openEditDialog}
+       onClose={() => {
+         setOpenEditDialog(false);
+         setEditQuizId(null);
+       }}
+       quizId={editQuizId ?? undefined}
+     />
     </Dialog>
   );
 };

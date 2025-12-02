@@ -14,7 +14,7 @@ const publicationStatusLabelLocal = (status: number | string | undefined) => {
   }
 };
 
-import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen, Eye } from "lucide-react";
+import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen, Gamepad2 } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,15 +47,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import QuizChapterDialog from "@/components/dialog/QuizChapterDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import QuizChapterDialog from "@/components/dialog/QuizChapterDialog";
 
 export default function AuthorChapterList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  // quiz dialog state
   const [openQuizDialog, setOpenQuizDialog] = useState(false);
-  const [quizChapterId, setQuizChapterId] = useState<string | null>(null);
+  const [quizDialogChapterId, setQuizDialogChapterId] = useState<string | null>(null);
   const { bookId: paramBookId } = useParams<{ bookId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -263,27 +262,23 @@ export default function AuthorChapterList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setQuizChapterId(id);
-                              setOpenQuizDialog(true);
-                            }}
-                          >
-                            <Eye className="mr-2 h-4 w-4" /> Xem Quiz
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); setEditingChapter(normalized); setOpenEditDialog(true); }}
-                          >
-                            <Edit className="mr-2 h-4 w-4" /> Sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => { e.stopPropagation(); handleConfirmDelete(normalized); }} 
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); setQuizDialogChapterId(id); setOpenQuizDialog(true); }}
+                            >
+                              <Gamepad2 className="mr-2 h-4 w-4" /> Xem quiz
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); setEditingChapter(normalized); setOpenEditDialog(true); }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" /> Sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => { e.stopPropagation(); handleConfirmDelete(normalized); }} 
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
@@ -361,6 +356,14 @@ export default function AuthorChapterList() {
         chapter={editingChapter}
         onUpdated={handleEditSaved}
       />
+      <QuizChapterDialog
+        isOpen={openQuizDialog}
+        onClose={() => {
+          setOpenQuizDialog(false);
+          setQuizDialogChapterId(null);
+        }}
+        chapterId={quizDialogChapterId ?? undefined}
+      />
       <AlertDialog open={openDeleteAlert} onOpenChange={setOpenDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -383,16 +386,6 @@ export default function AuthorChapterList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Quiz per-chapter dialog */}
-      <QuizChapterDialog
-        isOpen={openQuizDialog}
-        onClose={() => {
-          setOpenQuizDialog(false);
-          setQuizChapterId(null);
-        }}
-        chapterId={quizChapterId ?? undefined}
-      />
     </div>
   );
 }

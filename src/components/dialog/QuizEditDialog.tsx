@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,305 +7,325 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  useGetQuizPlayById,
   useGetQuizById,
+  useGetQuizPlayById,
   useUpdateQuiz,
   useUpdateQuestion,
   useUpdateAnswer,
   type QuizPlay,
-  type PlayQuestion,
-  type PlayAnswer,
 } from "@/services/QuizService";
-import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   quizId?: string | null;
-  onSaved?: () => void;
 }
 
-export default function QuizEditDialog({ isOpen, onClose, quizId, onSaved }: Props) {
+const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const qc = useQueryClient();
 
-  // fetch playable quiz (contains questions + answers)
-  const {
-    data: playData,
-    isLoading,
-    isError,
-    refetch,
-  } = useGetQuizPlayById(quizId ?? undefined);
-
-  // also fetch quiz meta (title) to allow updating other fields if needed
+  const { data: playData, isLoading, isError, refetch } = useGetQuizPlayById(
+    quizId ?? undefined
+  );
+  // 👉 lấy quiz meta để giữ chapterId + các field khác
   const { data: quizMeta } = useGetQuizById(quizId ?? undefined);
 
   const updateQuiz = useUpdateQuiz();
   const updateQuestion = useUpdateQuestion();
   const updateAnswer = useUpdateAnswer();
 
-  // local editable state
-  const [title, setTitle] = useState<string>("");
-  const [questions, setQuestions] = useState<PlayQuestion[]>([]);
+  const [local, setLocal] = useState<QuizPlay | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && quizId) {
       refetch();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, quizId]);
+  }, [isOpen, quizId, refetch]);
 
   useEffect(() => {
     if (playData) {
-      setQuestions((playData as QuizPlay).questions?.map((q) => ({ ...q })) ?? []);
+      // clone to local editable state
+      setLocal(JSON.parse(JSON.stringify(playData)));
+    } else {
+      setLocal(null);
     }
-    if (quizMeta) {
-      setTitle((quizMeta as any).title ?? "");
-    }
-  }, [playData, quizMeta]);
+  }, [playData]);
 
-  const handleQuestionChange = (index: number, changes: Partial<PlayQuestion>) => {
-    setQuestions((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], ...changes };
-      return copy;
+  const handleChangeQuizMeta = (
+    field: keyof Pick<QuizPlay, "title" | "totalScore">,
+    value: any
+  ) => {
+    if (!local) return;
+    setLocal((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const handleChangeQuestion = (
+    qIndex: number,
+    field: "content" | "score",
+    value: any
+  ) => {
+    if (!local) return;
+    setLocal((prev) => {
+      if (!prev) return prev;
+      const questions = [...prev.questions];
+      questions[qIndex] = { ...questions[qIndex], [field]: value };
+      return { ...prev, questions };
     });
   };
 
-  const handleAnswerChange = (qIndex: number, aIndex: number, changes: Partial<PlayAnswer>) => {
-    setQuestions((prev) => {
-      const copy = [...prev];
-      const q = { ...copy[qIndex] };
-      const answers = (q.answers ?? []).map((a) => ({ ...a }));
-      answers[aIndex] = { ...answers[aIndex], ...changes } as PlayAnswer;
-      q.answers = answers;
-      copy[qIndex] = q;
-      return copy;
+  const handleChangeAnswer = (
+    qIndex: number,
+    aIndex: number,
+    field: "content" | "isCorrect",
+    value: any
+  ) => {
+    if (!local) return;
+    setLocal((prev) => {
+      if (!prev) return prev;
+      const questions = [...prev.questions];
+      const answers = [...questions[qIndex].answers];
+      answers[aIndex] = { ...answers[aIndex], [field]: value };
+      questions[qIndex] = { ...questions[qIndex], answers };
+      return { ...prev, questions };
     });
   };
 
-  const saveQuizMeta = async () => {
-    if (!quizId) return;
-    try {
-      setSaving(true);
-      await updateQuiz.mutateAsync({ id: quizId, data: { ...(quizMeta as any), title } });
-      toast({ title: "Cập nhật quiz thành công" });
-      onSaved?.();
-      refetch();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Lỗi khi cập nhật quiz", variant: "destructive" });
-    } finally {
-      setSaving(false);
+  const handleSave = async () => {
+    if (!local || !quizId) return;
+    if (!quizMeta) {
+      toast({
+        title: "Không tìm thấy quiz gốc",
+        description: "Không thể lưu vì thiếu thông tin quiz.",
+        variant: "destructive",
+      });
+      return;
     }
-  };
 
-  const saveQuestionAndAnswers = async (q: PlayQuestion) => {
+    setSaving(true);
     try {
-      setSaving(true);
-      // update question (API expects Question shape; map fields)
-      if (q.questionId) {
-        await updateQuestion.mutateAsync({
-          id: q.questionId,
-          data: {
-            // minimal required payload: quizId, content, score, answerCount
-            quizId: quizId as string,
-            content: q.content,
-            score: q.score,
-            answerCount: q.answerCount ?? (q.answers?.length ?? 0),
-            isActived: "ACTIVE",
-          } as any,
-        });
-      }
+      // 🔹 Update quiz meta, giữ nguyên chapterId và các field khác từ quizMeta
+      await updateQuiz.mutateAsync({
+        id: quizId,
+        data: {
+          ...quizMeta, // giữ chapterId, attemptCount, createdAt,...
+          quizId, // ghi đè lại id nếu cần
+          title: local.title,
+          totalScore: local.totalScore,
+          questionCount: local.questionCount,
+        } as any,
+      });
 
-      // update answers
-      if (q.answers && q.answers.length) {
-        for (const a of q.answers) {
-          if (!a.answerId) continue;
-          await updateAnswer.mutateAsync({
-            id: a.answerId,
-            data: {
-              content: a.content,
-              isCorrect: a.isCorrect,
-              questionId: q.questionId ?? "",
-              isActived: "ACTIVE",
-            } as any,
-          });
-        }
-      }
-
-      toast({ title: "Cập nhật câu hỏi thành công" });
-      refetch();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Lỗi khi cập nhật câu hỏi", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveAll = async () => {
-    if (!quizId) return;
-    try {
-      setSaving(true);
-      // update quiz meta first
-      await updateQuiz.mutateAsync({ id: quizId, data: { ...(quizMeta as any), title } });
-      // update all questions & answers sequentially
-      for (const q of questions) {
+      // 🔹 Update questions & answers
+      for (const q of local.questions) {
         if (q.questionId) {
           await updateQuestion.mutateAsync({
             id: q.questionId,
             data: {
-              quizId: quizId,
+              id: q.questionId,
+              quizId,
               content: q.content,
               score: q.score,
-              answerCount: q.answerCount ?? (q.answers?.length ?? 0),
+              answerCount: q.answerCount ?? q.answers.length,
               isActived: "ACTIVE",
             } as any,
           });
         }
-        if (q.answers && q.answers.length) {
-          for (const a of q.answers) {
-            if (!a.answerId) continue;
+
+        for (const a of q.answers) {
+          const aid = a.answerId ?? (a as any).id;
+          if (aid) {
             await updateAnswer.mutateAsync({
-              id: a.answerId,
+              id: aid,
               data: {
+                id: aid,
+                questionId: q.questionId ?? "",
                 content: a.content,
                 isCorrect: a.isCorrect,
-                questionId: q.questionId ?? "",
                 isActived: "ACTIVE",
               } as any,
             });
           }
         }
       }
-      toast({ title: "Lưu tất cả thay đổi thành công" });
-      onSaved?.();
-      refetch();
+
+      // 🔹 Invalidate cache
+      qc.invalidateQueries({ queryKey: ["quizzes", "play", quizId] });
+      qc.invalidateQueries({ queryKey: ["quizzes", "search"] });
+
+      toast({
+        title: "Lưu thành công",
+        description: "Đã cập nhật quiz.",
+      });
+      onClose();
     } catch (err) {
-      console.error(err);
-      toast({ title: "Lỗi khi lưu thay đổi", variant: "destructive" });
+      toast({
+        title: "Lưu thất bại",
+        description: "Có lỗi khi lưu. Thử lại.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open={!!isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="w-[80vw] max-w-[95vw] bg-white text-black rounded-lg">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        size="xl"
+        className="w-[85vw] max-w-[95vw] bg-white text-black rounded-lg"
+      >
         <DialogHeader>
           <DialogTitle className="text-black">
-            Chỉnh sửa Quiz - {quizMeta ? (quizMeta as any).title : quizId ?? ""}
+            {local ? `Chỉnh sửa: ${local.title}` : "Chỉnh sửa quiz"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Tiêu đề Quiz</label>
-            <input
-              className="w-full border rounded px-3 py-2"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <div className="text-xs text-gray-500 mt-1">Chỉnh sửa tiêu đề quiz tại đây.</div>
-            <div className="mt-2 flex gap-2">
-              <Button onClick={saveQuizMeta} disabled={saving}>
-                Lưu tiêu đề
-              </Button>
-              <Button variant="ghost" onClick={() => { if (quizId) navigate(`/author/quizzes/${quizId}/edit`); }}>
-                Mở trang chỉnh sửa đầy đủ
-              </Button>
+        <div className="mt-4">
+          {isLoading ? (
+            <div className="text-sm text-gray-600">Đang tải...</div>
+          ) : isError ? (
+            <div className="text-sm text-red-500">
+              Lỗi khi tải dữ liệu quiz.
             </div>
-          </div>
+          ) : !local ? (
+            <div className="text-sm text-gray-600">
+              Không có dữ liệu để chỉnh sửa.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input
+                  value={local.title}
+                  onChange={(e) =>
+                    handleChangeQuizMeta("title", e.target.value)
+                  }
+                  placeholder="Tiêu đề quiz"
+                />
+                <Input
+                  value={String(local.totalScore ?? "")}
+                  onChange={(e) =>
+                    handleChangeQuizMeta(
+                      "totalScore",
+                      Number(e.target.value || 0)
+                    )
+                  }
+                  placeholder="Tổng điểm"
+                  type="number"
+                />
+                <Input
+                  value={String(local.questionCount ?? "")}
+                  disabled
+                  placeholder="Số câu"
+                />
+              </div>
 
-          <div>
-            <div className="text-sm text-gray-700 mb-2">Câu hỏi</div>
-
-            <div className="max-h-[60vh] overflow-auto pr-4 space-y-4">
-              {isLoading ? (
-                <div className="text-sm text-gray-600">Đang tải dữ liệu...</div>
-              ) : isError ? (
-                <div className="text-sm text-red-500">Lỗi khi tải dữ liệu quiz.</div>
-              ) : !questions || questions.length === 0 ? (
-                <div className="text-sm text-gray-600">Không có câu hỏi.</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {questions.map((q, qi) => (
-                    <div key={q.questionId ?? `q-${qi}`} className="p-4 border rounded bg-gray-50">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">Câu {qi + 1}</div>
-                          <textarea
-                            className="w-full mt-2 border rounded px-3 py-2"
-                            value={q.content ?? ""}
-                            onChange={(e) => handleQuestionChange(qi, { content: e.target.value })}
+              <div className="max-h-[60vh] overflow-auto pr-4 space-y-3">
+                {local.questions.map((q, qi) => (
+                  <div
+                    key={q.questionId ?? qi}
+                    className="p-4 border rounded bg-gray-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <Textarea
+                          value={q.content}
+                          onChange={(e) =>
+                            handleChangeQuestion(qi, "content", e.target.value)
+                          }
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Điểm:
+                          <Input
+                            className="w-24 inline-block ml-2"
+                            type="number"
+                            value={String(q.score ?? 0)}
+                            onChange={(e) =>
+                              handleChangeQuestion(
+                                qi,
+                                "score",
+                                Number(e.target.value || 0)
+                              )
+                            }
                           />
-                          <div className="flex items-center gap-2 mt-2">
-                            <label className="text-xs text-gray-600">Điểm:</label>
-                            <input
-                              type="number"
-                              className="w-24 border rounded px-2 py-1"
-                              value={q.score ?? 0}
-                              onChange={(e) => handleQuestionChange(qi, { score: Number(e.target.value) })}
-                            />
-                          </div>
                         </div>
-
-                        <div className="flex flex-col items-end gap-2">
-                          <Button size="sm" onClick={() => saveQuestionAndAnswers(q)} disabled={saving}>
-                            Lưu câu
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {(q.answers || []).map((a, ai) => (
-                          <div key={a.answerId ?? `a-${ai}`} className={`p-2 rounded border ${a.isCorrect ? "border-green-400 bg-green-50" : "bg-white border-gray-200"}`}>
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                className="flex-1 border-none bg-transparent px-1 py-1"
-                                value={a.content}
-                                onChange={(e) => handleAnswerChange(qi, ai, { content: e.target.value })}
-                              />
-                              <label className="ml-2 flex items-center gap-1 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={!!a.isCorrect}
-                                  onChange={(e) => handleAnswerChange(qi, ai, { isCorrect: e.target.checked })}
-                                />{" "}
-                                Đúng
-                              </label>
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="mt-4 flex justify-between items-center">
-              <div className="text-sm text-gray-600">Tổng {questions.length} câu</div>
-              <div className="flex gap-2">
-                <Button onClick={saveAll} disabled={saving}>
-                  Lưu tất cả
-                </Button>
-                <Button variant="ghost" onClick={() => refetch()}>Tải lại</Button>
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {q.answers.map((a, ai) => (
+                        <div
+                          key={a.answerId ?? ai}
+                          className={`p-2 rounded border ${
+                            a.isCorrect
+                              ? "border-green-400 bg-green-50"
+                              : "bg-white border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={!!a.isCorrect}
+                              onChange={(e) =>
+                                handleChangeAnswer(
+                                  qi,
+                                  ai,
+                                  "isCorrect",
+                                  e.target.checked
+                                )
+                              }
+                            />
+                            <Textarea
+                              value={a.content}
+                              onChange={(e) =>
+                                handleChangeAnswer(
+                                  qi,
+                                  ai,
+                                  "content",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          {a.isCorrect && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Đáp án đúng
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter className="mt-4">
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => onClose()}>Đóng</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Huỷ
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !local}>
+              {saving ? "Đang lưu..." : "Lưu"}
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+export default QuizEditDialog;

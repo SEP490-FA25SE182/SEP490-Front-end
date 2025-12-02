@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface Cart {
   cartId: string;
@@ -13,7 +13,7 @@ export const CartService = {
   // 🟢 Lấy giỏ hàng theo userId
   async getCartByUserId(userId: string): Promise<Cart | null> {
     try {
-      const res = await axios.get(`${API_BASE_URL}/users/carts/user/${userId}`, {
+      const res = await axios.get(`${API_RK}/users/carts/user/${userId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -49,7 +49,7 @@ export const CartService = {
 
     console.log("📦 Gửi request tạo giỏ hàng:", payload);
 
-    const res = await axios.post(`${API_BASE_URL}/users/carts`, payload, {
+    const res = await axios.post(`${API_RK}/users/carts`, payload, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -62,7 +62,7 @@ export const CartService = {
 
   // 🔴 Xóa giỏ hàng
   async deleteCart(cartId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/users/carts/${cartId}`, {
+    await axios.delete(`${API_RK}/users/carts/${cartId}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     });
   },

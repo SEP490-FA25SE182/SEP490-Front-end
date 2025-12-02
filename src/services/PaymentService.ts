@@ -1,6 +1,6 @@
 // src/services/PaymentService.ts
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 /* =====================================================
    🧾 TYPE DEFINITIONS
@@ -41,7 +41,7 @@ export const PaymentService = {
     const returnUrl = `${window.location.origin}/payment-status?success=true`;
     const cancelUrl = `${window.location.origin}/payment-status?success=false`;
 
-    const res = await axios.post(`${API_BASE_URL}/payments/${orderId}/checkout`, null, {
+    const res = await axios.post(`${API_RK}/payments/${orderId}/checkout`, null, {
       params: { returnUrl, cancelUrl },
       headers: { "Content-Type": "application/json" },
     });
@@ -57,7 +57,7 @@ export const PaymentService = {
   async webhookCallback(payload: PaymentWebhookRequest): Promise<PaymentWebhookResponse> {
     console.log("📨 Gửi dữ liệu webhook:", payload);
 
-    const res = await axios.post(`${API_BASE_URL}/payments/webhook`, payload, {
+    const res = await axios.post(`${API_RK}/payments/webhook`, payload, {
       headers: { "Content-Type": "application/json" },
     });
 

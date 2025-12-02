@@ -40,7 +40,7 @@ import {
 } from "@/services/WalletService";
 
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 // ===============================
 //  TYPES
@@ -354,7 +354,7 @@ export default function AuthorManagementPage() {
             }
 
             // 3️⃣ Gọi API lấy danh sách payment method (Page)
-            const pmRes = await axios.get(`${API_BASE_URL}/payment-methods/search`, {
+            const pmRes = await axios.get(`${API_RK}/payment-methods/search`, {
                 // Nếu BE bắt buộc search qua endpoint /payment-methods/search thì đổi path ở đây
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("token")}`,

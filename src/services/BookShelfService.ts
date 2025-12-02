@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface Bookshelf {
   bookshelveId: string;
@@ -19,7 +19,7 @@ export interface CreateBookshelfRequest {
 
 /* ------------------ 📘 GET all bookshelves ------------------ */
 export const getAllBookshelves = async (): Promise<Bookshelf[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/bookshelves`, {
+  const res = await axios.get(`${API_RK}/users/bookshelves`, {
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   return res.data;
@@ -27,7 +27,7 @@ export const getAllBookshelves = async (): Promise<Bookshelf[]> => {
 
 /* ------------------ 📘 GET bookshelf by ID ------------------ */
 export const getBookshelfById = async (id: string): Promise<Bookshelf> => {
-  const res = await axios.get(`${API_BASE_URL}/users/bookshelves/${id}`, {
+  const res = await axios.get(`${API_RK}/users/bookshelves/${id}`, {
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   return res.data;
@@ -37,7 +37,7 @@ export const getBookshelfById = async (id: string): Promise<Bookshelf> => {
 export const createBookshelf = async (
   data: CreateBookshelfRequest
 ): Promise<Bookshelf> => {
-  const res = await axios.post(`${API_BASE_URL}/users/bookshelves`, data, {
+  const res = await axios.post(`${API_RK}/users/bookshelves`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -51,7 +51,7 @@ export const updateBookshelf = async (
   id: string,
   data: Partial<CreateBookshelfRequest>
 ): Promise<Bookshelf> => {
-  const res = await axios.put(`${API_BASE_URL}/users/bookshelves/${id}`, data, {
+  const res = await axios.put(`${API_RK}/users/bookshelves/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -62,7 +62,7 @@ export const updateBookshelf = async (
 
 /* ------------------ ❌ DELETE bookshelf ------------------ */
 export const deleteBookshelf = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/bookshelves/${id}`, {
+  await axios.delete(`${API_RK}/users/bookshelves/${id}`, {
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 };

@@ -1,7 +1,6 @@
 import axios from "axios";
 import { useMutation, useQuery } from "@tanstack/react-query";
-
-const API_BASE_URL = "http://localhost:8083/api/rookie";
+import { API_AR } from "@/config";
 
 /* ====================== INTERFACES ====================== */
 
@@ -55,7 +54,7 @@ export interface PagedResponse<T> {
  * Swagger sample shows a single object in request body — dùng Marker (không phải mảng)
  */
 export const createMarker = async (data: Marker): Promise<Marker> => {
-  const response = await axios.post(`${API_BASE_URL}/markers`, data);
+  const response = await axios.post(`${API_AR}/markers`, data);
   return response.data;
 };
 
@@ -63,7 +62,7 @@ export const createMarker = async (data: Marker): Promise<Marker> => {
  * Lấy marker theo ID (GET /markers/{id})
  */
 export const getMarkerById = async (id: string): Promise<Marker> => {
-  const response = await axios.get(`${API_BASE_URL}/markers/${id}`);
+  const response = await axios.get(`${API_AR}/markers/${id}`);
   return response.data;
 };
 
@@ -71,7 +70,7 @@ export const getMarkerById = async (id: string): Promise<Marker> => {
  * Cập nhật marker theo ID (PUT /markers/{id})
  */
 export const updateMarker = async (id: string, data: Marker): Promise<Marker> => {
-  const response = await axios.put(`${API_BASE_URL}/markers/${id}`, data);
+  const response = await axios.put(`${API_AR}/markers/${id}`, data);
   return response.data;
 };
 
@@ -79,7 +78,7 @@ export const updateMarker = async (id: string, data: Marker): Promise<Marker> =>
  * Xoá marker theo ID (DELETE /markers/{id})
  */
 export const deleteMarker = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/markers/${id}`);
+  await axios.delete(`${API_AR}/markers/${id}`);
 };
 
 /**
@@ -88,7 +87,7 @@ export const deleteMarker = async (id: string): Promise<void> => {
 export const searchMarkers = async (
   params?: MarkerSearchParams
 ): Promise<PagedResponse<Marker>> => {
-  const response = await axios.get(`${API_BASE_URL}/markers/search`, { params });
+  const response = await axios.get(`${API_AR}/markers/search`, { params });
   return response.data;
 };
 
@@ -141,7 +140,7 @@ export const useSearchMarkers = (params?: MarkerSearchParams) => {
  * GET /markers
  */
 export const getAllMarkers = async (): Promise<Marker[]> => {
-  const response = await axios.get(`${API_BASE_URL}/markers`);
+  const response = await axios.get(`${API_AR}/markers`);
   return response.data;
 };
 
@@ -156,7 +155,7 @@ export const attachMarkerToPage = async (
   markerId: string,
   pageId: string
 ): Promise<void> => {
-  await axios.post(`${API_BASE_URL}/markers/${markerId}/pages/${pageId}`);
+  await axios.post(`${API_AR}/markers/${markerId}/pages/${pageId}`);
 };
 
 export const useAttachMarkerToPage = () => {
@@ -232,7 +231,7 @@ export const uploadAsset3D = async (
   const form = new FormData();
   form.append("file", file);
   form.append("meta", new Blob([JSON.stringify(meta)], { type: "application/json" }));
-  const response = await axios.post(`${API_BASE_URL}/asset3d/upload`, form, {
+  const response = await axios.post(`${API_AR}/asset3d/upload`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data;
@@ -245,7 +244,7 @@ export const uploadAsset3D = async (
 export const generateAsset3D = async (
   meta: GenerateAsset3DMeta
 ): Promise<Asset3D> => {
-  const response = await axios.post(`${API_BASE_URL}/asset3d/generate`, meta);
+  const response = await axios.post(`${API_AR}/asset3d/generate`, meta);
   return response.data;
 };
 
@@ -254,7 +253,7 @@ export const generateAsset3D = async (
  * GET /asset3d/{id}
  */
 export const getAsset3DById = async (id: string): Promise<Asset3D> => {
-  const response = await axios.get(`${API_BASE_URL}/asset3d/${id}`);
+  const response = await axios.get(`${API_AR}/asset3d/${id}`);
   return response.data;
 };
 
@@ -263,7 +262,7 @@ export const getAsset3DById = async (id: string): Promise<Asset3D> => {
  * DELETE /asset3d/{id}
  */
 export const deleteAsset3D = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/asset3d/${id}`);
+  await axios.delete(`${API_AR}/asset3d/${id}`);
 };
 
 /**
@@ -273,7 +272,7 @@ export const deleteAsset3D = async (id: string): Promise<void> => {
 export const searchAsset3D = async (
   params?: Asset3DSearchParams
 ): Promise<PagedResponse<Asset3D>> => {
-  const response = await axios.get(`${API_BASE_URL}/asset3d/search`, { params });
+  const response = await axios.get(`${API_AR}/asset3d/search`, { params });
   return response.data;
 };
 
@@ -285,7 +284,7 @@ export const getAsset3DByMarkerCode = async (
   code: string,
   params?: { page?: number; size?: number; sort?: string[] }
 ): Promise<PagedResponse<Asset3D>> => {
-  const response = await axios.get(`${API_BASE_URL}/asset3d/by-marker-code/${encodeURIComponent(code)}`, {
+  const response = await axios.get(`${API_AR}/asset3d/by-marker-code/${encodeURIComponent(code)}`, {
     params,
   });
   return response.data;
@@ -299,7 +298,7 @@ export const getLatestAsset3D = async (
   markerId: string,
   limit: number = 3
 ): Promise<Asset3D[]> => {
-  const response = await axios.get(`${API_BASE_URL}/asset3d/latest`, {
+  const response = await axios.get(`${API_AR}/asset3d/latest`, {
     params: { markerId, limit },
   });
   return response.data;
@@ -384,32 +383,32 @@ export interface ARSceneSearchParams {
 
 /** POST /ar-scenes */
 export const createARScene = async (data: ARScene): Promise<ARScene> => {
-  const response = await axios.post(`${API_BASE_URL}/ar-scenes`, data);
+  const response = await axios.post(`${API_AR}/ar-scenes`, data);
   return response.data;
 };
 
 /** GET /ar-scenes/{id} */
 export const getARSceneById = async (id: string): Promise<ARScene> => {
-  const response = await axios.get(`${API_BASE_URL}/ar-scenes/${id}`);
+  const response = await axios.get(`${API_AR}/ar-scenes/${id}`);
   return response.data;
 };
 
 /** PUT /ar-scenes/{id} */
 export const updateARScene = async (id: string, data: ARScene): Promise<ARScene> => {
-  const response = await axios.put(`${API_BASE_URL}/ar-scenes/${id}`, data);
+  const response = await axios.put(`${API_AR}/ar-scenes/${id}`, data);
   return response.data;
 };
 
 /** DELETE /ar-scenes/{id} */
 export const deleteARScene = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/ar-scenes/${id}`);
+  await axios.delete(`${API_AR}/ar-scenes/${id}`);
 };
 
 /** GET /ar-scenes/search */
 export const searchARScenes = async (
   params?: ARSceneSearchParams
 ): Promise<PagedResponse<ARScene>> => {
-  const response = await axios.get(`${API_BASE_URL}/ar-scenes/search`, { params });
+  const response = await axios.get(`${API_AR}/ar-scenes/search`, { params });
   return response.data;
 };
 
@@ -483,7 +482,7 @@ export const createARSceneItems = async (
   items: ARSceneItem[]
 ): Promise<ARSceneItem[]> => {
   const response = await axios.post(
-    `${API_BASE_URL}/ar-scenes/ar-scene-items`,
+    `${API_AR}/ar-scenes/ar-scene-items`,
     items
   );
   return response.data;
@@ -492,7 +491,7 @@ export const createARSceneItems = async (
 /** GET /ar-scenes/ar-scene-items/{id} */
 export const getARSceneItemById = async (id: string): Promise<ARSceneItem> => {
   const response = await axios.get(
-    `${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`
+    `${API_AR}/ar-scenes/ar-scene-items/${id}`
   );
   return response.data;
 };
@@ -503,7 +502,7 @@ export const updateARSceneItem = async (
   data: ARSceneItem
 ): Promise<ARSceneItem> => {
   const response = await axios.put(
-    `${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`,
+    `${API_AR}/ar-scenes/ar-scene-items/${id}`,
     data
   );
   return response.data;
@@ -511,7 +510,7 @@ export const updateARSceneItem = async (
 
 /** DELETE /ar-scenes/ar-scene-items/{id} */
 export const deleteARSceneItem = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/ar-scenes/ar-scene-items/${id}`);
+  await axios.delete(`${API_AR}/ar-scenes/ar-scene-items/${id}`);
 };
 
 /** GET /ar-scenes/ar-scene-items/search */
@@ -519,7 +518,7 @@ export const searchARSceneItems = async (
   params?: ARSceneItemSearchParams
 ): Promise<PagedResponse<ARSceneItem>> => {
   const response = await axios.get(
-    `${API_BASE_URL}/ar-scenes/ar-scene-items/search`,
+    `${API_AR}/ar-scenes/ar-scene-items/search`,
     { params }
   );
   return response.data;

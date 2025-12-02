@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 import { resolveFirebaseUrl } from "@/firebase";
 
 /* -----------------------------------------
@@ -37,7 +37,7 @@ export interface CreateBlogRequest {
 export const BlogService = {
   // 🔹 Lấy tất cả bài viết
   async getAll(): Promise<BlogPost[]> {
-    const res = await axios.get(`${API_BASE_URL}/blogs/search`);
+    const res = await axios.get(`${API_RK}/blogs/search`);
     const data = Array.isArray(res.data)
       ? res.data
       : Array.isArray(res.data.content)
@@ -56,7 +56,7 @@ export const BlogService = {
 
   // 🔹 Lấy bài viết theo ID
   async getById(blogId: string): Promise<BlogPost> {
-    const res = await axios.get(`${API_BASE_URL}/blogs/${blogId}`);
+    const res = await axios.get(`${API_RK}/blogs/${blogId}`);
     const blog = res.data;
 
     return {
@@ -72,7 +72,7 @@ export const BlogService = {
       bookId: data.bookId ?? null,
     };
 
-    const res = await axios.post(`${API_BASE_URL}/blogs`, [payload], {
+    const res = await axios.post(`${API_RK}/blogs`, [payload], {
       headers: { "Content-Type": "application/json" },
     });
 
@@ -86,7 +86,7 @@ export const BlogService = {
 
   // 🔹 Cập nhật bài viết (có thể cập nhật lại coverUrl gs://...)
   async update(blogId: string, data: Partial<CreateBlogRequest>): Promise<BlogPost> {
-    const res = await axios.put(`${API_BASE_URL}/blogs/${blogId}`, data);
+    const res = await axios.put(`${API_RK}/blogs/${blogId}`, data);
     const updated = res.data;
     return {
       ...updated,
@@ -96,7 +96,7 @@ export const BlogService = {
 
   // 🔹 Xóa bài viết
   async remove(blogId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/blogs/${blogId}`);
+    await axios.delete(`${API_RK}/blogs/${blogId}`);
   },
 
   // 🔹 Tìm kiếm bài viết (mặc định chỉ lấy ACTIVE)
@@ -111,7 +111,7 @@ export const BlogService = {
     size?: number;
     sort?: string[];
   }): Promise<BlogPost[]> {
-    const res = await axios.get(`${API_BASE_URL}/blogs/search`, { params });
+    const res = await axios.get(`${API_RK}/blogs/search`, { params });
     const data = res.data.content ?? res.data;
 
     const blogs = await Promise.all(
@@ -131,7 +131,7 @@ export const BlogService = {
     size?: number;
     sort?: string[];
   }): Promise<BlogPost[]> {
-    const res = await axios.get(`${API_BASE_URL}/blogs/filter`, { params });
+    const res = await axios.get(`${API_RK}/blogs/filter`, { params });
     const data = res.data.content ?? res.data;
 
     const blogs = await Promise.all(
@@ -145,7 +145,7 @@ export const BlogService = {
 
   // 🔹 Lấy blog của user cụ thể
   async getByUser(authorId: string): Promise<BlogPost[]> {
-    const res = await axios.get(`${API_BASE_URL}/blogs/search/user`, {
+    const res = await axios.get(`${API_RK}/blogs/search/user`, {
       params: { authorId },
     });
     const blogs = Array.isArray(res.data) ? res.data : res.data.content ?? [];
@@ -216,7 +216,7 @@ export const CommentService = {
     if (params?.size !== undefined) query.append("size", String(params.size));
     if (params?.sort) query.append("sort", params.sort);
 
-    const url = `${API_BASE_URL}/users/comments${query.toString() ? `?${query}` : ""}`;
+    const url = `${API_RK}/users/comments${query.toString() ? `?${query}` : ""}`;
     const res = await axios.get(url);
     const data = res.data;
 
@@ -231,25 +231,25 @@ export const CommentService = {
 
   // 🔹 Lấy comment theo ID (GET /api/rookie/users/comments/{id})
   async getById(id: string): Promise<Comment> {
-    const res = await axios.get(`${API_BASE_URL}/users/comments/${id}`);
+    const res = await axios.get(`${API_RK}/users/comments/${id}`);
     return res.data;
   },
 
   // 🔹 Tạo mới comment (POST /api/rookie/users/comments)
   async create(data: CreateCommentRequest): Promise<Comment> {
-    const res = await axios.post(`${API_BASE_URL}/users/comments`, data);
+    const res = await axios.post(`${API_RK}/users/comments`, data);
     return res.data;
   },
 
   // 🔹 Cập nhật comment (PUT /api/rookie/users/comments/{id})
    async update(id: string, data: UpdateCommentRequest): Promise<Comment> {
-    const res = await axios.put(`${API_BASE_URL}/users/comments/${id}`, data);
+    const res = await axios.put(`${API_RK}/users/comments/${id}`, data);
     return res.data;
   },
 
   // 🔹 Xóa comment (DELETE /api/rookie/users/comments/{id})
   async remove(id: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/users/comments/${id}`);
+    await axios.delete(`${API_RK}/users/comments/${id}`);
   },
 };
 
@@ -291,7 +291,7 @@ export interface UpdateTagRequest {
 export const TagService = {
   // 🔹 Lấy tất cả tag
   async getAll(): Promise<Tag[]> {
-    const res = await axios.get(`${API_BASE_URL}/tags`);
+    const res = await axios.get(`${API_RK}/tags`);
     const data = res.data;
     if (Array.isArray(data?.content)) return data.content;
     return data;
@@ -299,31 +299,31 @@ export const TagService = {
 
   // 🔹 Lấy tag theo ID
   async getById(id: string): Promise<Tag> {
-    const res = await axios.get(`${API_BASE_URL}/tags/${id}`);
+    const res = await axios.get(`${API_RK}/tags/${id}`);
     return res.data;
   },
 
   // 🔹 Tạo mới tag (POST /api/rookie/tags)
   // ⚠️ Backend yêu cầu gửi MẢNG
   async create(tags: CreateTagRequest[]): Promise<Tag[]> {
-    const res = await axios.post(`${API_BASE_URL}/tags`, tags);
+    const res = await axios.post(`${API_RK}/tags`, tags);
     return res.data;
   },
 
   // 🔹 Cập nhật tag (PUT /api/rookie/tags/{id})
   async update(id: string, data: UpdateTagRequest): Promise<Tag> {
-    const res = await axios.put(`${API_BASE_URL}/tags/${id}`, data);
+    const res = await axios.put(`${API_RK}/tags/${id}`, data);
     return res.data;
   },
 
   // 🔹 Xóa tag (DELETE /api/rookie/tags/{id})
   async remove(id: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/tags/${id}`);
+    await axios.delete(`${API_RK}/tags/${id}`);
   },
 
   // 🔹 Tìm kiếm tag theo tên (GET /api/rookie/tags/search?keyword=xxx)
   async search(keyword: string): Promise<Tag[]> {
-    const res = await axios.get(`${API_BASE_URL}/tags/search`, {
+    const res = await axios.get(`${API_RK}/tags/search`, {
       params: { keyword },
     });
     const data = res.data;

@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 import { resolveFirebaseUrl } from "@/firebase";
 import { getToken, getCurrentUserId, getUserRole } from "@/utils/authStorage";
 
@@ -51,7 +51,7 @@ export interface GetBooksParams {
 /* =======================================================
    🔒 AXIOS INSTANCE
 ======================================================= */
-const api = axios.create({ baseURL: API_BASE_URL });
+const api = axios.create({ baseURL: API_RK });
 
 api.interceptors.request.use((config) => {
   const token = getToken();

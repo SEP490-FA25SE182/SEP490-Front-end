@@ -1,8 +1,7 @@
 import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-
-const API_BASE_URL = "http://localhost:8082/api/rookie";
+import { API_AI } from "@/config";
 
 /* ====================== INTERFACES ====================== */
 
@@ -117,7 +116,7 @@ export const uploadTTSFile = async (
   formData.append("file", file);
 
   const response = await axios.post(
-    `${API_BASE_URL}/audios/tts/upload`,
+    `${API_AI}/audios/tts/upload`,
     formData,
     {
       headers: {
@@ -141,7 +140,7 @@ export const generateIllustration = async (
   meta: GenerateIllustrationMeta
 ) => {
   const response = await axios.post(
-    `${API_BASE_URL}/illustrations/generate/generate`,
+    `${API_AI}/illustrations/generate/generate`,
     { meta },
     { headers: { "X-User-Id": userId } }
   );
@@ -154,7 +153,7 @@ export const generateIllustration = async (
 export const createIllustration = async (
   data: Illustration[]
 ): Promise<Illustration[]> => {
-  const response = await axios.post(`${API_BASE_URL}/illustrations`, data);
+  const response = await axios.post(`${API_AI}/illustrations`, data);
   return response.data;
 };
 
@@ -164,7 +163,7 @@ export const createIllustration = async (
 export const createAIGeneration = async (
   data: AIGeneration[]
 ): Promise<AIGeneration[]> => {
-  const response = await axios.post(`${API_BASE_URL}/ai-generations`, data);
+  const response = await axios.post(`${API_AI}/ai-generations`, data);
   return response.data;
 };
 
@@ -174,7 +173,7 @@ export const createAIGeneration = async (
 export const createAIGenerationTarget = async (
   data: AIGenerationTarget[]
 ): Promise<AIGenerationTarget[]> => {
-  const response = await axios.post(`${API_BASE_URL}/ai-generation-targets`, data);
+  const response = await axios.post(`${API_AI}/ai-generation-targets`, data);
   return response.data;
 };
 
@@ -182,7 +181,7 @@ export const createAIGenerationTarget = async (
  * Lấy danh sách tất cả audios
  */
 export const getAudios = async (params?: { userId?: string }): Promise<Audio[]> => {
-  const response = await axios.get(`${API_BASE_URL}/audios`, { params });
+  const response = await axios.get(`${API_AI}/audios`, { params });
   return response.data;
 };
 
@@ -190,7 +189,7 @@ export const getAudios = async (params?: { userId?: string }): Promise<Audio[]> 
  * Lấy chi tiết một audio theo ID
  */
 export const getAudioById = async (id: string): Promise<Audio> => {
-  const response = await axios.get(`${API_BASE_URL}/audios/${id}`);
+  const response = await axios.get(`${API_AI}/audios/${id}`);
   return response.data;
 };
 
@@ -198,7 +197,7 @@ export const getAudioById = async (id: string): Promise<Audio> => {
  * Tạo mới audio (POST)
  */
 export const createAudio = async (data: Audio[]): Promise<Audio[]> => {
-  const response = await axios.post(`${API_BASE_URL}/audios`, data);
+  const response = await axios.post(`${API_AI}/audios`, data);
   return response.data;
 };
 
@@ -209,7 +208,7 @@ export const updateAudio = async (
   id: string,
   data: Audio
 ): Promise<Audio> => {
-  const response = await axios.put(`${API_BASE_URL}/audios/${id}`, data);
+  const response = await axios.put(`${API_AI}/audios/${id}`, data);
   return response.data;
 };
 
@@ -217,13 +216,13 @@ export const updateAudio = async (
  * Xoá audio theo ID (DELETE)
  */
 export const deleteAudio = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/audios/${id}`);
+  await axios.delete(`${API_AI}/audios/${id}`);
 };
 
 export const createPageAudio = async (
   data: PageAudio[]
 ): Promise<PageAudio[]> => {
-  const response = await axios.post(`${API_BASE_URL}/page-audios`, data);
+  const response = await axios.post(`${API_AI}/page-audios`, data);
   return response.data;
 };
 
@@ -233,7 +232,7 @@ export const createPageAudio = async (
 export const createPageIllustration = async (
   data: PageIllustration[]
 ): Promise<PageIllustration[]> => {
-  const response = await axios.post(`${API_BASE_URL}/page-illustrations`, data);
+  const response = await axios.post(`${API_AI}/page-illustrations`, data);
   return response.data;
 };
 
@@ -247,7 +246,7 @@ export const generateIllustrationWithImage = async (
   if (controlImage) formData.append("controlImage", controlImage);
 
   const response = await axios.post(
-    `${API_BASE_URL}/illustrations/generate/generate`,
+    `${API_AI}/illustrations/generate/generate`,
     formData,
     {
       headers: {
@@ -265,7 +264,7 @@ export const generateTTS = async (
   meta: GenerateTTSMeta
 ): Promise<Audio> => {
   const response = await axios.post(
-    `${API_BASE_URL}/audios/tts`,
+    `${API_AI}/audios/tts`,
     meta,
     {
       headers: {
@@ -277,7 +276,7 @@ export const generateTTS = async (
 };
 
 export const getAllAIGenerations = async (): Promise<AIGeneration[]> => {
-  const response = await axios.get(`${API_BASE_URL}/ai-generations`);
+  const response = await axios.get(`${API_AI}/ai-generations`);
   return response.data;
 };
 
@@ -285,7 +284,7 @@ export const getAllAIGenerations = async (): Promise<AIGeneration[]> => {
  * Lấy danh sách tất cả illustrations
  */
 export const getAllIllustrations = async (params?: { userId?: string }): Promise<Illustration[]> => {
-  const response = await axios.get(`${API_BASE_URL}/illustrations`, { params });
+  const response = await axios.get(`${API_AI}/illustrations`, { params });
   return response.data;
 };
 
@@ -293,7 +292,7 @@ export const getAllIllustrations = async (params?: { userId?: string }): Promise
  * Lấy chi tiết một illustration theo ID
  */
 export const getIllustrationById = async (id: string): Promise<Illustration> => {
-  const response = await axios.get(`${API_BASE_URL}/illustrations/${id}`);
+  const response = await axios.get(`${API_AI}/illustrations/${id}`);
   return response.data;
 };
 
@@ -312,7 +311,7 @@ export const searchAudios = async (params?: {
   size?: number;
   sort?: string[];
 }): Promise<Audio[]> => {
-  const response = await axios.get(`${API_BASE_URL}/audios/search`, { params });
+  const response = await axios.get(`${API_AI}/audios/search`, { params });
   return response.data?.content ?? [];
 };
 
@@ -329,7 +328,7 @@ export const searchIllustrations = async (params?: {
   size?: number;
   sort?: string[];
 }): Promise<Illustration[]> => {
-  const response = await axios.get(`${API_BASE_URL}/illustrations/search`, { params });
+  const response = await axios.get(`${API_AI}/illustrations/search`, { params });
   return response.data?.content ?? [];
 };
 
@@ -363,7 +362,7 @@ export const searchPageAudios = async (params?: {
   first: boolean;
   empty: boolean;
 }> => {
-  const response = await axios.get(`${API_BASE_URL}/page-audios/search`, { params });
+  const response = await axios.get(`${API_AI}/page-audios/search`, { params });
   return response.data;
 };
 
@@ -397,7 +396,7 @@ export const searchPageIllustrations = async (params?: {
   first: boolean;
   empty: boolean;
 }> => {
-  const response = await axios.get(`${API_BASE_URL}/page-illustrations/search`, { params });
+  const response = await axios.get(`${API_AI}/page-illustrations/search`, { params });
   return response.data;
 };
 
@@ -408,7 +407,7 @@ export const updatePageAudio = async (
   id: string,
   data: PageAudio
 ): Promise<PageAudio> => {
-  const response = await axios.put(`${API_BASE_URL}/page-audios/${id}`, data);
+  const response = await axios.put(`${API_AI}/page-audios/${id}`, data);
   return response.data;
 };
 
@@ -419,7 +418,7 @@ export const updatePageIllustration = async (
   id: string,
   data: PageIllustration
 ): Promise<PageIllustration> => {
-  const response = await axios.put(`${API_BASE_URL}/page-illustrations/${id}`, data);
+  const response = await axios.put(`${API_AI}/page-illustrations/${id}`, data);
   return response.data;
 };
 

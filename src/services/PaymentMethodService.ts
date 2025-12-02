@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface PaymentMethod {
   paymentMethodId: string;
@@ -20,7 +20,7 @@ export interface PaymentMethodRequest {
 /** Lấy tất cả phương thức thanh toán (search page) */
 export const getAllPaymentMethods = async (): Promise<PaymentMethod[]> => {
   try {
-    const res = await axios.get(`${API_BASE_URL}/payment-methods/search`, {
+    const res = await axios.get(`${API_RK}/payment-methods/search`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
       },
@@ -38,7 +38,7 @@ export const getAllPaymentMethods = async (): Promise<PaymentMethod[]> => {
 export const getPaymentMethodById = async (
   id: string
 ): Promise<PaymentMethod> => {
-  const res = await axios.get(`${API_BASE_URL}/payment-methods/${id}`, {
+  const res = await axios.get(`${API_RK}/payment-methods/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     },
@@ -50,7 +50,7 @@ export const getPaymentMethodById = async (
 export const createPaymentMethod = async (
   data: PaymentMethodRequest
 ): Promise<PaymentMethod> => {
-  const res = await axios.post(`${API_BASE_URL}/payment-methods`, data, {
+  const res = await axios.post(`${API_RK}/payment-methods`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
@@ -64,7 +64,7 @@ export const updatePaymentMethod = async (
   id: string,
   data: PaymentMethodRequest
 ): Promise<PaymentMethod> => {
-  const res = await axios.put(`${API_BASE_URL}/payment-methods/${id}`, data, {
+  const res = await axios.put(`${API_RK}/payment-methods/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
@@ -75,7 +75,7 @@ export const updatePaymentMethod = async (
 
 /** Xoá phương thức thanh toán theo ID */
 export const deletePaymentMethod = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/payment-methods/${id}`, {
+  await axios.delete(`${API_RK}/payment-methods/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     },

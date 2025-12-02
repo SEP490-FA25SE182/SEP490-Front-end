@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface Role {
   roleId: string;
@@ -24,7 +24,7 @@ export interface UpdateRoleRequest {
  * @returns Danh sách Role[]
  */
 export const getAllRoles = async (): Promise<Role[]> => {
-  const response = await axios.get<Role[]>(`${API_BASE_URL}/users/roles`);
+  const response = await axios.get<Role[]>(`${API_RK}/users/roles`);
   return response.data;
 };
 
@@ -34,14 +34,14 @@ export const getAllRoles = async (): Promise<Role[]> => {
  * @returns Role
  */
 export const getRoleById = async (id: string): Promise<Role> => {
-  const response = await axios.get<Role>(`${API_BASE_URL}/users/roles/${id}`);
+  const response = await axios.get<Role>(`${API_RK}/users/roles/${id}`);
   return response.data;
 };
 
 
 /* Tạo role mới */
 export const createRole = async (data: CreateRoleRequest[]): Promise<Role[]> => {
-  return (await axios.post(`${API_BASE_URL}/users/roles`, data)).data;
+  return (await axios.post(`${API_RK}/users/roles`, data)).data;
 };
 
 
@@ -57,14 +57,14 @@ export const updateRoleById = async (
   id: string,
   data: UpdateRoleRequest
 ): Promise<Role> => {
-  const response = await axios.put<Role>(`${API_BASE_URL}/users/roles/${id}`, data);
+  const response = await axios.put<Role>(`${API_RK}/users/roles/${id}`, data);
   return response.data;
 };
 
 
 /** Xoá role theo ID */
 export const deleteRoleById = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/roles/${id}`);
+  await axios.delete(`${API_RK}/users/roles/${id}`);
 };
 
 

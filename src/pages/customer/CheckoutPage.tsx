@@ -166,6 +166,7 @@ export default function CheckoutPage() {
     if (!orderId) {
       toast({
         variant: "destructive",
+        duration: 1500,
         title: "Không tìm thấy mã đơn hàng",
         description: "Vui lòng quay lại giỏ hàng và thử lại.",
       });
@@ -308,6 +309,7 @@ export default function CheckoutPage() {
       toast({
         title: "Đang kết nối PayOS...",
         description: "Vui lòng chờ trong giây lát.",
+        duration: 1500,
       });
 
       const currentOrder = await OrderService.getOrderById(orderId);
@@ -394,6 +396,7 @@ export default function CheckoutPage() {
         variant: "destructive",
         title: "Không thể khởi tạo thanh toán PayOS",
         description: error?.message || "Vui lòng thử lại sau.",
+        duration: 1500,
       });
     }
   }
@@ -404,6 +407,7 @@ export default function CheckoutPage() {
         variant: "destructive",
         title: "Không tìm thấy mã đơn hàng",
         description: "Vui lòng quay lại giỏ hàng.",
+        duration: 1500,
       });
       return;
     }
@@ -417,6 +421,7 @@ export default function CheckoutPage() {
         variant: "destructive",
         title: "Thiếu thông tin địa chỉ",
         description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
+        duration: 1500,
       });
       return;
     }
@@ -473,6 +478,7 @@ export default function CheckoutPage() {
       toast({
         title: "Đặt hàng thành công!",
         description: "Bạn sẽ thanh toán khi nhận hàng (COD).",
+        duration: 1500,
       });
 
       navigate("/payment-status", {
@@ -484,6 +490,7 @@ export default function CheckoutPage() {
         variant: "destructive",
         title: "Lỗi COD",
         description: err?.message || "Không thể đặt hàng COD.",
+        duration: 1500,
       });
     }
   }
@@ -665,6 +672,7 @@ export default function CheckoutPage() {
                               variant: "destructive",
                               title: "Thiếu thông tin địa chỉ",
                               description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
+                              duration: 1500,
                             });
                             return;
                           }

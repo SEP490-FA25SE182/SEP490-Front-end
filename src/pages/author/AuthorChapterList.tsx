@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-// publicationStatus hiển thị theo yêu cầu: 0: Chưa xuất bản, 1: Đã xuất bản, 2: Đang lưu, 3: Pending
 const publicationStatusLabelLocal = (status: number | string | undefined) => {
   switch (Number(status)) {
     case 0:
@@ -15,7 +14,7 @@ const publicationStatusLabelLocal = (status: number | string | undefined) => {
   }
 };
 
-import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen } from "lucide-react";
+import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen, Eye } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,11 +47,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import QuizChapterDialog from "@/components/dialog/QuizChapterDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function AuthorChapterList() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // quiz dialog state
+  const [openQuizDialog, setOpenQuizDialog] = useState(false);
+  const [quizChapterId, setQuizChapterId] = useState<string | null>(null);
   const { bookId: paramBookId } = useParams<{ bookId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -261,6 +264,15 @@ export default function AuthorChapterList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuizChapterId(id);
+                              setOpenQuizDialog(true);
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" /> Xem Quiz
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); setEditingChapter(normalized); setOpenEditDialog(true); }}
                           >
                             <Edit className="mr-2 h-4 w-4" /> Sửa
@@ -280,7 +292,7 @@ export default function AuthorChapterList() {
                       <div className="relative w-16 h-20 flex items-center justify-center rounded bg-white/5">
                         <BookOpen className="w-12 h-12 text-purple-400" strokeWidth={1.5} />
                       </div>
-                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-[32px]">
+                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-8">
                         {normalized.chapterName}
                       </div>
                       <div className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
@@ -371,6 +383,16 @@ export default function AuthorChapterList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quiz per-chapter dialog */}
+      <QuizChapterDialog
+        isOpen={openQuizDialog}
+        onClose={() => {
+          setOpenQuizDialog(false);
+          setQuizChapterId(null);
+        }}
+        chapterId={quizChapterId ?? undefined}
+      />
     </div>
   );
 }

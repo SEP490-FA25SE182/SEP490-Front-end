@@ -339,7 +339,7 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                     key={idx}
                                     onClick={() => setActiveIdx(idx)}
                                     className={[
-                                        "text-sm min-w-[80px] px-4 py-2 rounded-md border transition",
+                                        "text-sm min-w-20 px-4 py-2 rounded-md border transition",
                                         "flex items-center justify-center gap-1",
                                         isActive
                                             ? "bg-purple-600 text-white border-purple-600"

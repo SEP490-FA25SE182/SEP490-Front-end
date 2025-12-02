@@ -130,9 +130,10 @@ export const deletePage = async (id: string): Promise<void> => {
 
 /** Lấy sách theo ID (GET /api/rookie/users/books/{id}) */
 export const getBookById = async (id: string): Promise<Book> => {
-    const res = await axios.get<Book>(`${API_RK}/${id}`);
+    const res = await axios.get<Book>(`${API_RK}/users/books/${id}`);
     return res.data;
 };
+
 
 // ==============================
 // React Query Hooks
@@ -168,9 +169,12 @@ export const useGetAllChapters = (params?: {
     isActived?: string;
 }) =>
     useQuery({
-        queryKey: ["chapters", params],
+        queryKey: ["chapters", params?.bookId ?? "all"],
         queryFn: () => getAllChapters(params),
+        enabled: !!params?.bookId,   // chỉ fetch khi đã có bookId
+        retry: 1,                    // tránh retry vô hạn nếu BE lỗi
     });
+
 
 // GET CHAPTER BY ID hook
 export const useGetChapterById = (id: string) =>

@@ -275,11 +275,20 @@ export default function AuthorProfile() {
                         <div className="text-white">{renderGender(user?.gender)}</div>
                       )}
 
-                      <label className="text-white/70 text-xs">Royalty (từ User)</label>
+                      <label className="text-white/70 text-xs">Royalty (%)</label>
                       {isEditing ? (
-                        <Input value={String(edited?.royalty ?? "")} onChange={(e) => onChangeField("royalty", Number(e.target.value || 0))} />
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min={0}
+                          max={100}
+                          placeholder="Phần trăm (ví dụ: 30)"
+                          value={edited?.royalty !== undefined && edited?.royalty !== null ? String(edited.royalty) : ""}
+                          onChange={(e) => onChangeField("royalty", Number(e.target.value || 0))}
+                          className="bg-transparent border-white/20 text-white"
+                        />
                       ) : (
-                        <div className="text-white">{formatCurrency(user?.royalty ?? undefined)}</div>
+                        <div className="text-white">{(user?.royalty ?? 0) + "%"}</div>
                       )}
 
                       <label className="text-white/70 text-xs">Cập nhật lần cuối</label>

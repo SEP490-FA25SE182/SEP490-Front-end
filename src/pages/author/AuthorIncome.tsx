@@ -226,7 +226,7 @@ export default function AuthorIncome() {
           {/* single-row 5 cards */}
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-6 mb-8">
             {cards.map((card) => (
-              <Card key={card.title} className={`text-white bg-gradient-to-l ${card.accent}`}>
+              <Card key={card.title} className={`text-white bg-linear-to-l ${card.accent}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-3 bg-white/20 rounded-lg">{card.icon}</div>

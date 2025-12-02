@@ -3,8 +3,7 @@ import axios from 'axios';
 import { useMutation } from "@tanstack/react-query";
 import { setAuth, clearAuth } from "@/utils/authStorage";
 import { bookService } from "@/services/BookService";
-
-const BASE_URL = 'http://localhost:8081/api/rookie/users';
+import { API_RK } from "@/config";
 
 export interface RegisterRequest {
   fullName: string;
@@ -35,18 +34,18 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
     phoneNumber: userData.phoneNumber,
     roleId: userData.roleId || ""
   };
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/register`, payload);
+  const response = await axios.post<AuthResponse>(`${API_RK}/users/auth/register`, payload);
   return response.data;
 };
 
 export const loginUser = async (credentials: LoginRequest): Promise<AuthResponse> => {
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/login`, credentials);
+  const response = await axios.post<AuthResponse>(`${API_RK}/users/auth/login`, credentials);
   return response.data;
 };
 
 export const logoutUser = async (token: string): Promise<AuthResponse> => {
   const response = await axios.post<AuthResponse>(
-    `${BASE_URL}/auth/logout`,
+    `${API_RK}/users/auth/logout`,
     {},
     { headers: { Authorization: `Bearer ${token}` } }
   );
@@ -54,18 +53,18 @@ export const logoutUser = async (token: string): Promise<AuthResponse> => {
 };
 
 export const googleAuth = async (data: GoogleAuthRequest): Promise<AuthResponse> => {
-  const response = await axios.post<AuthResponse>(`${BASE_URL}/auth/google`, data);
+  const response = await axios.post<AuthResponse>(`${API_RK}/users/auth/google`, data);
   return response.data;
 };
 export const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
-  await axios.post(`${BASE_URL}/auth/password/forgot`, data);
+  await axios.post(`${API_RK}/users/auth/password/forgot`, data);
 };
 export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
-  await axios.post(`${BASE_URL}/auth/password/reset`, data);
+  await axios.post(`${API_RK}/users/auth/password/reset`, data);
 };
 export const changePassword = async (data: ChangePasswordRequest, token?: string): Promise<void> => {
   await axios.post(
-    `${BASE_URL}/auth/password/change`,
+    `${API_RK}/users/auth/password/change`,
     data,
     token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
   );

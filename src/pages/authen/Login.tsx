@@ -10,6 +10,7 @@ import { useLoginUser } from "@/services/AuthService";
 import { getRoleById } from "@/services/RoleService";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
+import { API_RK } from '@/config';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -68,7 +69,7 @@ export default function Login() {
             try {
               const roleId = res.user.roleId;
               if (roleId) {
-                const roleResp = await axios.get(`http://localhost:8081/api/rookie/users/roles/${roleId}`);
+                const roleResp = await axios.get(`${API_RK}/users/roles/${roleId}`);
                 const role = roleResp.data;
                 const roleName = (role?.roleName || '').toLowerCase();
                 if (roleName.includes('author')) {
@@ -77,7 +78,7 @@ export default function Login() {
                 } else if (roleName.includes('admin')) {
                   window.location.href = "/admin/dashboard";
                   return;
-                } 
+                }
                 else if (roleName.includes('staff')) {
                   window.location.href = "/admin/dashboard";
                   return;
@@ -134,9 +135,10 @@ export default function Login() {
       setToken(idToken);
 
       // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
-      const response = await axios.post("http://localhost:8081/api/rookie/users/auth/google", {
+      const response = await axios.post(`${API_RK}/users/auth/google`, {
         idToken: idToken,
       });
+
 
       const res = response.data;
       console.log("Google Login Backend Response:", res);

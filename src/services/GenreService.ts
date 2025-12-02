@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface Genre {
   genreId: string;
@@ -12,7 +12,7 @@ export interface Genre {
 
 // 🟢 Lấy tất cả thể loại
 export const getAllGenres = async (): Promise<Genre[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/genres`, {
+  const res = await axios.get(`${API_RK}/users/genres`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -27,7 +27,7 @@ export const getAllGenres = async (): Promise<Genre[]> => {
 
 // 🟢 Lấy chi tiết 1 thể loại
 export const getGenreById = async (id: string): Promise<Genre> => {
-  const res = await axios.get(`${API_BASE_URL}/users/genres/${id}`, {
+  const res = await axios.get(`${API_RK}/users/genres/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -37,7 +37,7 @@ export const getGenreById = async (id: string): Promise<Genre> => {
 
 // 🟡 Tạo thể loại
 export const createGenre = async (data: Partial<Genre>): Promise<Genre> => {
-  const res = await axios.post(`${API_BASE_URL}/users/genres`, data, {
+  const res = await axios.post(`${API_RK}/users/genres`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -48,7 +48,7 @@ export const createGenre = async (data: Partial<Genre>): Promise<Genre> => {
 
 // 🟡 Cập nhật thể loại
 export const updateGenre = async (id: string, data: Partial<Genre>): Promise<Genre> => {
-  const res = await axios.put(`${API_BASE_URL}/users/genres/${id}`, data, {
+  const res = await axios.put(`${API_RK}/users/genres/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -59,7 +59,7 @@ export const updateGenre = async (id: string, data: Partial<Genre>): Promise<Gen
 
 // 🔴 Xóa thể loại
 export const deleteGenre = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/genres/${id}`, {
+  await axios.delete(`${API_RK}/users/genres/${id}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -72,7 +72,7 @@ export const attachGenresToBook = async (
   genreIds: string[]
 ): Promise<void> => {
   await axios.post(
-    `${API_BASE_URL}/users/books/${bookId}/genres`,
+    `${API_RK}/users/books/${bookId}/genres`,
     genreIds, // body là array<string>, đúng theo Swagger
     {
       headers: {

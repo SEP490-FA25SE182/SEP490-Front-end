@@ -1,6 +1,6 @@
 // src/services/WalletService.ts
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface Wallet {
   walletId: string;
@@ -31,13 +31,13 @@ const headers = {
 
 /* Lấy ví theo ID */
 export const getWalletById = async (id: string): Promise<Wallet> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/${id}`, { headers });
+  const res = await axios.get(`${API_RK}/users/wallets/${id}`, { headers });
   return res.data;
 };
 
 /* Lấy ví theo userId */
 export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/user/${userId}`, {
+  const res = await axios.get(`${API_RK}/users/wallets/user/${userId}`, {
     headers,
   });
   return res.data;
@@ -45,7 +45,7 @@ export const getWalletByUserId = async (userId: string): Promise<Wallet> => {
 
 /* Lấy tất cả */
 export const getAllWallets = async (): Promise<Wallet[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/wallets`, { headers });
+  const res = await axios.get(`${API_RK}/users/wallets`, { headers });
   return res.data;
 };
 
@@ -53,7 +53,7 @@ export const getAllWallets = async (): Promise<Wallet[]> => {
 export const createWallet = async (
   body: CreateWalletRequest
 ): Promise<Wallet> => {
-  const res = await axios.post(`${API_BASE_URL}/users/wallets`, [body], {
+  const res = await axios.post(`${API_RK}/users/wallets`, [body], {
     headers: {
       ...headers,
       "Content-Type": "application/json",
@@ -70,7 +70,7 @@ export const updateWallet = async (
   walletId: string,
   body: UpdateWalletRequest
 ): Promise<Wallet> => {
-  const res = await axios.put(`${API_BASE_URL}/users/wallets/${walletId}`, body, {
+  const res = await axios.put(`${API_RK}/users/wallets/${walletId}`, body, {
     headers: {
       ...headers,
       "Content-Type": "application/json",
@@ -81,7 +81,7 @@ export const updateWallet = async (
 
 /* Xóa ví */
 export const deleteWallet = async (walletId: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/wallets/${walletId}`, { headers });
+  await axios.delete(`${API_RK}/users/wallets/${walletId}`, { headers });
 };
 
 /* Search ví */
@@ -95,7 +95,7 @@ export const searchWallets = async (
     }, {} as Record<string, string>)
   ).toString();
 
-  const res = await axios.get(`${API_BASE_URL}/users/wallets/search?${query}`, {
+  const res = await axios.get(`${API_RK}/users/wallets/search?${query}`, {
     headers,
   });
 

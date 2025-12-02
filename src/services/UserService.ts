@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface User {
   userId: string;
@@ -34,7 +34,7 @@ export interface UpdateUserRequest extends Partial<CreateUserRequest> { }
 
 export const getAllUsers = async (): Promise<User[]> => {
   try {
-    const res = await axios.get(`${API_BASE_URL}/users/search`);
+    const res = await axios.get(`${API_RK}/users/search`);
     // 🔹 Nếu backend trả về Page<UserResponse>, chỉ lấy phần content
     return res.data?.content ?? [];
   } catch (error) {
@@ -45,26 +45,26 @@ export const getAllUsers = async (): Promise<User[]> => {
 
 
 export const getUserById = async (id: string): Promise<User> => {
-  const response = await axios.get(`${API_BASE_URL}/users/${id}`);
+  const response = await axios.get(`${API_RK}/users/${id}`);
   return response.data;
 };
 
 export const getUserByEmail = async (email: string): Promise<User> => {
   const response = await axios.get(
-    `${API_BASE_URL}/users/email/${encodeURIComponent(email)}`
+    `${API_RK}/users/email/${encodeURIComponent(email)}`
   );
   return response.data;
 };
 
 export const searchUsers = async (keyword: string): Promise<User[]> => {
-  const response = await axios.get(`${API_BASE_URL}/users/search`, {
+  const response = await axios.get(`${API_RK}/users/search`, {
     params: { keyword },
   });
   return response.data;
 };
 
 export const createUser = async (data: CreateUserRequest): Promise<User> => {
-  const response = await axios.post(`${API_BASE_URL}/users`, [data], {
+  const response = await axios.post(`${API_RK}/users`, [data], {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -76,7 +76,7 @@ export const createUser = async (data: CreateUserRequest): Promise<User> => {
 
 
 export const updateUser = async (id: string, data: any): Promise<User> => {
-  const response = await axios.put(`${API_BASE_URL}/users/${id}`, data, {
+  const response = await axios.put(`${API_RK}/users/${id}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -86,11 +86,11 @@ export const updateUser = async (id: string, data: any): Promise<User> => {
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/${id}`);
+  await axios.delete(`${API_RK}/users/${id}`);
 };
 
 export const getUserAnalytics = async (): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/users/analytics`);
+  const response = await axios.get(`${API_RK}/users/analytics`);
   return response.data;
 };
 
@@ -101,7 +101,7 @@ export interface Role {
 
 export const getRoleById = async (roleId: string): Promise<Role> => {
   try {
-    const res = await axios.get(`${API_BASE_URL}/users/roles/${roleId}`, {
+    const res = await axios.get(`${API_RK}/users/roles/${roleId}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -169,7 +169,7 @@ export interface UpdateAddressRequest {
 
 
 export const getAddressesByUserId = async (userId: string): Promise<Address[]> => {
-  const res = await axios.get(`${API_BASE_URL}/users/addresses/user/${userId}`, {
+  const res = await axios.get(`${API_RK}/users/addresses/user/${userId}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -179,7 +179,7 @@ export const getAddressesByUserId = async (userId: string): Promise<Address[]> =
 
 
 export const createAddress = async (data: CreateAddressRequest): Promise<Address> => {
-  const res = await axios.post(`${API_BASE_URL}/users/addresses`, [data], {
+  const res = await axios.post(`${API_RK}/users/addresses`, [data], {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -194,7 +194,7 @@ export const updateAddress = async (
   addressId: string,
   data: UpdateAddressRequest
 ): Promise<Address> => {
-  const res = await axios.put(`${API_BASE_URL}/users/addresses/${addressId}`, data, {
+  const res = await axios.put(`${API_RK}/users/addresses/${addressId}`, data, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -205,7 +205,7 @@ export const updateAddress = async (
 
 
 export const deleteAddress = async (addressId: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/users/addresses/${addressId}`, {
+  await axios.delete(`${API_RK}/users/addresses/${addressId}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
@@ -225,7 +225,7 @@ export const searchAddresses = async (params?: {
   page?: number;
   size?: number;
 }): Promise<{ content: Address[]; totalElements: number }> => {
-  const res = await axios.get(`${API_BASE_URL}/users/addresses/search`, {
+  const res = await axios.get(`${API_RK}/users/addresses/search`, {
     params,
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,

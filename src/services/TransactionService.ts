@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 /* ------------------------------------------
  🧩 Kiểu type của Transaction từ BE
@@ -54,7 +54,7 @@ export interface TransactionRequest {
 export const TransactionService = {
   // 🔹 Lấy transaction theo ID
   async getById(id: string): Promise<TransactionResponse> {
-    const res = await axios.get(`${API_BASE_URL}/transactions/${id}`, {
+    const res = await axios.get(`${API_RK}/transactions/${id}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -64,7 +64,7 @@ export const TransactionService = {
 
   // 🔹 Tạo transaction mới (PAYMENT, REFUND, ...)
   async create(data: TransactionRequest): Promise<TransactionResponse> {
-    const res = await axios.post(`${API_BASE_URL}/transactions`, data, {
+    const res = await axios.post(`${API_RK}/transactions`, data, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -78,7 +78,7 @@ export const TransactionService = {
     id: string,
     data: Partial<TransactionRequest>
   ): Promise<TransactionResponse> {
-    const res = await axios.put(`${API_BASE_URL}/transactions/${id}`, data, {
+    const res = await axios.put(`${API_RK}/transactions/${id}`, data, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -89,7 +89,7 @@ export const TransactionService = {
 
   // 🔹 Xóa transaction
   async delete(id: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/transactions/${id}`, {
+    await axios.delete(`${API_RK}/transactions/${id}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -109,7 +109,7 @@ export const TransactionService = {
     }, {} as Record<string, string>)
   ).toString();
 
-  const res = await axios.get(`${API_BASE_URL}/transactions/search?${query}`, {
+  const res = await axios.get(`${API_RK}/transactions/search?${query}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },

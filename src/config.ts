@@ -1,17 +1,27 @@
-// 1. Đọc biến môi trường từ Vite
-const apiUrlFromEnv = import.meta.env.VITE_API_URL;
+// Đọc biến môi trường
+const apiRookie = import.meta.env.VITE_API_URL_RK;
+const apiAI = import.meta.env.VITE_API_URL_AI;
+const apiAR = import.meta.env.VITE_API_URL_AR;
 
-// 2. Kiểm tra xem biến có tồn tại và hợp lệ không
-if (!apiUrlFromEnv) {
-  // Nếu biến không được định nghĩa, văng lỗi ngay để lập trình viên biết
-  throw new Error("Lỗi nghiêm trọng: Biến môi trường VITE_API_URL chưa được thiết lập trong file .env");
+// Validate để tránh lỗi runtime khó debug
+if (!apiRookie) {
+  throw new Error("Thiếu biến môi trường: VITE_API_URL_RK");
+}
+if (!apiAI) {
+  throw new Error("Thiếu biến môi trường: VITE_API_URL_AI");
+}
+if (!apiAR) {
+  throw new Error("Thiếu biến môi trường: VITE_API_URL_AR");
 }
 
-// 3. Nếu mọi thứ ổn, export nó ra dưới dạng một hằng số đã được xác định kiểu
-export const API_BASE_URL: string = apiUrlFromEnv;
+// Export từng URL
+export const API_RK = apiRookie;
+export const API_AI = apiAI;
+export const API_AR = apiAR;
 
-// Bạn cũng có thể gom tất cả vào một object để tiện quản lý
-export const config = {
-  apiUrl: API_BASE_URL,
-  // Thêm các biến khác ở đây
+// (Optional) gom thành object dễ dùng
+export const API = {
+  rookies: API_RK,
+  ai: API_AI,
+  ar: API_AR,
 };

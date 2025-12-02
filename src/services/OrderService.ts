@@ -1,6 +1,6 @@
 // src/services/OrderService.ts
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export interface CreateOrderRequest {
   amount: number;
@@ -33,7 +33,7 @@ export const OrderService = {
   async createOrder(data: CreateOrderRequest): Promise<OrderResponse> {
     console.log("📦 Gửi request tạo order:", data);
 
-    const res = await axios.post(`${API_BASE_URL}/users/orders`, [data], {
+    const res = await axios.post(`${API_RK}/users/orders`, [data], {
       headers: {
         "Content-Type": "application/json",
       },
@@ -50,7 +50,7 @@ export const OrderService = {
     usePoints: boolean,
     cartItemIds: string[]
   ): Promise<OrderResponse> {
-    const url = `${API_BASE_URL}/users/orders/from-cart/${cartId}/wallet/${walletId}?usePoints=${usePoints}`;
+    const url = `${API_RK}/users/orders/from-cart/${cartId}/wallet/${walletId}?usePoints=${usePoints}`;
 
     try {
       // 🟢 Gọi API (không cần body)
@@ -75,30 +75,30 @@ export const OrderService = {
 
   // 🔍 Lấy tất cả orders
   async getAllOrders(): Promise<OrderResponse[]> {
-    const res = await axios.get(`${API_BASE_URL}/users/orders`);
+    const res = await axios.get(`${API_RK}/users/orders`);
     return res.data;
   },
 
   // 🔍 Lấy order theo ID
   async getOrderById(orderId: string): Promise<OrderResponse> {
-    const res = await axios.get(`${API_BASE_URL}/users/orders/${orderId}`);
+    const res = await axios.get(`${API_RK}/users/orders/${orderId}`);
     return res.data;
   },
 
   // ✏️ Cập nhật order
   async updateOrder(orderId: string, data: Partial<CreateOrderRequest>): Promise<OrderResponse> {
-    const res = await axios.put(`${API_BASE_URL}/users/orders/${orderId}`, data);
+    const res = await axios.put(`${API_RK}/users/orders/${orderId}`, data);
     return res.data;
   },
 
   // ❌ Xóa order
   async deleteOrder(orderId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/users/orders/${orderId}`);
+    await axios.delete(`${API_RK}/users/orders/${orderId}`);
   },
 
   // 🔍 Lấy order theo cartId
   async getOrderByCartId(cartId: string): Promise<OrderResponse> {
-    const res = await axios.get(`${API_BASE_URL}/users/orders/cart/${cartId}`);
+    const res = await axios.get(`${API_RK}/users/orders/cart/${cartId}`);
     return res.data;
   },
 };

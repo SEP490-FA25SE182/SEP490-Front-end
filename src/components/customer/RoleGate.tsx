@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_RK } from "@/config";
 
 export default function RoleGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export default function RoleGate({ children }: { children: React.ReactNode }) {
 
       try {
         const roleResp = await axios.get(
-          `${API_BASE_URL}/users/roles/${roleId}`
+          `${API_RK}/users/roles/${roleId}`
         );
         const roleName = (roleResp.data.roleName || "").toLowerCase();
 

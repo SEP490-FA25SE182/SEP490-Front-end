@@ -1,7 +1,6 @@
 import axios from "axios";
 import { useMutation, useQuery } from "@tanstack/react-query";
-
-const API_BASE_URL = "http://localhost:8081/api/rookie";
+import { API_RK } from "@/config";
 
 /* ====================== COMMON PAGED RESPONSE ====================== */
 
@@ -55,32 +54,32 @@ export interface QuizSearchParams {
 /** POST /books/quizzes */
 export const createQuiz = async (data: Quiz): Promise<Quiz> => {
   // ensure backend receives attemptCount & questionCount fields
-  const response = await axios.post(`${API_BASE_URL}/books/quizzes`, data);
+  const response = await axios.post(`${API_RK}/books/quizzes`, data);
   return response.data;
 };
 
 /** GET /books/quizzes/{id} */
 export const getQuizById = async (id: string): Promise<Quiz> => {
-  const response = await axios.get(`${API_BASE_URL}/books/quizzes/${id}`);
+  const response = await axios.get(`${API_RK}/books/quizzes/${id}`);
   return response.data;
 };
 
 /** PUT /books/quizzes/{id} */
 export const updateQuiz = async (id: string, data: Quiz): Promise<Quiz> => {
-  const response = await axios.put(`${API_BASE_URL}/books/quizzes/${id}`, data);
+  const response = await axios.put(`${API_RK}/books/quizzes/${id}`, data);
   return response.data;
 };
 
 /** DELETE /books/quizzes/{id} */
 export const deleteQuiz = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/books/quizzes/${id}`);
+  await axios.delete(`${API_RK}/books/quizzes/${id}`);
 };
 
 /** GET /books/quizzes (paged search/list) */
 export const searchQuizzes = async (
   params?: QuizSearchParams
 ): Promise<PagedResponse<Quiz>> => {
-  const response = await axios.get(`${API_BASE_URL}/books/quizzes`, {
+  const response = await axios.get(`${API_RK}/books/quizzes`, {
     params,
   });
   return response.data;
@@ -150,13 +149,13 @@ export interface QuestionSearchParams {
 /** POST /questions */
 export const createQuestion = async (data: Question): Promise<Question> => {
   // include answerCount when creating question (API expects "answerCount")
-  const response = await axios.post(`${API_BASE_URL}/questions`, data);
+  const response = await axios.post(`${API_RK}/questions`, data);
   return response.data;
 };
 
 /** GET /questions/{id} */
 export const getQuestionById = async (id: string): Promise<Question> => {
-  const response = await axios.get(`${API_BASE_URL}/questions/${id}`);
+  const response = await axios.get(`${API_RK}/questions/${id}`);
   return response.data;
 };
 
@@ -165,20 +164,20 @@ export const updateQuestion = async (
   id: string,
   data: Question
 ): Promise<Question> => {
-  const response = await axios.put(`${API_BASE_URL}/questions/${id}`, data);
+  const response = await axios.put(`${API_RK}/questions/${id}`, data);
   return response.data;
 };
 
 /** DELETE /questions/{id} */
 export const deleteQuestion = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/questions/${id}`);
+  await axios.delete(`${API_RK}/questions/${id}`);
 };
 
 /** GET /questions (paged search/list) */
 export const searchQuestions = async (
   params?: QuestionSearchParams
 ): Promise<PagedResponse<Question>> => {
-  const response = await axios.get(`${API_BASE_URL}/questions`, {
+  const response = await axios.get(`${API_RK}/questions`, {
     params,
   });
   return response.data;
@@ -246,13 +245,13 @@ export interface AnswerSearchParams {
 
 /** POST /answers */
 export const createAnswer = async (data: Answer): Promise<Answer> => {
-  const response = await axios.post(`${API_BASE_URL}/answers`, data);
+  const response = await axios.post(`${API_RK}/answers`, data);
   return response.data;
 };
 
 /** GET /answers/{id} */
 export const getAnswerById = async (id: string): Promise<Answer> => {
-  const response = await axios.get(`${API_BASE_URL}/answers/${id}`);
+  const response = await axios.get(`${API_RK}/answers/${id}`);
   return response.data;
 };
 
@@ -261,20 +260,20 @@ export const updateAnswer = async (
   id: string,
   data: Answer
 ): Promise<Answer> => {
-  const response = await axios.put(`${API_BASE_URL}/answers/${id}`, data);
+  const response = await axios.put(`${API_RK}/answers/${id}`, data);
   return response.data;
 };
 
 /** DELETE /answers/{id} */
 export const deleteAnswer = async (id: string): Promise<void> => {
-  await axios.delete(`${API_BASE_URL}/answers/${id}`);
+  await axios.delete(`${API_RK}/answers/${id}`);
 };
 
 /** GET /answers (paged search/list) */
 export const searchAnswers = async (
   params?: AnswerSearchParams
 ): Promise<PagedResponse<Answer>> => {
-  const response = await axios.get(`${API_BASE_URL}/answers`, {
+  const response = await axios.get(`${API_RK}/answers`, {
     params,
   });
   return response.data;
@@ -342,7 +341,7 @@ export interface QuizPlay {
 
 /** GET /books/quizzes/{id}/play -> trả về quiz + questions + answers (play payload) */
 export const getQuizPlayById = async (id: string): Promise<QuizPlay> => {
-  const response = await axios.get(`${API_BASE_URL}/books/quizzes/${id}/play`);
+  const response = await axios.get(`${API_RK}/books/quizzes/${id}/play`);
   return response.data;
 };
 

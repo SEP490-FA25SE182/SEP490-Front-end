@@ -1,7 +1,6 @@
 import axios from "axios";
 import { useMutation, useQuery } from "@tanstack/react-query";
-
-const BASE_URL = "http://localhost:8081/api/rookie/users/books";
+import { API_RK } from "@/config";
 
 // ==============================
 // Interfaces
@@ -42,23 +41,23 @@ export interface Page {
 
 /** Tạo sách mới */
 export const createBook = async (data: Book): Promise<Book> => {
-    const res = await axios.post<Book>(`${BASE_URL}`, data);
+    const res = await axios.post<Book>(`${API_RK}/users/books`, data);
     return res.data;
 };
 
 /** Cập nhật sách (PUT /api/rookie/users/books/{id}) */
 export const updateBook = async (id: string, data: Book): Promise<Book> => {
-    const res = await axios.put<Book>(`${BASE_URL}/${id}`, data);
+    const res = await axios.put<Book>(`${API_RK}/users/books/${id}`, data);
     return res.data;
 };
 
 /** Xóa sách (DELETE /api/rookie/users/books/{id}) */
 export const deleteBook = async (id: string): Promise<void> => {
-    await axios.delete(`${BASE_URL}/${id}`);
+    await axios.delete(`${API_RK}/users/books/${id}`);
 };
 
 export const createChapter = async (data: Chapter): Promise<Chapter> => {
-    const res = await axios.post<Chapter>(`${BASE_URL}/chapters`, data);
+    const res = await axios.post<Chapter>(`${API_RK}/users/books/chapters`, data);
     return res.data;
 };
 
@@ -73,30 +72,30 @@ export const getAllChapters = async (params?: {
     progressStatus?: string;
     isActived?: string;
 }) => {
-    const res = await axios.get(`${BASE_URL}/chapters`, { params });
+    const res = await axios.get(`${API_RK}/users/books/chapters`, { params });
     return res.data;
 };
 
 /** Lấy chapter theo ID (GET /api/rookie/users/books/chapters/{id}) */
 export const getChapterById = async (id: string): Promise<Chapter> => {
-    const res = await axios.get<Chapter>(`${BASE_URL}/chapters/${id}`);
+    const res = await axios.get<Chapter>(`${API_RK}/users/books/chapters/${id}`);
     return res.data;
 };
 
 /** Cập nhật chapter (PUT /api/rookie/users/books/chapters/{id}) */
 export const updateChapter = async (id: string, data: Partial<Chapter>): Promise<Chapter> => {
-    const res = await axios.put<Chapter>(`${BASE_URL}/chapters/${id}`, data);
+    const res = await axios.put<Chapter>(`${API_RK}/users/books/chapters/${id}`, data);
     return res.data;
 };
 
 /** Xóa chapter */
 export const deleteChapter = async (id: string): Promise<void> => {
-    await axios.delete(`${BASE_URL}/chapters/${id}`);
+    await axios.delete(`${API_RK}/users/books/chapters/${id}`);
 };
 
 
 export const createPage = async (data: Page): Promise<Page> => {
-    const res = await axios.post<Page>(`${BASE_URL}/pages`, data);
+    const res = await axios.post<Page>(`${API_RK}/users/books/pages`, data);
     return res.data;
 };
 
@@ -108,30 +107,30 @@ export const getAllPages = async (params?: {
     chapterId?: string;
     isActived?: string;
 }) => {
-    const res = await axios.get(`${BASE_URL}/pages`, { params });
+    const res = await axios.get(`${API_RK}/users/books/pages`, { params });
     return res.data;
 };
 
 /** Lấy page theo ID (GET /api/rookie/users/books/pages/{id}) */
 export const getPageById = async (id: string): Promise<Page> => {
-    const res = await axios.get<Page>(`${BASE_URL}/pages/${id}`);
+    const res = await axios.get<Page>(`${API_RK}/users/books/pages/${id}`);
     return res.data;
 };
 
 /** Cập nhật page (PUT /api/rookie/users/books/pages/{id}) */
 export const updatePage = async (id: string, data: Partial<Page>): Promise<Page> => {
-    const res = await axios.put<Page>(`${BASE_URL}/pages/${id}`, data);
+    const res = await axios.put<Page>(`${API_RK}/users/books/pages/${id}`, data);
     return res.data;
 };
 
 /** Xóa page */
 export const deletePage = async (id: string): Promise<void> => {
-    await axios.delete(`${BASE_URL}/pages/${id}`);
+    await axios.delete(`${API_RK}/users/books/pages/${id}`);
 };
 
 /** Lấy sách theo ID (GET /api/rookie/users/books/{id}) */
 export const getBookById = async (id: string): Promise<Book> => {
-    const res = await axios.get<Book>(`${BASE_URL}/${id}`);
+    const res = await axios.get<Book>(`${API_RK}/${id}`);
     return res.data;
 };
 

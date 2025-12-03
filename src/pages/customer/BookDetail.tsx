@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Star, Heart, PlayCircle } from "lucide-react";
+import { ShoppingCart, Star, Heart } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import {
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatVND } from "@/lib/money";
 import { useFavorites } from "@/context/FavoriteContext";
 import { getAllBooks, getBookById, type Book } from "@/services/BookService";
 import { useCart } from "@/context/CartContext";
@@ -166,6 +167,7 @@ export const BookDetail = () => {
     await addToCart(book, 1);
     toast({
       title: "Đã thêm vào giỏ hàng",
+      duration: 1500,
       description: `“${book.bookName}” đã được thêm vào giỏ.`,
       action: (
         <ToastAction altText="Xem giỏ hàng" onClick={() => navigate("/cart")}>
@@ -268,27 +270,10 @@ export const BookDetail = () => {
 
               <div className="pt-6">
                 <h3 className="text-xl font-bold text-white mb-4">
-                  Giá: 2.000 VND
+                  Giá: {formatVND(book.price)}
                 </h3>
 
                 <div className="flex gap-4">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white rounded-full px-6 py-3 cursor-pointer"
-                  >
-                    Mua ngay
-                  </Button>
-
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-full cursor-pointer"
-                    onClick={() => setShowPreview(true)}
-                  >
-                    <PlayCircle className="mr-2 h-5 w-5" />
-                    Đọc thử
-                  </Button>
-
                   <Button
                     size="lg"
                     variant="outline"

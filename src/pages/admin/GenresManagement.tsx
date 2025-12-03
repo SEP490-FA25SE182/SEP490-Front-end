@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Search, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Menu, X, Plus, Trash2, Pencil, Loader2, Search } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+
 import {
     Select,
     SelectTrigger,
@@ -20,84 +21,79 @@ import {
 } from "@/components/ui/select";
 
 import {
-    getAllRoles,
-    createRole,
-    updateRoleById,
-    deleteRoleById,
-    type Role,
-} from "@/services/RoleService";
-
+    getAllGenres,
+    createGenre,
+    updateGenre,
+    deleteGenre,
+    type Genre,
+} from "@/services/GenreService";
 
 import { toast } from "sonner";
 
-
-export default function RoleManagementPage() {
+export default function GenresManagementPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    const [roles, setRoles] = useState<Role[]>([]);
+    const [genres, setGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const [searchQuery, setSearchQuery] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
 
-    // Modal state
+    // Modal
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState<"add" | "edit">("add");
-    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+    const [selectedGenre, setSelectedGenre] = useState<Genre | null>(null);
 
-    const [roleName, setRoleName] = useState("");
-    const [roleStatus, setRoleStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+    const [genreName, setGenreName] = useState("");
+    const [description, setDescription] = useState("");
+    const [isActived, setIsActived] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+
     const [saving, setSaving] = useState(false);
 
-    // Fetch roles
-    const loadRoles = async () => {
+    const loadGenres = async () => {
         setLoading(true);
         try {
-            const res = await getAllRoles();
-            setRoles(res);
-        } catch (err) {
-            toast.error("Không thể tải danh sách role");
+            const res = await getAllGenres();
+            setGenres(res);
+        } catch {
+            toast.error("Không thể tải danh sách thể loại");
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadRoles();
+        loadGenres();
     }, []);
 
-    // Filter
-    const filteredRoles = roles.filter((r) => {
-        const matchSearch = r.roleName.toLowerCase().includes(searchQuery.toLowerCase());
-
+    const filtered = genres.filter((g) => {
+        const matchSearch = g.genreName.toLowerCase().includes(search.toLowerCase());
         const matchStatus =
-            filterStatus === "all" || r.isActived === filterStatus;
-
+            statusFilter === "all" || g.isActived === statusFilter;
         return matchSearch && matchStatus;
     });
 
-    // Open ADD modal
-    const handleAddRole = () => {
+    const handleAdd = () => {
         setModalMode("add");
-        setSelectedRole(null);
-        setRoleName("");
-        setRoleStatus("ACTIVE");
+        setGenreName("");
+        setDescription("");
+        setIsActived("ACTIVE");
+        setSelectedGenre(null);
         setOpenModal(true);
     };
 
-    // Open EDIT modal
-    const handleEditRole = (role: Role) => {
+    const handleEdit = (g: Genre) => {
         setModalMode("edit");
-        setSelectedRole(role);
-        setRoleName(role.roleName);
-        setRoleStatus(role.isActived as "ACTIVE" | "INACTIVE");
+        setSelectedGenre(g);
+        setGenreName(g.genreName);
+        setDescription(g.description ?? "");
+        setIsActived(g.isActived as "ACTIVE" | "INACTIVE");
         setOpenModal(true);
     };
 
-    // Save role
-    const handleSaveRole = async () => {
-        if (!roleName.trim()) {
-            toast.error("Tên role không được để trống");
+    const handleSave = async () => {
+        if (!genreName.trim()) {
+            toast.error("Tên thể loại không được để trống");
             return;
         }
 
@@ -105,42 +101,39 @@ export default function RoleManagementPage() {
             setSaving(true);
 
             if (modalMode === "add") {
-                await createRole([
-                    {
-                        roleName,
-                        isActived: roleStatus,
-                    }
-                ]);
-
-                toast.success("Tạo role thành công");
-            } else if (modalMode === "edit" && selectedRole) {
-                await updateRoleById(selectedRole.roleId, {
-                    roleName,
-                    isActived: roleStatus,
+                await createGenre({
+                    genreName,
+                    description,
+                    isActived,
                 });
-                toast.success("Cập nhật role thành công");
+                toast.success("Tạo thể loại thành công");
+            } else if (selectedGenre) {
+                await updateGenre(selectedGenre.genreId, {
+                    genreName,
+                    description,
+                    isActived,
+                });
+                toast.success("Cập nhật thể loại thành công");
             }
 
-
             setOpenModal(false);
-            loadRoles();
-        } catch (err) {
-            toast.error("Không thể lưu role");
+            loadGenres();
+        } catch {
+            toast.error("Lỗi khi lưu thể loại");
         } finally {
             setSaving(false);
         }
     };
 
-    // Delete
-    const handleDelete = async (id: string) => {
-        if (!confirm("Bạn có chắc muốn xóa role này?")) return;
+    const handleDeleteGenre = async (id: string) => {
+        if (!confirm("Bạn chắc chắn muốn xóa?")) return;
 
         try {
-            await deleteRoleById(id);
-            toast.success("Xóa role thành công");
-            loadRoles();
+            await deleteGenre(id);
+            toast.success("Xóa thành công");
+            loadGenres();
         } catch {
-            toast.error("Không thể xóa role");
+            toast.error("Không thể xóa thể loại");
         }
     };
 
@@ -149,7 +142,8 @@ export default function RoleManagementPage() {
             <AdminSidebar isOpen={sidebarOpen} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
+                
+                {/* HEADER */}
                 <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
                     <div className="flex items-center px-6 py-4">
                         <Button
@@ -163,40 +157,38 @@ export default function RoleManagementPage() {
                     </div>
                 </header>
 
-                {/* Filters */}
+                {/* SEARCH + FILTER */}
                 <div className="bg-[#1a2332] px-6 py-4 border-b border-white/10 flex items-center gap-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <Input
-                            placeholder="Tìm role..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Tìm thể loại..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 bg-transparent border-white/20 text-white"
                         />
                     </div>
 
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[160px] border-white/20 bg-transparent text-white">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tất cả</SelectItem>
-                            <SelectItem value="ACTIVE">Hoạt động</SelectItem>
-                            <SelectItem value="INACTIVE">Không hoạt động</SelectItem>
+                            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                            <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                         </SelectContent>
                     </Select>
 
-                    <Button
-                        className="bg-purple-600 hover:bg-purple-700"
-                        onClick={handleAddRole}
-                    >
-                        <Plus className="w-4 h-4 mr-1" /> Thêm Role
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleAdd}>
+                        <Plus className="w-4 h-4 mr-1" /> Thêm thể loại
                     </Button>
                 </div>
 
-                {/* Table */}
+                {/* TABLE */}
                 <div className="flex-1 overflow-auto p-6">
-                    <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+                    <div className="bg-white rounded-lg shadow-xl overflow-hidden text-black">
+
                         {loading ? (
                             <div className="flex justify-center items-center py-16 text-gray-500">
                                 <Loader2 className="w-6 h-6 mr-2 animate-spin" /> Đang tải...
@@ -205,9 +197,9 @@ export default function RoleManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                                        <TableHead className="text-white font-medium">Role</TableHead>
+                                        <TableHead className="text-white font-medium">Tên</TableHead>
+                                        <TableHead className="text-white font-medium">Mô tả</TableHead>
                                         <TableHead className="text-white font-medium">Trạng thái</TableHead>
-                                        <TableHead className="text-white font-medium">Ngày tạo</TableHead>
                                         <TableHead className="text-white font-medium text-right">
                                             Hành động
                                         </TableHead>
@@ -215,32 +207,26 @@ export default function RoleManagementPage() {
                                 </TableHeader>
 
                                 <TableBody>
-                                    {filteredRoles.map((r) => (
-                                        <TableRow key={r.roleId}>
-                                            <TableCell className="text-gray-900 font-medium">
-                                                {r.roleName}
-                                            </TableCell>
-
+                                    {filtered.map((g) => (
+                                        <TableRow key={g.genreId}>
+                                            <TableCell className="font-medium">{g.genreName}</TableCell>
+                                            <TableCell>{g.description}</TableCell>
                                             <TableCell>
                                                 <span
                                                     className={
-                                                        r.isActived === "ACTIVE"
+                                                        g.isActived === "ACTIVE"
                                                             ? "text-green-600 font-semibold"
                                                             : "text-gray-500 font-semibold"
                                                     }
                                                 >
-                                                    {r.isActived}
+                                                    {g.isActived}
                                                 </span>
-                                            </TableCell>
-
-                                            <TableCell className="text-gray-600">
-                                                {new Date(r.createdAt).toLocaleDateString("vi-VN")}
                                             </TableCell>
 
                                             <TableCell className="flex justify-end gap-2">
                                                 <Button
                                                     className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                                                    onClick={() => handleEditRole(r)}
+                                                    onClick={() => handleEdit(g)}
                                                 >
                                                     <Pencil className="w-4 h-4" />
                                                 </Button>
@@ -248,7 +234,7 @@ export default function RoleManagementPage() {
                                                 <Button
                                                     variant="destructive"
                                                     size="icon"
-                                                    onClick={() => handleDelete(r.roleId)}
+                                                    onClick={() => handleDeleteGenre(g.genreId)}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
@@ -262,12 +248,10 @@ export default function RoleManagementPage() {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* MODAL */}
             {openModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg w-[420px] p-6 relative">
-
-                        {/* Nút X */}
+                    <div className="bg-white rounded-lg w-[420px] p-6 relative text-black">
                         <button
                             className="absolute right-4 top-4 text-gray-600 hover:text-black"
                             onClick={() => setOpenModal(false)}
@@ -276,16 +260,23 @@ export default function RoleManagementPage() {
                         </button>
 
                         <h2 className="text-xl font-semibold mb-4 text-gray-800">
-                            {modalMode === "add" ? "Thêm Role" : "Cập nhật Role"}
+                            {modalMode === "add" ? "Thêm thể loại" : "Cập nhật thể loại"}
                         </h2>
 
-
-                        {/* Input */}
                         <div className="mb-4">
-                            <label className="text-gray-600 text-sm">Role Name</label>
+                            <label className="text-gray-600 text-sm">Tên thể loại</label>
                             <Input
-                                value={roleName}
-                                onChange={(e) => setRoleName(e.target.value)}
+                                value={genreName}
+                                onChange={(e) => setGenreName(e.target.value)}
+                                className="text-black mt-1"
+                            />
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-sm">Mô tả</label>
+                            <Input
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
                                 className="text-black mt-1"
                             />
                         </div>
@@ -293,33 +284,24 @@ export default function RoleManagementPage() {
                         <div className="mb-6">
                             <label className="text-gray-600 text-sm">Trạng thái</label>
 
-                            <Select
-                                value={roleStatus}
-                                onValueChange={(v) => setRoleStatus(v as any)}
-                            >
+                            <Select value={isActived} onValueChange={(v) => setIsActived(v as any)}>
                                 <SelectTrigger className="w-full mt-1 text-black">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ACTIVE">Hoạt động</SelectItem>
-                                    <SelectItem value="INACTIVE">Không hoạt động</SelectItem>
+                                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* Buttons */}
                         <div className="flex justify-end gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpenModal(false)}
-                                disabled={saving}
-                            >
+                            <Button variant="outline" onClick={() => setOpenModal(false)} disabled={saving}>
                                 Hủy
                             </Button>
-
                             <Button
                                 className="bg-purple-600 hover:bg-purple-700 text-white"
-                                onClick={handleSaveRole}
+                                onClick={handleSave}
                                 disabled={saving}
                             >
                                 {saving ? "Đang lưu..." : "Lưu"}

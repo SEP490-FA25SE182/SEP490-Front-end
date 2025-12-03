@@ -41,9 +41,11 @@ export default function AuthorIncome() {
   const [books, setBooks] = useState<any[]>([]);
   const [, setLoading] = useState(false);
 
+
   // resolve current user id from localStorage (used to count books for this author)
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = currentUser?.userId;
+  const royalty = Number(currentUser?.royalty) || 0;
 
   useEffect(() => {
     let mounted = true;
@@ -58,8 +60,8 @@ export default function AuthorIncome() {
         const filtered = Array.isArray(booksResp)
           ? (booksResp as any[])
           : booksResp && typeof booksResp === "object" && "content" in booksResp && Array.isArray((booksResp as any).content)
-          ? (booksResp as any).content
-          : [];
+            ? (booksResp as any).content
+            : [];
         const myBooks = userId
           ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
           : (filtered as any[]);
@@ -84,9 +86,17 @@ export default function AuthorIncome() {
 
   // estimate revenue from books (fallback)
   const totalRevenue = useMemo(
-    () => books.reduce((s, b) => s + (Number(b.price) || 0) * (Number(b.quantity) || 1), 0),
+    () =>
+      books.reduce(
+        (sum, b) =>
+          sum + (Number(b.price) || 0) * (Number(b.quantity) || 1),
+        0
+      ),
     [books]
   );
+
+  // tiền tác giả nhận
+  const authorRevenue = totalRevenue * (royalty / 100);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -101,11 +111,11 @@ export default function AuthorIncome() {
       accent: "from-[#764BA2] to-[#667EEA]",
     },
     {
-      title: "Phí tác quyền",
-      value: formatCurrency(Math.round(totalRevenue * 0.3)),
-      desc: "Phí/chiết khấu nền tảng (ước tính)",
+      title: "Thu nhập tác quyền",
+      value: formatCurrency(authorRevenue),
+      desc: `Bạn hưởng ${royalty}% từ doanh thu`,
       icon: <BookOpen className="w-6 h-6" />,
-      accent: "from-[#334155] to-[#475569]",
+      accent: "from-[#334155] to-[#475569]",              
     },
     {
       title: "Tổng số sách",
@@ -129,6 +139,8 @@ export default function AuthorIncome() {
       accent: "from-[#10b981] to-[#059669]",
     },
   ];
+
+
 
   // Timeframe state for line chart
   type Timeframe = "week" | "month" | "quarter" | "year";

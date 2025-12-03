@@ -167,7 +167,7 @@ export default function CartPage() {
             {/* Danh sách item */}
             <div className="lg:col-span-2 space-y-4">
               {state.lines.map((line) => {
-                const unit = line.price ?? 2000;
+                const unit = line.price;
                 const id = line.book.bookId;
                 return (
                   <div

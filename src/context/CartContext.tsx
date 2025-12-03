@@ -48,7 +48,7 @@ type CartContextValue = {
   state: CartState;
   addToCart: (book: Book, qty?: number) => Promise<void>;
   remove: (bookId: string) => Promise<void>;
-  setQty: (bookId: string, qty: number) => Promise<void>;
+  setQty: (bookId: string, qty: number, price: number) => Promise<void>;
   clear: () => Promise<void>;
   subtotal: number;
   count: number;
@@ -151,10 +151,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dispatch({ type: "SET_QTY", bookId: book.bookId, qty: newQty });
         toast.success(`Đã cập nhật số lượng “${book.bookName}” (${newQty})`);
       } else {
-        const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, 2000);
+        const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, book.price);
         dispatch({
           type: "ADD",
-          line: { book, qty, price: newItem.price ?? 2000, cartItemId: newItem.cartItemId },
+          line: { book, qty, price: newItem.price , cartItemId: newItem.cartItemId },
         });
         toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
       }

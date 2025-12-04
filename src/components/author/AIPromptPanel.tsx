@@ -40,7 +40,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
     cfgScale: 8,
     strength: 1,
     seed: 77,
-    durationMs: 0, // ✅ Thêm field durationMs
+    durationMs: 1, // ✅ default = 1 and will be hidden on UI
   });
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -161,12 +161,11 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         />
       </div>
 
-      {/* Negative Prompt */}
+      {/* Negative Prompt (optional) */}
       <div>
-        <Label className="mb-3">Negative Prompt *</Label>
+        <Label className="mb-3">Negative Prompt</Label>
         <Textarea
-          required
-          placeholder="Describe what you DON'T want..."
+          placeholder="Describe what you DON'T want... (optional)"
           value={form.negativePrompt}
           onChange={(e) => setForm({ ...form, negativePrompt: e.target.value })}
           className="bg-transparent border-white/20 text-white"
@@ -252,18 +251,8 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         />
       </div>
 
-      {/* ✅ DurationMs */}
-      <div>
-        <Label className="mb-3">Duration (ms)</Label>
-        <Input
-          type="number"
-          min={0}
-          value={form.durationMs}
-          onChange={(e) => setForm({ ...form, durationMs: Number(e.target.value) })}
-          placeholder="Thời gian sinh ảnh (ms)"
-          className="bg-transparent border-white/20 text-white"
-        />
-      </div>
+      {/* durationMs is intentionally hidden in UI but kept in state */}
+      <input type="hidden" value={form.durationMs} />
 
       {/* Style Preset */}
       <div>

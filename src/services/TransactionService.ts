@@ -100,21 +100,35 @@ export const TransactionService = {
   async search(
   params?: Record<string, string | number | undefined>
 ): Promise<TransactionSearchResponse> {
-  const query = new URLSearchParams(
-    Object.entries(params || {}).reduce((acc, [k, v]) => {
-      if (v !== undefined && v !== null && v !== "") {
-        acc[k] = String(v);
-      }
-      return acc;
-    }, {} as Record<string, string>)
-  ).toString();
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== "") {
+          acc[k] = String(v);
+        }
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
 
-  const res = await axios.get(`${API_RK}/transactions/search?${query}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  });
+    const res = await axios.get(`${API_RK}/transactions/search?${query}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
 
-  return res.data; // { content: [...], totalPages, totalElements }
-}
+    return res.data; // { content: [...], totalPages, totalElements }
+  },
+
+  async searchTransactions(params?: { walletId?: string; page?: number; size?: number; sort?: string[] }) {
+    // build query params
+    const qp = new URLSearchParams();
+    if (params?.walletId) qp.set("walletId", String(params.walletId));
+    if (params?.page !== undefined) qp.set("page", String(params.page));
+    if (params?.size !== undefined) qp.set("size", String(params.size));
+    if (params?.sort) params.sort.forEach(s => qp.append("sort", s));
+
+    const res = await axios.get(`${API_RK}/transactions/search?${qp.toString()}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    });
+    return res.data; // BE trả về { content: [...], pageable: {...} }
+  }
 };

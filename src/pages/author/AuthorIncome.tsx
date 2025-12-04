@@ -18,6 +18,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getAllBooks } from "@/services/BookService";
+import { OrderService } from "@/services/OrderService";
+import { OrderDetailService } from "@/services/OrderDetailService";
+
+// 🆕 import giống CreateAudioDialog để lấy current user
+import { useAuth } from "@/context/AuthContext";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { getUserByEmail } from "@/services/UserService";
 
 // Recharts
 import {
@@ -39,27 +46,66 @@ import {
 export default function AuthorIncome() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [books, setBooks] = useState<any[]>([]);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
   const [, setLoading] = useState(false);
+  const [authorRevenue, setAuthorRevenue] = useState<number>(0);
 
   // resolve current user id from localStorage (used to count books for this author)
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = currentUser?.userId;
+
+  // 🆕 lấy authorId chuẩn giống CreateAudioDialog (dùng cho tính doanh thu)
+  const { user } = useAuth();
+  const [authorId, setAuthorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAuthorId = async () => {
+      try {
+        const uidFromStorage = getCurrentUserId();
+        if (uidFromStorage) {
+          setAuthorId(uidFromStorage);
+          return;
+        }
+
+        if (user?.userId) {
+          setAuthorId(user.userId);
+          return;
+        }
+
+        if (user?.email) {
+          const currentUser = await getUserByEmail(user.email);
+          if (currentUser?.userId) {
+            setAuthorId(currentUser.userId);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("❌ Lỗi khi xác định authorId:", error);
+      }
+    };
+
+    fetchAuthorId();
+  }, [user]);
 
   useEffect(() => {
     let mounted = true;
     const fetch = async () => {
       setLoading(true);
       try {
-        // fetch books (fetch many so we get all author's books)
+        // fetch books (fetch many so we get all books)
         const booksResp = await getAllBooks({ size: 1000 });
         if (!mounted) return;
-        // if returned items contain authorId, filter by current user if available
-        // guard against non-array responses and ensure .content exists and is an array
+        // if returned items contain authorId, normalize to array
         const filtered = Array.isArray(booksResp)
           ? (booksResp as any[])
-          : booksResp && typeof booksResp === "object" && "content" in booksResp && Array.isArray((booksResp as any).content)
+          : booksResp &&
+            typeof booksResp === "object" &&
+            "content" in booksResp &&
+            Array.isArray((booksResp as any).content)
           ? (booksResp as any).content
           : [];
+        // save all books for later mapping when summing revenue
+        setAllBooks(filtered);
         const myBooks = userId
           ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
           : (filtered as any[]);
@@ -82,28 +128,97 @@ export default function AuthorIncome() {
   const publishedBooks = books.filter((b) => Number(b.publicationStatus) === 1).length;
   const pendingBooks = books.filter((b) => Number(b.publicationStatus) !== 1).length;
 
-  // estimate revenue from books (fallback)
-  const totalRevenue = useMemo(
-    () => books.reduce((s, b) => s + (Number(b.price) || 0) * (Number(b.quantity) || 1), 0),
-    [books]
-  );
+  // estimate revenue from books (fallback / dùng cho phí tác quyền cũ)
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
+
+  // --- TÍNH TỔNG DOANH THU THỰC TẾ từ các order DELIVERED + order details ---
+  useEffect(() => {
+    let mounted = true;
+
+    const computeRevenue = async () => {
+      // cần xác định được authorId và đã có danh sách sách để map
+      if (!authorId || allBooks.length === 0) return;
+      try {
+        // lấy tất cả order có status DELIVERED
+        const resp = await OrderService.searchOrders({
+          status: "DELIVERED",
+          page: 0,
+          size: 1000,
+        });
+
+        const orders = Array.isArray(resp)
+          ? resp
+          : resp && resp.content
+          ? resp.content
+          : [];
+
+        let total = 0;
+
+        await Promise.all(
+          orders.map(async (ord: any) => {
+            const orderId = ord.orderId || ord.id || ord.orderID || ord._id;
+            if (!orderId) return;
+
+            try {
+              const details = await OrderDetailService.getOrderDetailsByOrderId(orderId);
+              if (Array.isArray(details)) {
+                details.forEach((d: any) => {
+                  const bookId = d.bookId;
+                  // tìm book trong allBooks
+                  const book = allBooks.find((b) =>
+                    String(b.bookId ?? b.id ?? b.bookID ?? b._id) === String(bookId)
+                  );
+                  const bookAuthorId = book
+                    ? (book.authorId ?? book.userId ?? book.author?.id)
+                    : null;
+
+                  // chỉ cộng doanh thu cho những book thuộc author hiện tại
+                  if (String(bookAuthorId) === String(authorId)) {
+                    total += (Number(d.price) || 0) * (Number(d.quantity) || 1);
+                  }
+                });
+              }
+            } catch (err) {
+              console.error("Error fetching order details for order", orderId, err);
+            }
+          })
+        );
+
+        if (mounted) setAuthorRevenue(total);
+      } catch (err) {
+        console.error("Error fetching delivered orders:", err);
+      }
+    };
+
+    computeRevenue();
+    return () => {
+      mounted = false;
+    };
+  }, [authorId, allBooks]);
+
+  // 🆕 Phí tác quyền = 20% tổng doanh thu thực tế
+  const royaltyFee = useMemo(
+    () => Math.round(authorRevenue * 0.2),
+    [authorRevenue]
+  );
 
   // Cards array: only 5 cards requested
   const cards = [
     {
       title: "Tổng Doanh Thu",
-      value: formatCurrency(totalRevenue),
-      desc: "Ước tính từ sách",
+      // dùng doanh thu thực từ order DELIVERED
+      value: formatCurrency(authorRevenue),
+      desc: "Tổng doanh thu từ đơn hàng đã giao (DELIVERED)",
       icon: <DollarSign className="w-6 h-6" />,
       accent: "from-[#764BA2] to-[#667EEA]",
     },
     {
       title: "Phí tác quyền",
-      value: formatCurrency(Math.round(totalRevenue * 0.3)),
-      desc: "Phí/chiết khấu nền tảng (ước tính)",
+      // 🆕 20% của tổng doanh thu
+      value: formatCurrency(royaltyFee),
+      desc: "Tác quyền 20% trên tổng doanh thu",
       icon: <BookOpen className="w-6 h-6" />,
       accent: "from-[#334155] to-[#475569]",
     },
@@ -318,8 +433,12 @@ export default function AuthorIncome() {
 
             <div className="mt-6 text-sm text-gray-600">
               Tổng sách: <span className="font-semibold">{totalBooks}</span>
-              <span className="ml-4">Đã xuất bản: <span className="font-semibold">{publishedBooks}</span></span>
-              <span className="ml-4">Chờ duyệt: <span className="font-semibold">{pendingBooks}</span></span>
+              <span className="ml-4">
+                Đã xuất bản: <span className="font-semibold">{publishedBooks}</span>
+              </span>
+              <span className="ml-4">
+                Chờ duyệt: <span className="font-semibold">{pendingBooks}</span>
+              </span>
             </div>
           </div>
         </div>

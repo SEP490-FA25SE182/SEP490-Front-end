@@ -287,7 +287,7 @@ export default function AuthorChapterList() {
                       <div className="relative w-16 h-20 flex items-center justify-center rounded bg-white/5">
                         <BookOpen className="w-12 h-12 text-purple-400" strokeWidth={1.5} />
                       </div>
-                      <div className="text-xs text-white font-medium text-center line-clamp-2 w-full min-h-8">
+                      <div className="text-lg text-white font-medium text-center line-clamp-2 w-full min-h-8">
                         {normalized.chapterName}
                       </div>
                       <div className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">

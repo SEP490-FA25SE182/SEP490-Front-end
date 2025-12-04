@@ -17,6 +17,7 @@ import {
 import { getAllWallets, type Wallet } from "@/services/WalletService";
 import { getUserById, updateUser, type User } from "@/services/UserService";
 import { UploadService } from "@/services/FirebaseService";
+import { TransactionService } from "@/services/TransactionService";
 
 export default function AuthorProfile() {
   const { userId } = useParams<{ userId: string }>();
@@ -33,6 +34,11 @@ export default function AuthorProfile() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -78,6 +84,8 @@ export default function AuthorProfile() {
         style: "currency",
         currency: "VND",
       }).format(n);
+
+  // Hiển thị royalty dưới dạng phần trăm (ví dụ "20%")
 
   const formatDate = (d?: string | null) => {
     if (!d) return "-";
@@ -155,6 +163,42 @@ export default function AuthorProfile() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // when wallets loaded, default select first wallet
+    if (wallets && wallets.length > 0 && !selectedWalletId) {
+      setSelectedWalletId(wallets[0].walletId);
+    }
+  }, [wallets, selectedWalletId]);
+
+  // fetch transactions for selected wallet automatically
+  useEffect(() => {
+    let mounted = true;
+    const fetchTransactions = async (wid: string) => {
+      setTxLoading(true);
+      setTxError(null);
+      try {
+        // gọi đúng endpoint transactions/search (page/size tuỳ chỉnh)
+        const res = await TransactionService.searchTransactions({ walletId: wid, page: 0, size: 20 });
+        const items = Array.isArray(res) ? res : res && res.content ? res.content : [];
+        if (!mounted) return;
+        setTransactions(items);
+      } catch (err) {
+        console.error("Lỗi khi lấy lịch sử giao dịch:", err);
+        if (mounted) {
+          setTxError("Không tải được lịch sử giao dịch");
+          setTransactions([]);
+        }
+      } finally {
+        if (mounted) setTxLoading(false);
+      }
+    };
+
+    if (selectedWalletId) fetchTransactions(selectedWalletId);
+    return () => {
+      mounted = false;
+    };
+  }, [selectedWalletId]);
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -290,9 +334,6 @@ export default function AuthorProfile() {
                       ) : (
                         <div className="text-white">{(user?.royalty ?? 0) + "%"}</div>
                       )}
-
-                      <label className="text-white/70 text-xs">Cập nhật lần cuối</label>
-                      <div className="text-white">{formatDate((user as any)?.updatedAt)}</div>
                     </div>
 
                     {/* Edit / Save / Cancel moved into the author info card */}
@@ -317,7 +358,7 @@ export default function AuthorProfile() {
               {/* Wallet / Transactions table */}
               <Card className="col-span-2 bg-[#111827] border border-white/10 text-white">
                 <CardHeader>
-                  <CardTitle className="text-lg">Lịch sử Wallet / Giao dịch</CardTitle>
+                  <CardTitle className="text-lg">Thông tin ví</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-auto">
@@ -349,9 +390,85 @@ export default function AuthorProfile() {
                             </TableRow>
                           ))
                         )}
-                      </TableBody>
-                    </Table>
+                       </TableBody>
+                     </Table>
+                   </div>
+
+                  {/* --- Lịch sử giao dịch (searchWallets by walletId) --- */}
+                  <div className="mt-6 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="text-white/70">Chọn wallet:</div>
+                        <select
+                          className="bg-transparent text-white border border-white/10 p-1 rounded"
+                          value={selectedWalletId ?? ""}
+                          onChange={(e) => setSelectedWalletId(e.target.value || null)}
+                        >
+                          <option value="">-- Chọn wallet --</option>
+                          {wallets.map((w) => (
+                            <option key={w.walletId} value={w.walletId}>
+                              {w.walletId}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="ml-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white"
+                          onClick={() => {
+                            // re-fetch current selected wallet transactions
+                            setSelectedWalletId((s) => s);
+                          }}
+                        >
+                          Tải
+                        </button>
+                      </div>
+                      <div className="text-sm text-white/60">Hiển thị lịch sử theo walletId</div>
+                    </div>
+
+                    {txLoading ? (
+                      <div className="text-white">Đang tải lịch sử...</div>
+                    ) : txError ? (
+                      <div className="text-red-400">{txError}</div>
+                    ) : (
+                      <div className="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-white">ID</TableHead>
+                              <TableHead className="text-white">Số tiền</TableHead>
+                              {/* Loại và mô tả đã bỏ */}
+                              <TableHead className="text-white">Thời gian</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {transactions.length === 0 ? (
+                               <TableRow>
+                                 <TableCell colSpan={5} className="text-center text-white/60">
+                                   Không có giao dịch
+                                 </TableCell>
+                               </TableRow>
+                            ) : (
+                              transactions.map((tx: any, idx: number) => {
+                                // normalize common fields from backend response sample
+                                const id = tx.transactionId ?? tx.id ?? tx.transaction_id ?? `tx-${idx}`;
+                                // đảm bảo lấy đúng trường totalPrice từ BE
+                                const amount = tx.totalPrice ?? tx.amount ?? tx.balanceChange ?? tx.delta ?? 0;
+                                const time = tx.createdAt ?? tx.createdDate ?? tx.date ?? tx.updatedAt;
+
+                                return (
+                                  <TableRow key={id}>
+                                    <TableCell className="text-white">{id}</TableCell>
+                                    <TableCell className="text-white">{formatCurrency(Number(amount))}</TableCell>
+                                    <TableCell className="text-white">{formatDate(time)}</TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                           </TableBody>
+                         </Table>
+                       </div>
+                    )}
                   </div>
+                  {/* --- end lịch sử giao dịch --- */}
                 </CardContent>
               </Card>
             </div>

@@ -5,13 +5,17 @@ import { Menu, X, ArrowLeft } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 
-// 🔹 import AIService
 import {
   useSearchPageIllustrations,
   useGetAllIllustrations,
+  useSearchPageAudios,
+  useGetAudios,
   type Illustration,
   type PageIllustration,
+  type Audio,
+  type PageAudio,
 } from "@/services/AIService";
+
 import { useSearchMarkers, type Marker } from "@/services/ARService";
 
 const AuthorPageDetail = () => {
@@ -25,6 +29,10 @@ const AuthorPageDetail = () => {
   const { data: illustrationsResp } = useGetAllIllustrations();
   // 🔹 lấy marker gắn theo page (sử dụng pageId)
   const { data: markersResp } = useSearchMarkers({ pageId });
+
+  // 🔹 lấy quan hệ page-audio + list audio
+  const { data: pageAudiosResp } = useSearchPageAudios({ pageId });
+  const { data: audiosResp } = useGetAudios();
 
   const pageIllustrations: PageIllustration[] = useMemo(() => {
     if (!pageIllustrationsResp) return [];
@@ -52,6 +60,44 @@ const AuthorPageDetail = () => {
     }
     return Array.isArray(markersResp) ? (markersResp as Marker[]) : [];
   }, [markersResp]);
+
+  const pageAudios: PageAudio[] = useMemo(() => {
+    if (!pageAudiosResp) return [];
+    if (Array.isArray((pageAudiosResp as any).content)) {
+      return (pageAudiosResp as any).content as PageAudio[];
+    }
+    return Array.isArray(pageAudiosResp)
+      ? (pageAudiosResp as PageAudio[])
+      : [];
+  }, [pageAudiosResp]);
+
+  const audios: Audio[] = useMemo(() => {
+    if (!audiosResp) return [];
+    return Array.isArray(audiosResp)
+      ? (audiosResp as Audio[])
+      : Array.isArray((audiosResp as any).content)
+        ? ((audiosResp as any).content as Audio[])
+        : [];
+  }, [audiosResp]);
+
+  // gộp quan hệ page-audio với thông tin audio
+  const pageAudiosWithAudio = useMemo(
+    () =>
+      pageAudios
+        .map((pa: any) => {
+          const audioId = pa.audioId || pa.audio?.audioId;
+          if (!audioId) return null;
+
+          const audioFromList = audios.find((a) => a.audioId === audioId);
+          const audio: any = audioFromList || pa.audio;
+
+          if (!audio || !audio.audioUrl) return null;
+
+          return { rel: pa, audio };
+        })
+        .filter(Boolean) as { rel: PageAudio; audio: Audio }[],
+    [pageAudios, audios]
+  );
 
   // 🔹 helper
   const isImageUrl = (url?: string) => {
@@ -168,7 +214,6 @@ const AuthorPageDetail = () => {
           </div>
         </header>
 
-        {/* Content */}
         <div className="flex-1 overflow-auto p-8 bg-[#0f172a] flex flex-col items-center">
           <div className="bg-white/5 border border-white/10 rounded-lg shadow-md p-6 max-w-3xl w-full">
             <h2 className="text-white text-xl font-semibold mb-4 text-center">
@@ -213,7 +258,9 @@ const AuthorPageDetail = () => {
             {/* MARKERS (hiển thị ảnh marker gắn theo pageId) */}
             {markers.length > 0 && (
               <div className="mt-6 flex flex-col items-center">
-                <h3 className="text-sm text-gray-300 mb-3 text-center">Marker gắn trên trang</h3>
+                <h3 className="text-sm text-gray-300 mb-3 text-center">
+                  Marker gắn trên trang
+                </h3>
                 {markers.map((m) => (
                   <div key={m.markerId ?? m.markerCode} className="w-full max-w-3xl mb-4">
                     <div className="flex justify-center">
@@ -259,8 +306,33 @@ const AuthorPageDetail = () => {
                 ))}
               </div>
             )}
+
+            {/* AUDIOS (preview audio gắn theo pageId) */}
+            {pageAudiosWithAudio.length > 0 && (
+              <div className="mt-6 flex flex-col items-center">
+                <h3 className="text-sm text-gray-300 mb-3 text-center">
+                  Audio gắn trên trang
+                </h3>
+
+                {pageAudiosWithAudio.map(({ rel, audio }) => (
+                  <div
+                    key={rel.pageAudioId ?? audio.audioId}
+                    className="w-full max-w-3xl mb-4"
+                  >
+                    <audio
+                      controls
+                      src={getDisplayImageUrl(audio.audioUrl)}
+                      className="w-full"
+                    >
+                      Trình duyệt của bạn không hỗ trợ thẻ audio.
+                    </audio>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
       </div>
     </div>
   );

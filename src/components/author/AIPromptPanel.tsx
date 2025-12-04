@@ -137,24 +137,12 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
     <div className="space-y-5 text-white">
       <h2 className="text-lg font-semibold">AI Image Generator</h2>
 
-      {/* Model Name */}
-      <div>
-        <Label className="mb-3">Model Name *</Label>
-        <Input
-          required
-          placeholder="stable-diffusion-xl-1024-v1-0"
-          value={form.modelName}
-          onChange={(e) => setForm({ ...form, modelName: e.target.value })}
-          className="bg-transparent border-white/20 text-white"
-        />
-      </div>
-
       {/* Prompt */}
       <div>
-        <Label className="mb-3">Prompt *</Label>
+        <Label className="mb-3">Prompt</Label>
         <Textarea
           required
-          placeholder="Describe the image..."
+          placeholder="Mô tả hình ảnh bạn muốn tạo..."
           value={form.prompt}
           onChange={(e) => setForm({ ...form, prompt: e.target.value })}
           className="bg-transparent border-white/20 text-white"
@@ -165,7 +153,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
       <div>
         <Label className="mb-3">Negative Prompt</Label>
         <Textarea
-          placeholder="Describe what you DON'T want... (optional)"
+          placeholder="Mô tả những gì bạn KHÔNG muốn ảnh tạo ra... (tùy chọn)"
           value={form.negativePrompt}
           onChange={(e) => setForm({ ...form, negativePrompt: e.target.value })}
           className="bg-transparent border-white/20 text-white"
@@ -174,10 +162,10 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
 
       {/* Title */}
       <div>
-        <Label className="mb-3">Title *</Label>
+        <Label className="mb-3">Tên Ảnh</Label>
         <Input
           required
-          placeholder="Title for the generated image"
+          placeholder="Tên ảnh được tạo"
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           className="bg-transparent border-white/20 text-white"
@@ -187,7 +175,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
       {/* Width & Height */}
       <div className="flex gap-4">
         <div className="flex-1">
-          <Label className="mb-3">Width *</Label>
+          <Label className="mb-3">Chiều rộng</Label>
           <Input
             required
             type="number"
@@ -197,7 +185,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
           />
         </div>
         <div className="flex-1">
-          <Label className="mb-3">Height *</Label>
+          <Label className="mb-3">Chiều cao</Label>
           <Input
             required
             type="number"
@@ -210,13 +198,13 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
 
       {/* Aspect Ratio */}
       <div>
-        <Label className="mb-3">Aspect Ratio *</Label>
+        <Label className="mb-3">Tỷ lệ khung hình</Label>
         <Select
           value={form.aspectRatio}
           onValueChange={(v) => setForm({ ...form, aspectRatio: v })}
         >
           <SelectTrigger className="bg-[#1a2332] border-white/20 text-white">
-            <SelectValue placeholder="Aspect Ratio" />
+            <SelectValue placeholder="Tỷ lệ khung hình" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="1:1">1:1 (Square)</SelectItem>
@@ -241,7 +229,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
 
       {/* Seed */}
       <div>
-        <Label className="mb-3">Seed *</Label>
+        <Label className="mb-3">Seed</Label>
         <Input
           required
           type="number"
@@ -256,7 +244,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
 
       {/* Style Preset */}
       <div>
-        <Label className="mb-3">Style Preset *</Label>
+        <Label className="mb-3">Style Ảnh</Label>
         <Select
           value={form.stylePreset}
           onValueChange={(v) =>
@@ -286,17 +274,6 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
             <SelectItem value="FANTASY_ART">Fantasy Art</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      {/* ControlNet Type */}
-      <div>
-        <Label className="mb-3">ControlNet Type (Optional)</Label>
-        <Input
-          placeholder="Optional (e.g., depth, pose...)"
-          value={form.controlnetType}
-          onChange={(e) => setForm({ ...form, controlnetType: e.target.value })}
-          className="bg-transparent border-white/20 text-white"
-        />
       </div>
 
       {generateWithImage.isPending && <SpinningCubeLoader />}

@@ -123,16 +123,6 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={onClose}>Huỷ</Button>
-
-          <Button
-            variant="outline"
-            disabled={!selectedAudio}
-            onClick={() => setOpenPreview(true)}
-            className="mx-2"
-          >
-            Xem trước
-          </Button>
-
           <Button onClick={handleSave} disabled={createPageAudio.isPending}>
             {createPageAudio.isPending ? "Đang lưu..." : "Lưu audio"}
           </Button>

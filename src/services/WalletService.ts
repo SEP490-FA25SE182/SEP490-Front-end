@@ -25,6 +25,15 @@ export interface UpdateWalletRequest {
   isActived?: string;
 }
 
+export interface WalletPage {
+  content: Wallet[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  // các field khác nếu cần thêm sau
+}
+
 const headers = {
   Authorization: `Bearer ${localStorage.getItem("token")}`,
 };
@@ -87,7 +96,7 @@ export const deleteWallet = async (walletId: string): Promise<void> => {
 /* Search ví */
 export const searchWallets = async (
   params?: Record<string, string | number | undefined>
-): Promise<Wallet[]> => {
+): Promise<WalletPage> => {
   const query = new URLSearchParams(
     Object.entries(params || {}).reduce((acc, [k, v]) => {
       if (v !== undefined && v !== null && v !== "") acc[k] = String(v);
@@ -95,9 +104,10 @@ export const searchWallets = async (
     }, {} as Record<string, string>)
   ).toString();
 
-  const res = await axios.get(`${API_RK}/users/wallets/search?${query}`, {
-    headers,
-  });
+  const res = await axios.get(
+    `${API_RK}/users/wallets/search${query ? `?${query}` : ""}`,
+    { headers }
+  );
 
-  return res.data;
+  return res.data as WalletPage;
 };

@@ -60,16 +60,6 @@ const BOOK_PUBLIC: Record<number, string> = {
     3: "PENDING",
 };
 
-function StatusBadge({ label, colorClass }: { label: string; colorClass: string }) {
-    return (
-        <span
-            className={`px-2 py-1 rounded-md text-xs font-medium border ${colorClass}`}
-        >
-            {label}
-        </span>
-    );
-}
-
 
 export default function BookManagementPage() {
     const [sidebarOpen, setSidebarOpen] = useState(true);

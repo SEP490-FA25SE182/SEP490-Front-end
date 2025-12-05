@@ -246,10 +246,6 @@ export default function BookManagementPage() {
                             <SelectItem value="3">PENDING</SelectItem>
                         </SelectContent>
                     </Select>
-
-                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleAdd}>
-                        <Plus className="w-4 h-4 mr-1" /> Thêm Sách
-                    </Button>
                 </div>
 
                 {/* Table */}

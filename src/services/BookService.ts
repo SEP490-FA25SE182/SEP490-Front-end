@@ -88,7 +88,6 @@ export class BookService {
   }
 
   /** 🔧 Chuẩn hóa dữ liệu gửi đi */
-  /** 🔧 Chuẩn hóa dữ liệu gửi đi */
   private normalizeBookPayload(book: Partial<Book>) {
     const publication =
       typeof book.publicationStatus === "string"

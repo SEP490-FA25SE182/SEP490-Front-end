@@ -13,7 +13,8 @@ export interface Marker {
   printablePdfUrl?: string;     // new
   isActived?: string;           // new (e.g. "ACTIVE")
   createdAt?: string;
-  updatedAt?: string;           // new
+  updatedAt?: string;    
+  userId?: string;        // new
 }
 
 export interface MarkerSearchParams {

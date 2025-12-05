@@ -446,8 +446,8 @@ const AuthorPageList = () => {
 
                         <div
                           className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
-                              ? "bg-blue-500/20 text-blue-300"
-                              : "bg-purple-500/20 text-purple-300"
+                            ? "bg-blue-500/20 text-blue-300"
+                            : "bg-purple-500/20 text-purple-300"
                             }`}
                         >
                           {isImage ? "Trang Ảnh" : "Trang Chữ"}
@@ -479,8 +479,8 @@ const AuthorPageList = () => {
                           <PaginationPrevious
                             onClick={handlePrev}
                             className={`text-white hover:bg-white/10 ${currentPage === 1
-                                ? "opacity-50 pointer-events-none"
-                                : ""
+                              ? "opacity-50 pointer-events-none"
+                              : ""
                               }`}
                           />
                         </PaginationItem>
@@ -488,8 +488,8 @@ const AuthorPageList = () => {
                           <PaginationNext
                             onClick={handleNext}
                             className={`text-white hover:bg-white/10 ${currentPage === totalPages
-                                ? "opacity-50 pointer-events-none"
-                                : ""
+                              ? "opacity-50 pointer-events-none"
+                              : ""
                               }`}
                           />
                         </PaginationItem>
@@ -572,49 +572,17 @@ const AuthorPageList = () => {
                     )}
                   </div>
 
-                  <div className="p-3 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-sm text-white font-medium truncate">
-                        {m.markerCode || "Untitled"}
-                      </div>
-                      <div className="text-xs text-gray-400">{m.markerType}</div>
+                  <div className="p-3">
+                    <div className="text-sm text-white font-medium truncate">
+                      {m.markerCode || "Untitled"}
                     </div>
-
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white rounded-full"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMarkerId(m.markerId);
-                              setAssetDialogOpen(true);
-                            }}
-                          >
-                            Thêm asset
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              /* open edit marker flow if exists */
-                            }}
-                          >
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="text-xs text-gray-400">
+                      {m.markerType}
                     </div>
                   </div>
                 </div>
               ))}
+
             </div>
           </div>
         </aside>

@@ -73,12 +73,12 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     () =>
       Array.isArray(illustrations)
         ? illustrations
-            .filter((it: any) => it.isActived === "ACTIVE")
-            .map((it: any) => ({
-              id: it.illustrationId ?? it.id,
-              title: it.title,
-              url: it.imageUrl,
-            }))
+          .filter((it: any) => it.isActived === "ACTIVE")
+          .map((it: any) => ({
+            id: it.illustrationId ?? it.id,
+            title: it.title,
+            url: it.imageUrl,
+          }))
         : [],
     [illustrations]
   );
@@ -119,11 +119,10 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
 
     const normalized = normalizeCode(markerCode);
 
-    // check trùng markerCode (case-insensitive)
     const duplicated = Array.isArray(markers)
       ? (markers as any[]).some(
-          (m) => (m.markerCode || "").toLowerCase() === normalized
-        )
+        (m) => (m.markerCode || "").toLowerCase() === normalized
+      )
       : false;
 
     if (duplicated) {
@@ -146,13 +145,24 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     }
 
     try {
+      const payload: any = {
+        markerCode: normalized,
+        markerType: "fiducial",                // như swagger
+        imageUrl: gsToHttp(rawImageUrl),       // convert gs:// nếu cần
+        physicalWidthM: 0.001,                 // như swagger
+        userId,                                // lấy từ localStorage ở trên
+      };
+
+      console.log("Create marker payload = ", payload);
+
+      const res = await createMarker.mutateAsync(payload);
+      console.log("Create marker response = ", res);
 
       toast({
         title: "Tạo marker thành công",
         description: `Marker "${normalized}" đã được tạo.`,
       });
 
-      // Không tự động chuyển sang quản lý asset 3D ở đây — chỉ đóng dialog.
       onClose();
     } catch (err: any) {
       console.error("Tạo marker thất bại:", err);
@@ -224,11 +234,10 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
                     key={it.id}
                     type="button"
                     onClick={() => setSelectedIllustrationId(it.id)}
-                    className={`rounded border p-0 overflow-hidden focus:outline-none ${
-                      selectedIllustrationId === it.id
+                    className={`rounded border p-0 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id
                         ? "ring-2 ring-purple-300 border-purple-500"
                         : "border-white/10 hover:border-gray-300"
-                    }`}
+                      }`}
                   >
                     <div className="w-20 h-20 bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img

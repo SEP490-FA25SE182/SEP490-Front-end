@@ -12,6 +12,7 @@ interface UserInfo {
 interface AuthContextType {
   user: UserInfo | null;
   token: string | null;
+  isInitialized: boolean;
   setUser: (user: UserInfo | null) => void;
   setToken: (token: string | null) => void;
 }
@@ -19,6 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
+  isInitialized: false,
   setUser: () => { },
   setToken: () => { },
 });
@@ -26,17 +28,15 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // 🔹 Khôi phục user và token khi reload
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     const savedToken = localStorage.getItem("token");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    if (savedToken) {
-      setToken(savedToken);
-    }
+    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedToken) setToken(savedToken);
+    setIsInitialized(true);
   }, []);
 
   // 🔹 Theo dõi Firebase token thay đổi
@@ -52,12 +52,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem("token");
       }
     });
+
     return () => unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, setUser, setToken }}>
-      {children}
+    <AuthContext.Provider value={{ user, token, isInitialized, setUser, setToken }}>
+      {isInitialized ? children : <div>Loading...</div>}
     </AuthContext.Provider>
   );
 };

@@ -76,31 +76,32 @@ const advertisementImages = [
  🌟 Homepage Component
 -------------------------- */
 export default function Homepage() {
-  const { gerneId } = useParams<{ gerneId?: string }>();
+  const { genreId } = useParams<{ genreId?: string }>();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
+
   useEffect(() => {
-  const fetchBooks = async () => {
-    try {
-      const data = await getAllBooks();
+    const fetchBooks = async () => {
+      setLoading(true);
+      try {
+        const data = await getAllBooks(genreId ? { genreId } : undefined);
 
-      // 🔹 Lọc chỉ sách có publicationStatus = "1"
-      const publishedBooks = data.filter(
-        (book: Book) => book.publicationStatus === 1
-      );
+        const publishedBooks = data.filter(
+          (book: Book) => book.publicationStatus === 1
+        );
 
-      console.log("📚 Sách đã xuất bản:", publishedBooks);
-      setBooks(publishedBooks);
-    } catch (error) {
-      console.error("❌ Lỗi khi fetch sách:", error);
-      setBooks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchBooks();
-}, []);
+        setBooks(publishedBooks);
+      } catch (error) {
+        console.error("❌ Lỗi khi fetch sách:", error);
+        setBooks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBooks();
+  }, [genreId]);
 
 
 
@@ -127,7 +128,7 @@ export default function Homepage() {
       <main className="container mx-auto px-20 py-12">
         {loading ? (
           <p className="text-center text-white">Đang tải dữ liệu sách...</p>
-        ) : !gerneId ? (
+        ) : !genreId ? (
           <>
             {/* 🎠 Carousel quảng cáo */}
             <section className="mb-12 max-w-5xl mx-auto">
@@ -165,9 +166,31 @@ export default function Homepage() {
             <BookSection title="Sách Được Đề Xuất" books={recommendedBooks} />
             <BookSection title="Sách Theo Thể Loại" books={categoryBooks} />
           </>
+        ) : genreId ? (
+          books.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[50vh] text-white">
+              <p className="text-xl font-medium text-white/70 mb-4">
+                Không có sách nào thuộc thể loại này
+              </p>
+              <Link
+                to="/"
+                className="px-6 py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Quay lại trang chủ
+              </Link>
+            </div>
+          ) : (
+            <BookSection title="Thể loại" books={books} />
+          )
         ) : (
-          <BookSection title="Thể loại" books={books} />
+          <>
+            {/* Carousel + các section */}
+            <BookSection title="Mới Nhất" books={newestBooks} />
+            <BookSection title="Sách Được Đề Xuất" books={recommendedBooks} />
+            <BookSection title="Sách Theo Thể Loại" books={categoryBooks} />
+          </>
         )}
+
       </main>
 
       <CustomerFooter />

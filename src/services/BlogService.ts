@@ -9,13 +9,16 @@ export interface BlogPost {
   blogId: string;
   title: string;
   content: string;
-  coverUrl?: string | null; // lưu gs:// trong DB
+  coverUrl?: string | null;
   authorId: string;
   bookId?: string | null;
   isActived: "ACTIVE" | "INACTIVE" | "BANNED";
   tagIds?: string[];
   tagNames?: string[];
+  createdAt: string;
   updatedAt: string;
+  authorName?: string;
+  tags?: Tag[];
 }
 
 /* -----------------------------------------
@@ -242,7 +245,7 @@ export const CommentService = {
   },
 
   // 🔹 Cập nhật comment (PUT /api/rookie/users/comments/{id})
-   async update(id: string, data: UpdateCommentRequest): Promise<Comment> {
+  async update(id: string, data: UpdateCommentRequest): Promise<Comment> {
     const res = await axios.put(`${API_RK}/users/comments/${id}`, data);
     return res.data;
   },
@@ -289,45 +292,44 @@ export interface UpdateTagRequest {
    ⚙️ TAG SERVICE
 ======================================================= */
 export const TagService = {
-  // 🔹 Lấy tất cả tag
+  // 🔹 GET /api/rookie/tags — Lấy tất cả tag
   async getAll(): Promise<Tag[]> {
     const res = await axios.get(`${API_RK}/tags`);
     const data = res.data;
-    if (Array.isArray(data?.content)) return data.content;
-    return data;
+    return Array.isArray(data?.content) ? data.content : data;
   },
 
-  // 🔹 Lấy tag theo ID
+  // 🔹 GET /api/rookie/tags/{id} — Lấy 1 tag theo ID
   async getById(id: string): Promise<Tag> {
     const res = await axios.get(`${API_RK}/tags/${id}`);
     return res.data;
   },
 
-  // 🔹 Tạo mới tag (POST /api/rookie/tags)
-  // ⚠️ Backend yêu cầu gửi MẢNG
-  async create(tags: CreateTagRequest[]): Promise<Tag[]> {
-    const res = await axios.post(`${API_RK}/tags`, tags);
-    return res.data;
+  // 🔹 POST /api/rookie/tags — Tạo mới tag (⚠️ Backend yêu cầu gửi MẢNG)
+  async create(tagList: CreateTagRequest[]): Promise<Tag[]> {
+    const res = await axios.post(`${API_RK}/tags`, tagList, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = res.data;
+    return Array.isArray(data?.content) ? data.content : data;
   },
 
-  // 🔹 Cập nhật tag (PUT /api/rookie/tags/{id})
+  // 🔹 PUT /api/rookie/tags/{id} — Cập nhật tag
   async update(id: string, data: UpdateTagRequest): Promise<Tag> {
     const res = await axios.put(`${API_RK}/tags/${id}`, data);
     return res.data;
   },
 
-  // 🔹 Xóa tag (DELETE /api/rookie/tags/{id})
+  // 🔹 DELETE /api/rookie/tags/{id} — Xoá tag
   async remove(id: string): Promise<void> {
     await axios.delete(`${API_RK}/tags/${id}`);
   },
 
-  // 🔹 Tìm kiếm tag theo tên (GET /api/rookie/tags/search?keyword=xxx)
-  async search(keyword: string): Promise<Tag[]> {
-    const res = await axios.get(`${API_RK}/tags/search`, {
-      params: { keyword },
-    });
+  // 🔹 GET /api/rookie/tags/search — Tìm kiếm tag
+  async search(params: { keyword?: string; page?: number; size?: number }): Promise<Tag[]> {
+    const res = await axios.get(`${API_RK}/tags/search`, { params });
     const data = res.data;
-    if (Array.isArray(data?.content)) return data.content;
-    return data;
+    return Array.isArray(data?.content) ? data.content : data;
   },
 };

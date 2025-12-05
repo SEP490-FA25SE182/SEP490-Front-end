@@ -5,6 +5,7 @@ import { CartService } from "@/services/CartService";
 import { CartItemService, type CartItem } from "@/services/CartItemService";
 import { toast } from "sonner";
 import { getCurrentUserId } from "@/utils/authStorage";
+import { useAuth } from "./AuthContext";
 
 export type CartLine = {
   book: Book;
@@ -61,6 +62,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saved = localStorage.getItem("cart_state");
     return saved ? JSON.parse(saved) : initialState;
   });
+  const { isInitialized } = useAuth();
+
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -77,6 +80,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 🛒 Tải giỏ hàng khi userId sẵn sàng
   useEffect(() => {
     const fetchCart = async () => {
+      if (!isInitialized) return;
       if (!userId) return;
       try {
         let cart: { cartId: string } | null = null;
@@ -124,7 +128,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     fetchCart();
-  }, [userId]);
+  }, [isInitialized,userId]);
 
   // 💾 Lưu giỏ hàng vào localStorage
   useEffect(() => {

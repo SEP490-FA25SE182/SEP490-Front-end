@@ -101,4 +101,22 @@ export const OrderService = {
     const res = await axios.get(`${API_RK}/users/orders/cart/${cartId}`);
     return res.data;
   },
+
+  // 🔍 Tìm orders theo bộ lọc (userId, status, page, size, sort)
+  async searchOrders(params: {
+    userId?: string;
+    status?: string;
+    page?: number;
+    size?: number;
+    sort?: string[];
+  }): Promise<any> {
+    const res = await axios.get(`${API_RK}/users/orders/search`, {
+      params,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        "Content-Type": "application/json",
+      },
+    });
+    return res.data;
+  },
 };

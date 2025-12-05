@@ -32,7 +32,7 @@ export default function AuthorSidebar({ isOpen }: AuthorSidebarProps) {
   return (
     <div
       className={`${isOpen ? 'w-64' : 'w-0'} transition-all duration-300 overflow-hidden 
-      bg-gradient-to-l from-[#764BA2] to-[#667EEA] shadow-2xl flex flex-col h-full`}
+      bg-linear-to-l from-[#764BA2] to-[#667EEA] shadow-2xl flex flex-col h-full`}
     >
       {/* Header */}
       <div className="p-6">

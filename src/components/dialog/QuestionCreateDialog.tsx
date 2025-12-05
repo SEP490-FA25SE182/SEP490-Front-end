@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import {
     useCreateQuestion,
@@ -339,7 +338,7 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                     key={idx}
                                     onClick={() => setActiveIdx(idx)}
                                     className={[
-                                        "text-sm min-w-[80px] px-4 py-2 rounded-md border transition",
+                                        "text-sm min-w-20 px-4 py-2 rounded-md border transition",
                                         "flex items-center justify-center gap-1",
                                         isActive
                                             ? "bg-purple-600 text-white border-purple-600"
@@ -510,14 +509,25 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                                 {/* Switch đúng / sai */}
                                                 <div className="flex flex-col items-center gap-1 text-xs">
                                                     <div className="flex items-center gap-2">
-                                                        <Switch
+                                                        <input
+                                                            type="checkbox"
                                                             checked={!!a.isCorrect}
-                                                            onCheckedChange={(checked: any) =>
-                                                                updateAnswerField(activeIdx, ai, {
-                                                                    isCorrect: checked,
-                                                                })
-                                                            }
+                                                            onChange={(e: any) => {
+                                                                if (a.saved) return;
+                                                                const checked = !!e.target.checked;
+                                                                setForms((prev) => {
+                                                                    const next = [...prev];
+                                                                    const q = { ...next[activeIdx] };
+                                                                    q.answers = q.answers ? q.answers.map((ans, idx2) => ({
+                                                                        ...ans,
+                                                                        isCorrect: idx2 === ai ? checked : false,
+                                                                    })) : [];
+                                                                    next[activeIdx] = q;
+                                                                    return next;
+                                                                });
+                                                            }}
                                                             disabled={a.saved}
+                                                            className="w-4 h-4"
                                                         />
                                                         <span className="text-gray-300 whitespace-nowrap">
                                                             Đúng

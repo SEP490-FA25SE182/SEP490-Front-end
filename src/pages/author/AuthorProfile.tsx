@@ -14,9 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllWallets, type Wallet } from "@/services/WalletService";
+// ⬇️ Đổi getAllWallets -> searchWallets, vẫn dùng Wallet type
+import { searchWallets, type Wallet } from "@/services/WalletService";
 import { getUserById, updateUser, type User } from "@/services/UserService";
 import { UploadService } from "@/services/FirebaseService";
+import { TransactionService } from "@/services/TransactionService";
 
 export default function AuthorProfile() {
   const { userId } = useParams<{ userId: string }>();
@@ -34,6 +36,11 @@ export default function AuthorProfile() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!userId) return;
     let mounted = true;
@@ -47,11 +54,22 @@ export default function AuthorProfile() {
         setUser(userRes);
         setEdited(userRes);
 
-        // fetch wallets (all) then filter by userId to show user's wallet entries / transactions
+        // 🔄 Lấy ví bằng searchWallets, lọc theo userId (BE đang trả về page)
         try {
-          const all = await getAllWallets();
+          const page = await searchWallets({
+            userId,
+            isActived: "ACTIVE",
+            page: 0,
+            size: 50,
+          });
+
+          const my = page && Array.isArray((page as any).content)
+            ? ((page as any).content as Wallet[])
+            : Array.isArray(page)
+            ? (page as Wallet[])
+            : [];
+
           if (!mounted) return;
-          const my = Array.isArray(all) ? all.filter((w) => String(w.userId) === String(userId)) : [];
           setWallets(my);
         } catch (werr) {
           console.warn("Không lấy được wallets:", werr);
@@ -75,9 +93,9 @@ export default function AuthorProfile() {
     n === undefined || n === null
       ? "-"
       : new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-      }).format(n);
+          style: "currency",
+          currency: "VND",
+        }).format(n);
 
   const formatDate = (d?: string | null) => {
     if (!d) return "-";
@@ -126,7 +144,10 @@ export default function AuthorProfile() {
     try {
       // 1) upload avatar if changed
       if (avatarFile) {
-        const gsUrl = await UploadService.uploadImageToFirebase(avatarFile, "avatar");
+        const gsUrl = await UploadService.uploadImageToFirebase(
+          avatarFile,
+          "avatar"
+        );
         edited.avatarUrl = gsUrl;
       }
 
@@ -136,10 +157,22 @@ export default function AuthorProfile() {
       const refreshed = await getUserById(userId);
       setUser(refreshed);
       setEdited(refreshed);
-      // refresh wallets
+
+      // 🔄 refresh wallets bằng searchWallets
       try {
-        const all = await getAllWallets();
-        const my = Array.isArray(all) ? all.filter((w) => String(w.userId) === String(userId)) : [];
+        const page = await searchWallets({
+          userId,
+          isActived: "ACTIVE",
+          page: 0,
+          size: 50,
+        });
+
+        const my = page && Array.isArray((page as any).content)
+          ? ((page as any).content as Wallet[])
+          : Array.isArray(page)
+          ? (page as Wallet[])
+          : [];
+
         setWallets(my);
       } catch (werr) {
         console.warn("Không lấy được wallets sau khi lưu:", werr);
@@ -156,6 +189,50 @@ export default function AuthorProfile() {
     }
   };
 
+  useEffect(() => {
+    // when wallets loaded, default select first wallet
+    if (wallets && wallets.length > 0 && !selectedWalletId) {
+      setSelectedWalletId(wallets[0].walletId);
+    }
+  }, [wallets, selectedWalletId]);
+
+  // fetch transactions for selected wallet automatically
+  useEffect(() => {
+    let mounted = true;
+    const fetchTransactions = async (wid: string) => {
+      setTxLoading(true);
+      setTxError(null);
+      try {
+        // gọi đúng endpoint transactions/search (page/size tuỳ chỉnh)
+        const res = await TransactionService.searchTransactions({
+          walletId: wid,
+          page: 0,
+          size: 20,
+        });
+        const items = Array.isArray(res)
+          ? res
+          : res && res.content
+          ? res.content
+          : [];
+        if (!mounted) return;
+        setTransactions(items);
+      } catch (err) {
+        console.error("Lỗi khi lấy lịch sử giao dịch:", err);
+        if (mounted) {
+          setTxError("Không tải được lịch sử giao dịch");
+          setTransactions([]);
+        }
+      } finally {
+        if (mounted) setTxLoading(false);
+      }
+    };
+
+    if (selectedWalletId) fetchTransactions(selectedWalletId);
+    return () => {
+      mounted = false;
+    };
+  }, [selectedWalletId]);
+
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
@@ -170,10 +247,16 @@ export default function AuthorProfile() {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="text-white hover:bg-white/10"
               >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {sidebarOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
               </Button>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-semibold text-white">Hồ sơ tác giả</h1>
+                <h1 className="text-xl font-semibold text-white">
+                  Hồ sơ tác giả
+                </h1>
               </div>
             </div>
             <div />
@@ -199,13 +282,18 @@ export default function AuthorProfile() {
                         <img
                           src={
                             avatarPreview ??
-                            (user?.avatarUrl && String(user.avatarUrl).startsWith("gs://")
+                            (user?.avatarUrl &&
+                            String(user.avatarUrl).startsWith("gs://")
                               ? (() => {
-                                const parts = String(user.avatarUrl).split("/");
-                                const bucket = parts[2];
-                                const path = parts.slice(3).join("/");
-                                return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
-                              })()
+                                  const parts = String(
+                                    user.avatarUrl
+                                  ).split("/");
+                                  const bucket = parts[2];
+                                  const path = parts.slice(3).join("/");
+                                  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+                                    path
+                                  )}?alt=media`;
+                                })()
                               : user?.avatarUrl ?? "")
                           }
                           alt="avatar"
@@ -230,74 +318,161 @@ export default function AuthorProfile() {
                               if (f) onSelectAvatar(f);
                             }}
                           />
-                          <Button onClick={handleFilePick} size="sm" className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700">
+                          <Button
+                            onClick={handleFilePick}
+                            size="sm"
+                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                          >
                             <UploadCloud className="w-4 h-4" /> Chọn ảnh
                           </Button>
-                          {avatarFile && <div className="text-sm text-gray-300 self-center">{avatarFile.name}</div>}
+                          {avatarFile && (
+                            <div className="text-sm text-gray-300 self-center">
+                              {avatarFile.name}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-white/60 mt-2">Nhấp "Chỉnh sửa" → chọn ảnh → "Lưu" để upload</div>
+                        <div className="text-xs text-white/60 mt-2">
+                          Nhấp "Chỉnh sửa" → chọn ảnh → "Lưu" để upload
+                        </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
                       <label className="text-white/70 text-xs">Họ & tên</label>
                       {isEditing ? (
-                        <Input value={edited?.fullName ?? ""} onChange={(e) => onChangeField("fullName", e.target.value)} />
+                        <Input
+                          value={edited?.fullName ?? ""}
+                          onChange={(e) =>
+                            onChangeField("fullName", e.target.value)
+                          }
+                        />
                       ) : (
-                        <div className="text-white">{user?.fullName ?? "-"}</div>
+                        <div className="text-white">
+                          {user?.fullName ?? "-"}
+                        </div>
                       )}
 
                       <label className="text-white/70 text-xs">Email</label>
                       {isEditing ? (
-                        <Input value={edited?.email ?? ""} onChange={(e) => onChangeField("email", e.target.value)} />
+                        <Input
+                          value={edited?.email ?? ""}
+                          onChange={(e) =>
+                            onChangeField("email", e.target.value)
+                          }
+                        />
                       ) : (
-                        <div className="text-white break-all">{user?.email ?? "-"}</div>
+                        <div className="text-white break-all">
+                          {user?.email ?? "-"}
+                        </div>
                       )}
 
-                      <label className="text-white/70 text-xs">Số điện thoại</label>
+                      <label className="text-white/70 text-xs">
+                        Số điện thoại
+                      </label>
                       {isEditing ? (
-                        <Input value={edited?.phoneNumber ?? ""} onChange={(e) => onChangeField("phoneNumber", e.target.value)} />
+                        <Input
+                          value={edited?.phoneNumber ?? ""}
+                          onChange={(e) =>
+                            onChangeField("phoneNumber", e.target.value)
+                          }
+                        />
                       ) : (
-                        <div className="text-white">{user?.phoneNumber ?? "-"}</div>
+                        <div className="text-white">
+                          {user?.phoneNumber ?? "-"}
+                        </div>
                       )}
 
-                      <label className="text-white/70 text-xs">Ngày sinh</label>
+                      <label className="text-white/70 text-xs">
+                        Ngày sinh
+                      </label>
                       {isEditing ? (
-                        <Input type="date" value={edited?.birthDate ? new Date(edited.birthDate).toISOString().slice(0, 10) : ""} onChange={(e) => onChangeField("birthDate", e.target.value)} />
+                        <Input
+                          type="date"
+                          value={
+                            edited?.birthDate
+                              ? new Date(edited.birthDate)
+                                  .toISOString()
+                                  .slice(0, 10)
+                              : ""
+                          }
+                          onChange={(e) =>
+                            onChangeField("birthDate", e.target.value)
+                          }
+                        />
                       ) : (
-                        <div className="text-white">{formatDate(user?.birthDate)}</div>
+                        <div className="text-white">
+                          {formatDate(user?.birthDate)}
+                        </div>
                       )}
 
-                      <label className="text-white/70 text-xs">Giới tính</label>
+                      <label className="text-white/70 text-xs">
+                        Giới tính
+                      </label>
                       {isEditing ? (
-                        <Input value={edited?.gender ?? ""} onChange={(e) => onChangeField("gender", e.target.value)} />
+                        <Input
+                          value={edited?.gender ?? ""}
+                          onChange={(e) =>
+                            onChangeField("gender", e.target.value)
+                          }
+                        />
                       ) : (
-                        <div className="text-white">{renderGender(user?.gender)}</div>
+                        <div className="text-white">
+                          {renderGender(user?.gender)}
+                        </div>
                       )}
 
-                      <label className="text-white/70 text-xs">Royalty (từ User)</label>
+                      <label className="text-white/70 text-xs">
+                        Royalty (%)
+                      </label>
                       {isEditing ? (
-                        <Input value={String(edited?.royalty ?? "")} onChange={(e) => onChangeField("royalty", Number(e.target.value || 0))} />
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min={0}
+                          max={100}
+                          placeholder="Phần trăm (ví dụ: 30)"
+                          value={
+                            edited?.royalty !== undefined &&
+                            edited?.royalty !== null
+                              ? String(edited.royalty)
+                              : ""
+                          }
+                          onChange={(e) =>
+                            onChangeField(
+                              "royalty",
+                              Number(e.target.value || 0)
+                            )
+                          }
+                          className="bg-transparent border-white/20 text-white"
+                        />
                       ) : (
-                        <div className="text-white">{formatCurrency(user?.royalty ?? undefined)}</div>
+                        <div className="text-white">
+                          {(user?.royalty ?? 0) + "%"
+                          }
+                        </div>
                       )}
-
-                      <label className="text-white/70 text-xs">Cập nhật lần cuối</label>
-                      <div className="text-white">{formatDate((user as any)?.updatedAt)}</div>
                     </div>
 
                     {/* Edit / Save / Cancel moved into the author info card */}
                     <div className="mt-4 flex gap-2">
                       {!isEditing ? (
-                        <Button onClick={startEdit} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700">
+                        <Button
+                          onClick={startEdit}
+                          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                        >
                           <Edit className="w-4 h-4" /> Chỉnh sửa
                         </Button>
                       ) : (
                         <>
-                          <Button onClick={handleSave} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700">
+                          <Button
+                            onClick={handleSave}
+                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                          >
                             <Save className="w-4 h-4" /> Lưu
                           </Button>
-                          <Button variant="ghost" onClick={cancelEdit}>Huỷ</Button>
+                          <Button variant="ghost" onClick={cancelEdit}>
+                            Huỷ
+                          </Button>
                         </>
                       )}
                     </div>
@@ -308,41 +483,157 @@ export default function AuthorProfile() {
               {/* Wallet / Transactions table */}
               <Card className="col-span-2 bg-[#111827] border border-white/10 text-white">
                 <CardHeader>
-                  <CardTitle className="text-lg">Lịch sử Wallet / Giao dịch</CardTitle>
+                  <CardTitle className="text-lg">Thông tin ví</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-white">WalletId</TableHead>
+                          {/* ❌ Bỏ cột WalletId, chỉ để thông tin ví */}
                           <TableHead className="text-white">Số dư</TableHead>
                           <TableHead className="text-white">Coin</TableHead>
-                          <TableHead className="text-white">Trạng thái</TableHead>
+                          <TableHead className="text-white">
+                            Trạng thái
+                          </TableHead>
                           <TableHead className="text-white">Ngày tạo</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {wallets.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-white/60">
+                            <TableCell
+                              colSpan={4}
+                              className="text-center text-white/60"
+                            >
                               Không có giao dịch / wallet cho user này
                             </TableCell>
                           </TableRow>
                         ) : (
                           wallets.map((w) => (
                             <TableRow key={w.walletId}>
-                              <TableCell className="text-white">{w.walletId}</TableCell>
-                              <TableCell className="text-white">{formatCurrency(w.balance)}</TableCell>
-                              <TableCell className="text-white">{w.coin}</TableCell>
-                              <TableCell className="text-white">{w.isActived}</TableCell>
-                              <TableCell className="text-white">{formatDate(w.createdAt)}</TableCell>
+                              <TableCell className="text-white">
+                                {formatCurrency(w.balance)}
+                              </TableCell>
+                              <TableCell className="text-white">
+                                {w.coin}
+                              </TableCell>
+                              <TableCell className="text-white">
+                                {w.isActived}
+                              </TableCell>
+                              <TableCell className="text-white">
+                                {formatDate(w.createdAt)}
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* --- Lịch sử giao dịch (searchWallets by walletId) --- */}
+                  <div className="mt-6 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="text-white/70">Chọn wallet:</div>
+                        <select
+                          className="bg-transparent text-white border border-white/10 p-1 rounded"
+                          value={selectedWalletId ?? ""}
+                          onChange={(e) =>
+                            setSelectedWalletId(e.target.value || null)
+                          }
+                        >
+                          <option value="">-- Chọn wallet --</option>
+                          {wallets.map((w) => (
+                            <option key={w.walletId} value={w.walletId}>
+                              {/* Hiện đầy đủ thông tin ví trong option, không show ID */}
+                              {formatCurrency(w.balance)} - {w.coin} coin -{" "}
+                              {formatDate(w.createdAt)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="ml-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white"
+                          onClick={() => {
+                            // re-fetch current selected wallet transactions
+                            setSelectedWalletId((s) => s);
+                          }}
+                        >
+                          Tải
+                        </button>
+                      </div>
+                      <div className="text-sm text-white/60">
+                        Hiển thị lịch sử theo walletId
+                      </div>
+                    </div>
+
+                    {txLoading ? (
+                      <div className="text-white">Đang tải lịch sử...</div>
+                    ) : txError ? (
+                      <div className="text-red-400">{txError}</div>
+                    ) : (
+                      <div className="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              {/* ❌ Bỏ cột ID, chỉ hiển thị số tiền + thời gian */}
+                              <TableHead className="text-white">
+                                Số tiền
+                              </TableHead>
+                              <TableHead className="text-white">
+                                Thời gian
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {transactions.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={2}
+                                  className="text-center text-white/60"
+                                >
+                                  Không có giao dịch
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              transactions.map((tx: any, idx: number) => {
+                                // normalize common fields from backend response sample
+                                const id =
+                                  tx.transactionId ??
+                                  tx.id ??
+                                  tx.transaction_id ??
+                                  `tx-${idx}`;
+                                // đảm bảo lấy đúng trường totalPrice từ BE
+                                const amount =
+                                  tx.totalPrice ??
+                                  tx.amount ??
+                                  tx.balanceChange ??
+                                  tx.delta ??
+                                  0;
+                                const time =
+                                  tx.createdAt ??
+                                  tx.createdDate ??
+                                  tx.date ??
+                                  tx.updatedAt;
+
+                                return (
+                                  <TableRow key={id}>
+                                    <TableCell className="text-white">
+                                      {formatCurrency(Number(amount))}
+                                    </TableCell>
+                                    <TableCell className="text-white">
+                                      {formatDate(time)}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                  {/* --- end lịch sử giao dịch --- */}
                 </CardContent>
               </Card>
             </div>

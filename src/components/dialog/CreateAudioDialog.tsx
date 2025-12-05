@@ -33,6 +33,28 @@ const VOICE_OPTIONS = [
   { name: "Leda", desc: "Ấm áp, thân thiện" },
   { name: "Orus", desc: "Trầm, uy nghiêm" },
   { name: "Aoede", desc: "Mềm mại, thư thái" },
+  { name: "Callirrhoe", desc: "Biểu cảm, kể chuyện" },
+  { name: "Autonoe", desc: "Trung tính, cân bằng" },
+  { name: "Enceladus", desc: "Rõ ràng, chính xác" },
+  { name: "Iapetus", desc: "Rền, vang" },
+  { name: "Umbriel", desc: "Êm, dịu" },
+  { name: "Algieba", desc: "Mượt, tự nhiên" },
+  { name: "Despina", desc: "Nhẹ, gọn" },
+  { name: "Erinome", desc: "Vui tươi, năng lượng" },
+  { name: "Algenib", desc: "Trang nhã, chuẩn mực" },
+  { name: "Rasalgethi", desc: "Mạnh mẽ, kịch tính" },
+  { name: "Laomedeia", desc: "Nhẹ nhàng, tinh tế" },
+  { name: "Achernar", desc: "Gần gũi, conversational" },
+  { name: "Alnilam", desc: "Mượt, tông trung" },
+  { name: "Schedar", desc: "Chậm rãi, bình tĩnh" },
+  { name: "Gacrux", desc: "Ấm, nam trầm" },
+  { name: "Pulcherrima", desc: "Sáng, lanh lợi" },
+  { name: "Achird", desc: "Trung tính, thân thiện" },
+  { name: "Zubenelgenubi", desc: "Kể chuyện, rõ ràng" },
+  { name: "Vindemiatrix", desc: "Ổn định, nhiều thông tin" },
+  { name: "Sadachbia", desc: "Nhẹ, thư giãn" },
+  { name: "Sadaltager", desc: "Tròn trịa, cân bằng" },
+  { name: "Sulafat", desc: "Gần gũi, ấm" },
 ];
 
 // Reorder languages so default is Vietnamese (vi)
@@ -161,18 +183,46 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
 
   const handleSubmit = async () => {
     if (!authorId) {
-      toast({ title: "Không tìm thấy tác giả", description: "Không thể xác định authorId. Vui lòng đăng nhập lại.", variant: "destructive" });
+      toast({
+        title: "Không tìm thấy tác giả",
+        description: "Không thể xác định authorId. Vui lòng đăng nhập lại.",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
       if (mode === "import") {
         if (!audioData.file) {
-          toast({ title: "Chưa chọn file", description: "Vui lòng chọn file audio để tải lên.", variant: "destructive" });
+          toast({
+            title: "Chưa chọn file",
+            description: "Vui lòng chọn file audio để tải lên.",
+            variant: "destructive",
+          });
           return;
         }
 
-        toast({ title: "Upload thành công", description: "Audio đã được tải lên và lưu." });
+        // lấy tên file để lưu (nếu chưa nhập thì dùng tên file không có đuôi)
+        const baseNameFromFile =
+          audioData.file.name.replace(/\.[^.]+$/, "") || "audio-upload";
+
+        const meta = {
+          filename: audioData.title || baseNameFromFile,
+          language: audioData.language,
+        };
+
+        // 🔥 GỌI API upload thực sự
+        await uploadTTS.mutateAsync({
+          userId: authorId,
+          meta,
+          file: audioData.file,
+        });
+
+        toast({
+          title: "Upload thành công",
+          description: "Audio đã được tải lên và lưu.",
+        });
+
         onCreated?.();
         onClose();
         return;
@@ -180,7 +230,11 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
 
       // mode === "ai"
       if (!audioData.text.trim()) {
-        toast({ title: "Thiếu nội dung", description: "Vui lòng nhập nội dung TTS để tạo audio bằng AI.", variant: "destructive" });
+        toast({
+          title: "Thiếu nội dung",
+          description: "Vui lòng nhập nội dung TTS để tạo audio bằng AI.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -196,17 +250,25 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
         },
       });
 
-      toast({ title: "Tạo audio thành công", description: "Audio TTS đã được sinh thành công." });
+      toast({
+        title: "Tạo audio thành công",
+        description: "Audio TTS đã được sinh thành công.",
+      });
       onCreated?.();
       onClose();
     } catch (err: any) {
+      console.error("❌ Lỗi khi tạo/upload audio:", err);
       toast({
         title: "Lỗi khi tạo/upload audio",
-        description: err?.response?.data?.message || err?.message || "Không thể hoàn tất thao tác, vui lòng thử lại.",
+        description:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Không thể hoàn tất thao tác, vui lòng thử lại.",
         variant: "destructive",
       });
     }
   };
+
 
   // Normalize various mutation-state shapes (some hooks may expose isPending / isLoading or status)
   const isGeneratePending =
@@ -235,24 +297,15 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
               <div>
                 <div className="text-sm font-medium">Import audio từ máy</div>
                 <div className="text-xs text-gray-500">
-                  Chọn file và đặt tên (filename). Ngôn ngữ mặc định: Tiếng Việt.
+                  Chọn file và đặt tên
                 </div>
-              </div>
-              <div>
-                <Button
-                  size="sm"
-                  variant={mode === "import" ? "default" : "outline"}
-                  onClick={() => setMode("import")}
-                >
-                  Dùng file
-                </Button>
               </div>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Tên file (filename)
+                  Tên file
                 </label>
                 <Input
                   value={audioData.title}
@@ -344,7 +397,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-3">
+              <div className="grid grid-cols-2 gap-6 mt-3">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">
                     Giọng nói

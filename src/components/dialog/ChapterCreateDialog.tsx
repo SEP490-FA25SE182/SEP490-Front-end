@@ -96,7 +96,23 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
         <div className="space-y-3 mt-2">
           <div>
             <Label className="mb-3">Tên chương</Label>
-            <Input value={chapterName} onChange={(e) => setChapterName(e.target.value)} placeholder="Ví dụ: Chương 1 - Khởi đầu" />
+            <Input
+              value={chapterName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setChapterName(e.target.value.replace(/[0-9]/g, ""))
+              }
+              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                if (/^[0-9]$/.test(e.key)) e.preventDefault();
+              }}
+              onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                const pasted = e.clipboardData.getData("text");
+                const filtered = pasted.replace(/[0-9]/g, "");
+                // replace clipboard content by inserting filtered text manually
+                navigator.clipboard?.writeText(filtered).catch(() => {});
+                // allow paste event to continue; the onChange will strip any remaining digits
+              }}
+              placeholder="Ví dụ: Khởi đầu"
+            />
           </div>
 
           <div>

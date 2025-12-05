@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Search, Trash2, Eye, Loader2, Tag } from "lucide-react";
+import { Menu, X, Search, Trash2, Eye, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Search, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Menu, X, Search, Trash2, Pencil, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,18 +133,7 @@ export default function BookManagementPage() {
         return matchSearch && matchStatus;
     });
 
-    // Open ADD modal
-    const handleAdd = () => {
-        setModalMode("add");
-        setSelectedBook(null);
-        setBookName("");
-        setProgressStatus("0");
-        setPublicationStatus("0");
-        setPrice("0");
-        setQuantity("0");
-        setOpenModal(true);
-    };
-
+    
     // Open EDIT modal
     const handleEdit = (b: Book) => {
         setModalMode("edit");

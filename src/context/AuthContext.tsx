@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { auth } from "@/firebase";
 import { onIdTokenChanged } from "firebase/auth";
 
@@ -29,6 +29,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const firebaseInitializedRef = useRef(false);
+
 
   // 🔹 Khôi phục user và token khi reload
   useEffect(() => {
@@ -41,20 +43,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 🔹 Theo dõi Firebase token thay đổi
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const idToken = await firebaseUser.getIdToken();
-        setToken(idToken);
-      } else {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
-    });
+  const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+    if (!firebaseInitializedRef.current) {
+      // ⛔ Chưa init xong — CHỈ ĐÁNH DẤU ĐÃ INIT
+      firebaseInitializedRef.current = true;
+      return;
+    }
 
-    return () => unsubscribe();
-  }, []);
+    if (firebaseUser) {
+      const idToken = await firebaseUser.getIdToken();
+      setToken(idToken);
+      localStorage.setItem("token", idToken);
+    } else {
+      // ✔ Chỉ chạy khi chắc chắn là logout thật
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
 
   return (
     <AuthContext.Provider value={{ user, token, isInitialized, setUser, setToken }}>

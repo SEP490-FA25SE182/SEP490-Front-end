@@ -30,12 +30,14 @@ function reducer(state: CartState, action: Action): CartState {
     case "ADD": {
       const exists = state.lines.find((l) => l.book.bookId === action.line.book.bookId);
       return exists
-        ? { ...state, lines: state.lines.map((l) =>
-            l.book.bookId === action.line.book.bookId ? { ...l, qty: l.qty + action.line.qty } : l) }
+        ? {
+          ...state, lines: state.lines.map((l) =>
+            l.book.bookId === action.line.book.bookId ? { ...l, qty: l.qty + action.line.qty } : l)
+        }
         : { ...state, lines: [...state.lines, action.line] };
     }
     case "SET_QTY":
-      return { ...state, lines: state.lines.map((l) => l.book.bookId === action.bookId ? { ...l, qty: action.qty } : l ) };
+      return { ...state, lines: state.lines.map((l) => l.book.bookId === action.bookId ? { ...l, qty: action.qty } : l) };
     case "REMOVE": return { ...state, lines: state.lines.filter((l) => l.book.bookId !== action.bookId) };
     case "CLEAR": return { cartId: state.cartId, lines: [] };
     default: return state;
@@ -46,7 +48,7 @@ type CartContextValue = {
   state: CartState;
   addToCart: (book: Book, qty?: number) => Promise<void>;
   remove: (bookId: string) => Promise<void>;
-  setQty: (bookId: string, qty: number) => Promise<void>;
+  setQty: (bookId: string, qty: number, price: number) => Promise<void>;
   clear: () => Promise<void>;
   subtotal: number;
   count: number;
@@ -77,27 +79,50 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchCart = async () => {
       if (!userId) return;
       try {
-        let cart = await CartService.getCartByUserId(userId);
-        if (!cart) cart = await CartService.createCart(userId);
+        let cart: { cartId: string } | null = null;
+
+        try {
+          cart = await CartService.getCartByUserId(userId);
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            cart = await CartService.createCart(userId);
+          } else {
+            throw err;
+          }
+        }
+
+        if (!cart) return; // ⭐ TS không còn báo lỗi nữa
 
         const items = await CartItemService.getItemsByCartId(cart.cartId);
+
         const lines: CartLine[] = await Promise.all(
           items.map(async (i: CartItem) => {
             try {
-              const book = await getBookById(i.bookId); // đã có header/params userId từ BookService
-              return { book, qty: i.quantity, price: i.price, cartItemId: i.cartItemId };
+              const book = await getBookById(i.bookId);
+              return {
+                book,
+                qty: i.quantity,
+                price: i.price,
+                cartItemId: i.cartItemId,
+              };
             } catch (err) {
-              console.error("❌ Lỗi khi lấy thông tin sách:", i.bookId, err);
-              return { book: { bookId: i.bookId } as Book, qty: i.quantity, price: i.price, cartItemId: i.cartItemId };
+              return {
+                book: { bookId: i.bookId } as Book,
+                qty: i.quantity,
+                price: i.price,
+                cartItemId: i.cartItemId,
+              };
             }
           })
         );
 
         dispatch({ type: "INIT", cartId: cart.cartId, lines });
+
       } catch (err) {
         console.error("❌ Lỗi khi tải giỏ hàng:", err);
       }
     };
+
     fetchCart();
   }, [userId]);
 
@@ -126,10 +151,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dispatch({ type: "SET_QTY", bookId: book.bookId, qty: newQty });
         toast.success(`Đã cập nhật số lượng “${book.bookName}” (${newQty})`);
       } else {
-        const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, 2000);
+        const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, book.price);
         dispatch({
           type: "ADD",
-          line: { book, qty, price: newItem.price ?? 2000, cartItemId: newItem.cartItemId },
+          line: { book, qty, price: newItem.price , cartItemId: newItem.cartItemId },
         });
         toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
       }

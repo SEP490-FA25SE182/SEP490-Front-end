@@ -44,6 +44,8 @@ import ModeratorPageDetail from "./pages/moderator/ModeratorPageDetail";
 import ModeratorPage from "./pages/moderator/ModeratorPage";
 import RoleManagementPage from "./pages/admin/RoleManagement";
 import PaymentMethodManagementPage from "./pages/admin/PaymentMethodManagement";
+import GenresManagementPage from "./pages/admin/GenresManagement";
+import BookManagementPage from "./pages/admin/BookManagement";
 
 export default function AppRouter() {
   return (
@@ -104,6 +106,8 @@ export default function AppRouter() {
       <Route path="/admin/authors" element={<AuthorManagementPage />} />
       <Route path="/admin/roles" element={<RoleManagementPage />} />
       <Route path="/admin/payment-method" element={<PaymentMethodManagementPage />} />
+      <Route path="/admin/genres" element={<GenresManagementPage />} />
+      <Route path="/admin/books" element={<BookManagementPage />} />
 
       <Route path="/moderator" element={<ModeratorPage />} />
     </Routes>

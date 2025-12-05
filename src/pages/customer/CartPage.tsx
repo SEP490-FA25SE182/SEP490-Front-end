@@ -167,7 +167,7 @@ export default function CartPage() {
             {/* Danh sách item */}
             <div className="lg:col-span-2 space-y-4">
               {state.lines.map((line) => {
-                const unit = line.price ?? 2000;
+                const unit = line.price;
                 const id = line.book.bookId;
                 return (
                   <div
@@ -237,7 +237,7 @@ export default function CartPage() {
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() =>
-                              setQty(line.book.bookId, Math.max(1, line.qty - 1))
+                              setQty(line.book.bookId, Math.max(1, line.qty - 1), line.book.price)
                             }
                           >
                             <Minus className="w-4 h-4" />
@@ -250,13 +250,15 @@ export default function CartPage() {
                             onChange={(e) =>
                               setQty(
                                 line.book.bookId,
-                                Math.max(1, Number(e.target.value) || 1)
+                                Math.max(1, Number(e.target.value) || 1
+                              ),
+                                line.book.price
                               )
                             }
                           />
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
-                            onClick={() => setQty(line.book.bookId, line.qty + 1)}
+                            onClick={() => setQty(line.book.bookId, line.qty + 1, line.book.price)}
                           >
                             <Plus className="w-4 h-4" />
                           </button>

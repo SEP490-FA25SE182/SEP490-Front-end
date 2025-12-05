@@ -47,7 +47,7 @@ export default function ModeratorBookList() {
               {b.publicationStatus === 3 && (
                 <Button
                   className="bg-green-600 text-xs"
-                  onClick={() => approveBook(b, 1)}
+                  onClick={() => approveBook(b, 2)}
                 >
                   Duyệt sách
                 </Button>

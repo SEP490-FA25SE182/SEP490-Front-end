@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, ShoppingBag, LogOut, UsersRoundIcon, Wallet } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingBag, LogOut, UsersRoundIcon, Wallet, Book, Rose } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
@@ -41,9 +41,13 @@ const isAdmin = currentRoleName.includes("admin");
     { path: "/admin/dashboard", icon: <LayoutDashboard />, label: "Tổng quan" },
     isAdmin && { path: "/admin/roles", icon: <Users />, label: "Vai trò" },
     { path: "/admin/users", icon: <Users />, label: "Người dùng" },
-    { path: "/admin/orders", icon: <ShoppingBag />, label: "Đơn hàng" },
     { path: "/admin/authors", icon: <UsersRoundIcon />, label: "Tác giả" },
     isAdmin && { path: "/admin/payment-method", icon: <Wallet />, label: "Phương thức thanh toán" },
+    { path: "/admin/orders", icon: <ShoppingBag />, label: "Đơn hàng" },
+    { path: "/admin/genres", icon: <Book />, label: "Quản lý thể loại" },
+    { path: "/admin/books", icon: <Book />, label: "Quản lý sách" },
+    { path: "/admin/blogs", icon: <Rose />, label: "Quản lý Blogs" },
+    
   ].filter(Boolean) as { path: string; icon: React.ReactNode; label: string }[];
 
   return (

@@ -29,6 +29,7 @@ import ImagePageEdit from "./pages/author/ImagePageEdit";
 import AuthorModelView from "./pages/author/AuthorModelView";
 import MarkerPageCreate from "./pages/author/MarkerPageCreate";
 import AuthorProfile from "@/pages/author/AuthorProfile";
+import AuthorBookPreview from "./pages/author/AuthorBookPreview";
 
 import AdminDashboardPage from "./pages/admin/AdminDashboard";
 
@@ -80,6 +81,7 @@ export default function AppRouter() {
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
       <Route path="/author/pages/:pageId/edit-ar" element={<MarkerPageCreate />} />
       <Route path="/author/profile/:userId" element={<AuthorProfile />} />
+      <Route path="/author/books/:bookId/preview" element={<AuthorBookPreview />} />
 
       <Route
         path="/moderator/authors/:authorId/books"
@@ -97,8 +99,6 @@ export default function AppRouter() {
         path="/moderator/pages/:pageId"
         element={<ModeratorPageDetail />}
       />
-
-
 
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />

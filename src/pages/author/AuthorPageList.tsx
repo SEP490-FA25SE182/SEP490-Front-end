@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  Menu,
-  X,
+  ChevronLeft,
+  ChevronRight,
   Edit,
   Trash2,
   Search,
@@ -272,7 +272,7 @@ const AuthorPageList = () => {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="text-white hover:bg-white/10"
               >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
               </Button>
               <div className="ml-4 text-white">
                 <div className="text-sm">Danh sách trang</div>

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetPageById } from "@/services/BookManageService";
 import { useState, useMemo } from "react";
-import { Menu, X, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 
@@ -195,7 +195,7 @@ const AuthorPageDetail = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
             </Button>
 
             <div className="ml-4 text-white text-lg font-medium">

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Menu, X, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook, updateBookStatusFull } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -282,7 +282,7 @@ export default function AuthorBookList() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
             </Button>
             <div className="ml-4 text-white">
               <div className="text-sm">Danh sách sách</div>
@@ -341,13 +341,28 @@ export default function AuthorBookList() {
               const publication = book.publicationStatus ?? book.publication_status;
               const pubInfo = getPublicationLabel(publication);
               const alreadySent = String(publication) === "3" || publication === 3;
+              const isPublished = String(publication) === "1" || publication === 1;
+              const isLocked = isPublished || alreadySent; // ✅ locked nếu đã xuất bản hoặc đã gửi duyệt
+
+              const isDraft =
+                String(publication) === "0" ||
+                publication === 0 ||
+                String(publication).toUpperCase() === "DRAFT";
 
               return (
                 <div key={id} className="group relative">
                   {/* whole card clickable -> go to chapters of this book */}
                   <div
                     className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
-                    onClick={() => navigate(`/author/books/${id}/chapters`, { state: { book } })}
+                    onClick={() => {
+                      if (isDraft) {
+                        // Nháp -> vào màn quản lý chương (giữ luồng cũ)
+                        navigate(`/author/books/${id}/chapters`, { state: { book } });
+                      } else {
+                        // Không phải nháp -> vào màn preview sách lật
+                        navigate(`/author/books/${id}/preview`, { state: { book } });
+                      }
+                    }}
                   >
                     {/* Dropdown Menu Button - top-right like chapter list */}
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -364,21 +379,25 @@ export default function AuthorBookList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); navigate(`/author/authoreditbook/${id}`); }}
-                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
-                          >
-                            <Edit className="mr-2 h-4 w-4" /> Sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
-                            className={alreadySent ? "opacity-50 pointer-events-none text-gray-400" : ""}
-                          >
-                            <CircleCheck className="mr-2 h-4 w-4" /> Đưa đi duyệt
-                          </DropdownMenuItem>
+                          {/* ✅ Chỉ hiện "Sửa" nếu chưa xuất bản và chưa gửi duyệt */}
+                          {!isLocked && (
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); navigate(`/author/authoreditbook/${id}`); }}
+                            >
+                              <Edit className="mr-2 h-4 w-4" /> Sửa
+                            </DropdownMenuItem>
+                          )}
+                          {/* ✅ Chỉ hiện "Đưa đi duyệt" nếu chưa xuất bản và chưa gửi duyệt */}
+                          {!isLocked && (
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
+                            >
+                              <CircleCheck className="mr-2 h-4 w-4" /> Đưa đi duyệt
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}
-                            className={`${alreadySent ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
+                            className={`${isLocked ? "opacity-50 pointer-events-none text-gray-400" : "text-red-600 focus:text-red-600"}`}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Xóa
                           </DropdownMenuItem>

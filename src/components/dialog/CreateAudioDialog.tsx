@@ -285,12 +285,12 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl w-full">
+      <DialogContent className="max-w-2xl w-full h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Tạo Audio (TTS)</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 flex-1 overflow-auto pr-2">
           {/* IMPORT FROM LOCAL FILE */}
           <div className="border p-3 rounded">
             <div className="flex items-center justify-between">
@@ -446,19 +446,19 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
               </div>
             </div>
           )}
-        </div>
 
-        {/* 🔄 Loading Jumping Dots khi đang xử lý */}
-        {isProcessing && (
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <LoadingThreeDotsJumping />
-            <p className="text-xs text-gray-500 text-center">
-              {mode === "import"
-                ? "Đang xử lý audio..."
-                : "Đang tạo audio bằng AI, vui lòng chờ..."}
-            </p>
-          </div>
-        )}
+          {/* 🔄 Loading Jumping Dots khi đang xử lý (vẫn giữ component) */}
+          {isProcessing && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <LoadingThreeDotsJumping />
+              <p className="text-xs text-gray-500 text-center">
+                {mode === "import"
+                  ? "Đang xử lý audio..."
+                  : "Đang tạo audio bằng AI, vui lòng chờ..."}
+              </p>
+            </div>
+          )}
+        </div>
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={() => onClose()} className="mr-2">

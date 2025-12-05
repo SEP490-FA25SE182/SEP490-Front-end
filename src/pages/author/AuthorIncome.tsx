@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Menu,
-  X,
+  ChevronLeft,
+  ChevronRight,
   DollarSign,
   TrendingUp,
   BookOpen,
@@ -20,8 +20,6 @@ import {
 import { getAllBooks } from "@/services/BookService";
 import { OrderService } from "@/services/OrderService";
 import { OrderDetailService } from "@/services/OrderDetailService";
-
-// 🆕 import giống CreateAudioDialog để lấy current user
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { getUserByEmail } from "@/services/UserService";
@@ -331,7 +329,7 @@ export default function AuthorIncome() {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="text-white hover:bg-white/10"
               >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
               </Button>
             </div>
           </div>

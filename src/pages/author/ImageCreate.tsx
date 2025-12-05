@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, X, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,7 @@ export default function ImageCreate() {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="text-white hover:bg-white/10"
               >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
               </Button>
               <div className="ml-4 text-white text-sm font-medium">
                 {aiPanelOpen ? "Tạo ảnh bằng AI" : "Upload ảnh thủ công"}
@@ -228,7 +228,7 @@ export default function ImageCreate() {
                 <Button
                   variant="outline"
                   className="flex-1 text-gray-600 hover:bg-gray-100"
-                  onClick={() => navigate(`/author/chapters/${chapterId}/pages`)}
+                  onClick={() => navigate(-1)}
                 >
                   Hủy
                 </Button>

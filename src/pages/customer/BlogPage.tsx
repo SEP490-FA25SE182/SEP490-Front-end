@@ -4,7 +4,6 @@ import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Heart,
   MessageCircle,
   PlusCircle,
   Search,
@@ -12,8 +11,6 @@ import {
   Loader2,
   Send,
   Edit2,
-  Eye,
-
 } from "lucide-react";
 import {
   Dialog,
@@ -33,12 +30,10 @@ import {
   type Comment,
 } from "@/services/BlogService";
 import { TagService, type Tag } from "@/services/BlogService";
-import { getAllBooks, type Book } from "@/services/BookService";
 import { UploadService } from "@/services/FirebaseService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { getUserById, type User } from "@/services/UserService";
-import { useNavigate } from "react-router-dom";
 
 /* =======================================================
    🗨️ CommentDialog Component

@@ -16,7 +16,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
 
   const { mutate: loginUser, isPending } = useLoginUser();
 
@@ -30,85 +31,64 @@ export default function Login() {
       { email, password },
       {
         onSuccess: async (res) => {
-          console.log("Login response:", res);
+          if (!res.user || !res.token) return;
 
-          if (res.token && res.user) {
-            localStorage.setItem("token", res.token);
+          const roleId = res.user.roleId;
+          let roleName = "";
 
-            if (rememberMe) {
-              localStorage.setItem("rememberEmail", email);
-            }
-
-            if (res.user.roleId) {
-              localStorage.setItem("userRole", res.user.roleId);
-            }
-
-            // persist backend user into AuthContext
-            setUser({
-              fullName: res.user.fullName || "",
-              email: res.user.email || "",
-              avatarUrl: (res.user as any).avatarUrl || "",
-              userId: res.user.userId,
-            });
-            setToken(res.token);
-
-            localStorage.setItem("user", JSON.stringify({
-              fullName: res.user.fullName || "",
-              email: res.user.email || "",
-              avatarUrl: (res.user as any).avatarUrl || "",
-              userId: res.user.userId,
-            }));
-            localStorage.setItem("token", res.token);
-
-            toast({
-              title: "Đăng nhập thành công",
-              description: "Chào mừng bạn quay trở lại."
-            });
-
-            // điều hướng theo roleName (fetch role info)
+          if (roleId) {
             try {
-              const roleId = res.user.roleId;
-              if (roleId) {
-                const roleResp = await axios.get(`${API_RK}/users/roles/${roleId}`);
-                const role = roleResp.data;
-                const roleName = (role?.roleName || '').toLowerCase();
-                if (roleName.includes('author')) {
-                  window.location.href = "/author/authorincome";
-                  return;
-                } else if (roleName.includes('admin')) {
-                  window.location.href = "/admin/dashboard";
-                  return;
-                }
-                else if (roleName.includes('staff')) {
-                  window.location.href = "/admin/dashboard";
-                  return;
-                }
-                else if (roleName.includes('moderator')) {
-                  window.location.href = "/moderator";
-                  return;
-                }
-              }
-            } catch (err) {
-              console.warn('Không lấy được role info, chuyển về trang chính', err);
+              const { roleName: rn } = await getRoleById(roleId);
+              roleName = rn;
+            } catch {
+              console.error("Không lấy được roleName từ BE");
             }
-
-            window.location.href = "/";
-          } else {
-            toast({
-              title: "Đăng nhập thất bại",
-              description: "Sai email hoặc mật khẩu.",
-              variant: "destructive",
-            });
           }
+
+          const userData = {
+            userId: res.user.userId,
+            fullName: res.user.fullName,
+            email: res.user.email,
+            avatarUrl: res.user.avatarUrl || "",
+            roleId,
+            roleName,
+          };
+
+          setUser(userData);
+          setToken(res.token);
+
+          localStorage.setItem("user", JSON.stringify(userData));
+          localStorage.setItem("token", res.token);
+
+          toast({
+            title: "Đăng nhập thành công",
+            description: "Chào mừng bạn quay trở lại.",
+          });
+
+          // 🔥 Điều hướng chuẩn theo roleName
+          const roleLower = roleName.toLowerCase();
+          if (roleLower.includes("admin") || roleLower.includes("staff"))
+            return (window.location.href = "/admin/dashboard");
+          if (roleLower.includes("author"))
+            return (window.location.href = "/author/authorincome");
+          if (roleLower.includes("moderator"))
+            return (window.location.href = "/moderator");
+
+          return (window.location.href = "/");
         },
+
         onError: (error: any) => {
           console.error("Login Error:", error);
-          toast({
-            title: "Đăng nhập thất bại",
-            description: "Vui lòng thử lại sau.",
-            variant: "destructive",
-          });
+
+          if (error?.response?.status === 500) {
+            setLoginError("Email hoặc mật khẩu không đúng!");
+          } else if (error?.response?.status === 404) {
+            setLoginError("Hệ thống gặp lỗi, vui lòng thử lại sau!");
+          } else {
+            setLoginError("Đã xảy ra lỗi, vui lòng thử lại.");
+          }
         },
+
       }
     );
   };
@@ -258,7 +238,11 @@ export default function Login() {
                 type="email"
                 placeholder="john@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setLoginError(null);
+                }}
+
                 className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
                 required
               />
@@ -278,7 +262,10 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setLoginError(null);
+                  }}
                   className="h-9 bg-slate-700 border-0 text-white placeholder:text-gray-400 pr-12 text-sm"
                   required
                 />
@@ -295,6 +282,10 @@ export default function Login() {
                 </button>
               </div>
             </div>
+            {loginError && (
+              <p className="text-xs text-red-500 mt-1">{loginError}</p>
+            )}
+
 
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-end">

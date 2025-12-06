@@ -213,10 +213,11 @@ export interface GenerateAsset3DMeta {
   quality?: string;
   fileName?: string;
   refine?: boolean;
-  enableBr?: boolean;
+  enablePbr?: boolean;
   texturePrompt?: string;
   textureImageUrl?: string;
 }
+
 
 /* ====================== ASSET3D API CALLS ====================== */
 

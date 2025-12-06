@@ -48,6 +48,7 @@ import PaymentMethodManagementPage from "./pages/admin/PaymentMethodManagement";
 import GenresManagementPage from "./pages/admin/GenresManagement";
 import BookManagementPage from "./pages/admin/BookManagement";
 import BlogManagementPage from "./pages/admin/BlogManagement";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 export default function AppRouter() {
   return (
@@ -68,6 +69,7 @@ export default function AppRouter() {
       <Route path="/payment-status" element={<PaymentStatusPage />} />
       <Route path="/blog" element={<BlogPage />} />
 
+    <Route element={ <ProtectedRoute allowedRoles={["author"]} /> } >
       <Route path="/author/authorincome" element={<AuthorIncome />} />
       <Route path="/author/authorbooklist" element={<AuthorBookList />} />
       <Route path="/author/authoreditbook/:bookId" element={<AuthorEditBook />} />
@@ -82,25 +84,17 @@ export default function AppRouter() {
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
       <Route path="/author/pages/:pageId/edit-ar" element={<MarkerPageCreate />} />
       <Route path="/author/profile/:userId" element={<AuthorProfile />} />
-      <Route path="/author/books/:bookId/preview" element={<AuthorBookPreview />} />
+    </Route>
 
-      <Route
-        path="/moderator/authors/:authorId/books"
-        element={<ModeratorBookList />}
-      />
-      <Route
-        path="/moderator/books/:bookId/chapters"
-        element={<ModeratorChapterList />}
-      />
-      <Route
-        path="/moderator/chapters/:chapterId/pages"
-        element={<ModeratorPageList />}
-      />
-      <Route
-        path="/moderator/pages/:pageId"
-        element={<ModeratorPageDetail />}
-      />
+    <Route element={ <ProtectedRoute allowedRoles={["moderator"]} /> } >
+      <Route path="/moderator" element={<ModeratorPage />} />
+      <Route path="/moderator/authors/:authorId/books" element={<ModeratorBookList />} />
+      <Route path="/moderator/books/:bookId/chapters" element={<ModeratorChapterList />} />
+      <Route path="/moderator/chapters/:chapterId/pages" element={<ModeratorPageList />} />
+      <Route path="/moderator/pages/:pageId" element={<ModeratorPageDetail />} />
+    </Route>
 
+    <Route element={ <ProtectedRoute allowedRoles={["admin", "staff"]} /> } >
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />
       <Route path="/admin/orders" element={<OrderManagementPage />} />
@@ -110,8 +104,13 @@ export default function AppRouter() {
       <Route path="/admin/genres" element={<GenresManagementPage />} />
       <Route path="/admin/books" element={<BookManagementPage />} />
       <Route path="/admin/blogs" element={<BlogManagementPage />} />
+    </Route>
 
-      <Route path="/moderator" element={<ModeratorPage />} />
+    <Route element={ <ProtectedRoute allowedRoles={["admin"]} /> } >
+      <Route path="/admin/roles" element={<RoleManagementPage />} />
+    </Route>
+
+
     </Routes>
   );
 }

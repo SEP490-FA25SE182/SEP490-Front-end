@@ -2,7 +2,8 @@ import { Search, Menu, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import CartBadge from "./CartBagde";
 import { getAllGenres, type Genre } from "@/services/GenreService";
 
@@ -12,6 +13,12 @@ const CustomerHeader = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loadingGenres, setLoadingGenres] = useState(true);
+  const location = useLocation();
+  const isHomePage = location.pathname === "/";
+  const [showAllGenres, setShowAllGenres] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -32,6 +39,24 @@ const CustomerHeader = () => {
     };
     fetchGenres();
   }, []);
+
+  useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      dropdownRef.current &&
+      !dropdownRef.current.contains(event.target as Node)
+    ) {
+      setIsGenreOpen(false);
+      setShowAllGenres(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -131,44 +156,68 @@ const CustomerHeader = () => {
         <div className="h-[1px] bg-[#2a3857]"></div>
 
         {/* Navigation */}
-        <nav className="px-6 py-3">
-          <ul className="flex items-center justify-between text-sm">
-            {/* Dropdown Thể loại */}
-            <li
-              className="relative"
-              onMouseEnter={() => setIsGenreOpen(true)}
-              onMouseLeave={() => setIsGenreOpen(false)}
-            >
-              <div className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors">
-                <Menu className="w-4 h-4" />
-                <span>Chọn sách</span>
-              </div>
-              {isGenreOpen && (
-                <div className="absolute top-full left-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
-                  <div className="grid grid-cols-1 gap-1 p-3">
+        {isHomePage && (
+          <nav className="px-6 py-3">
+            <ul className="flex items-center justify-between text-sm">
+              {/* Dropdown Thể loại */}
+              <li className="relative">
+                <button
+                  onClick={() => setIsGenreOpen(!isGenreOpen)}
+                  className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors"
+                >
+                  <Menu className="w-4 h-4" />
+                  <span>Thể loại</span>
+                </button>
+
+                {/* Dropdown hiển thị khi click */}
+                {isGenreOpen && (
+                  <div 
+                  ref={dropdownRef}
+                  className="absolute top-full left-0 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
                     {loadingGenres ? (
-                      <p className="text-white/60 text-sm px-4">Đang tải...</p>
+                      <p className="text-white/60 text-sm px-4 py-2">Đang tải...</p>
                     ) : genres.length > 0 ? (
-                      genres.map((genre) => (
-                        <Link
-                          key={genre.genreId}
-                          to={`/genre/${genre.genreId}`}
-                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                        >
-                          {genre.genreName}
-                        </Link>
-                      ))
+                      <div
+                        className={`grid gap-1 p-3 transition-all duration-300 ${showAllGenres
+                            ? "grid-cols-4 w-[560px]"  // 👉 dạng mega menu 4 cột
+                            : "grid-cols-1 w-64"       // 👉 dạng thường 1 cột
+                          }`}
+                      >
+                        {(showAllGenres ? genres : genres.slice(0, 10)).map((genre) => (
+                          <Link
+                            key={genre.genreId}
+                            to={`/genre/${genre.genreId}`}
+                            className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
+                            onClick={() => {
+                              setIsGenreOpen(false);
+                              setShowAllGenres(false);
+                            }}
+                          >
+                            {genre.genreName}
+                          </Link>
+                        ))}
+
+                        {genres.length > 10 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowAllGenres((prev) => !prev);
+                            }}
+                            className="col-span-full text-center text-purple-400 px-3 py-2 hover:text-white transition-colors"
+                          >
+                            {showAllGenres ? "Thu gọn ↑" : "Xem thêm ↓"}
+                          </button>
+                        )}
+                      </div>
                     ) : (
-                      <p className="text-white/60 text-sm px-4">
-                        Không có thể loại nào
-                      </p>
+                      <p className="text-white/60 text-sm px-4 py-2">Không có thể loại nào</p>
                     )}
                   </div>
-                </div>
-              )}
-            </li>
-          </ul>
-        </nav>
+                )}
+              </li>
+            </ul>
+          </nav>
+        )}
       </div>
     </header>
   );

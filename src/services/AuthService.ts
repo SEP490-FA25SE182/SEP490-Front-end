@@ -18,7 +18,7 @@ export interface RegisterRequest {
 }
 export interface LoginRequest { email: string; password: string; }
 export interface AuthResponse {
-  user?: { userId: string; fullName: string; email: string; roleId?: string; isActived?: string; };
+  user?: { userId: string; fullName: string; email: string; roleId?: string; isActived?: string; avatarUrl?: string; };
   token?: string;
 }
 export interface ForgotPasswordRequest { email: string; }

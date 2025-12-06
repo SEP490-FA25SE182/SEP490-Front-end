@@ -49,16 +49,18 @@ import { PageCreateDialog } from "@/components/dialog/PageCreateDialog";
 import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import CreateAudioDialog from "@/components/dialog/CreateAudioDialog";
-import { useGetAllMarkers, type Marker, getMarkerById } from "@/services/ARService";
+import { useSearchMarkers, type Marker, getMarkerById } from "@/services/ARService";
 import EmptyPageDialog from "@/components/dialog/EmptyPageDialog";
 
-// 🔹 THÊM: dùng AIService để lấy page-illustration + illustration
 import {
   useSearchPageIllustrations,
   useGetAllIllustrations,
   type Illustration,
   type PageIllustration,
 } from "@/services/AIService";
+import { useAuth } from "@/context/AuthContext";
+import { getCurrentUserId } from "@/utils/authStorage";
+import { getUserByEmail } from "@/services/UserService";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -73,6 +75,39 @@ const AuthorPageList = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // 🆕 lấy authorId giống AuthorIncome
+  const { user } = useAuth();
+  const [authorId, setAuthorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAuthorId = async () => {
+      try {
+        const uidFromStorage = getCurrentUserId();
+        if (uidFromStorage) {
+          setAuthorId(uidFromStorage);
+          return;
+        }
+
+        if (user?.userId) {
+          setAuthorId(user.userId);
+          return;
+        }
+
+        if (user?.email) {
+          const currentUser = await getUserByEmail(user.email);
+          if (currentUser?.userId) {
+            setAuthorId(currentUser.userId);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("❌ Lỗi khi xác định authorId:", error);
+      }
+    };
+
+    fetchAuthorId();
+  }, [user]);
+
   // Filter
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -82,8 +117,10 @@ const AuthorPageList = () => {
     chapterId ? { chapterId } : undefined
   );
 
-  // Markers (right panel)
-  const { data: markersResp, isLoading: loadingMarkers } = useGetAllMarkers();
+  // 🆕 Markers (right panel) - lọc theo userId của author
+  const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
+    authorId ? { userId: authorId } : undefined
+  );
 
   // 🔹 Lấy quan hệ page-illustration & danh sách illustration
   const { data: pageIllustrationsResp } = useSearchPageIllustrations();

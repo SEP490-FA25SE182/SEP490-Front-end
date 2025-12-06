@@ -84,6 +84,7 @@ export default function AppRouter() {
       <Route path="/author/model-view/:markerId" element={<AuthorModelView />} />
       <Route path="/author/pages/:pageId/edit-ar" element={<MarkerPageCreate />} />
       <Route path="/author/profile/:userId" element={<AuthorProfile />} />
+      <Route path="/author/books/:bookId/preview" element={<AuthorBookPreview />} />
     </Route>
 
     <Route element={ <ProtectedRoute allowedRoles={["moderator"]} /> } >

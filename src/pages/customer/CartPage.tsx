@@ -61,12 +61,7 @@ export default function CartPage() {
   }, [user?.email]);
 
 
-
-
-
   const handleCheckout = async () => {
-
-
     try {
       // 🔹 1. Kiểm tra giỏ hàng hợp lệ
       if (!state?.cartId) {

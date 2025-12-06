@@ -19,6 +19,8 @@ import { useCart } from "@/context/CartContext";
 
 import { FeedbackService, type Feedback } from "@/services/FeedbackService";
 import { getUserById } from "@/services/UserService";
+import { getAllGenres, type Genre } from "@/services/GenreService";
+
 
 /* ---------------------------
  🧩 Review và StarRating
@@ -28,9 +30,8 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
     {[1, 2, 3, 4, 5].map((star) => (
       <Star
         key={star}
-        className={`w-5 h-5 ${
-          star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-        }`}
+        className={`w-5 h-5 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+          }`}
       />
     ))}
   </div>
@@ -74,6 +75,8 @@ export const BookDetail = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   const { addToCart } = useCart();
   const [showPreview, setShowPreview] = useState(false);
+  const [genres, setGenres] = useState<Genre[]>([]);
+
 
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
@@ -97,6 +100,11 @@ export const BookDetail = () => {
         // 1️⃣ Lấy thông tin sách
         const bookData = await getBookById(bookId);
         setBook(bookData);
+
+        // 🔹 Lấy danh sách thể loại theo bookId
+        const genresData = await getAllGenres(bookId);
+        setGenres(genresData ?? []);
+
 
         // 2️⃣ Lấy feedback thật từ API
         const allFeedbacks = await FeedbackService.getAll();
@@ -153,10 +161,10 @@ export const BookDetail = () => {
   const formatDate = (dateString?: string | null) =>
     dateString
       ? new Date(dateString).toLocaleDateString("vi-VN", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
       : "Không rõ";
 
   /* ---------------------------
@@ -187,9 +195,8 @@ export const BookDetail = () => {
       title: isFavorite(book.bookId)
         ? "Đã xóa khỏi thư viện"
         : "Đã thêm vào thư viện",
-      description: `"${book.bookName}" ${
-        isFavorite(book.bookId) ? "đã được xóa khỏi" : "đã được thêm vào"
-      } thư viện của bạn.`,
+      description: `"${book.bookName}" ${isFavorite(book.bookId) ? "đã được xóa khỏi" : "đã được thêm vào"
+        } thư viện của bạn.`,
       action: !isFavorite(book.bookId) ? (
         <ToastAction
           altText="Xem thư viện"
@@ -244,11 +251,10 @@ export const BookDetail = () => {
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
               >
                 <Heart
-                  className={`w-6 h-6 ${
-                    isFavorite(book.bookId)
-                      ? "fill-red-500 text-red-500"
-                      : "text-white"
-                  }`}
+                  className={`w-6 h-6 ${isFavorite(book.bookId)
+                    ? "fill-red-500 text-red-500"
+                    : "text-white"
+                    }`}
                 />
               </button>
             </div>
@@ -258,6 +264,26 @@ export const BookDetail = () => {
                 <span className="font-semibold">Mô tả:</span>{" "}
                 {book.decription || "Không có mô tả"}
               </p>
+
+              {genres.length > 0 && (
+                <p className="flex items-start gap-2">
+                  <span className="font-semibold text-white">Thể loại:</span>
+                  <span className="flex flex-wrap gap-2">
+                    {genres.map((genre) => (
+                      <span
+                        key={genre.genreId}
+                        onClick={() => navigate(`/genre/${genre.genreId}`)}
+                        className="cursor-pointer bg-white/10 hover:bg-white/20 
+                     text-white text-sm px-3 py-1 rounded-full 
+                     transition-all border border-white/20"
+                      >
+                        {genre.genreName}
+                      </span>
+                    ))}
+                  </span>
+                </p>
+              )}
+
 
               <p>
                 <span className="font-semibold">Ngày xuất bản:</span>{" "}

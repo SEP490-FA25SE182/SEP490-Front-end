@@ -8,14 +8,16 @@ export interface Genre {
   isActived?: string;
   createdAt?: string;
   updatedAt?: string;
+  
 }
 
 // 🟢 Lấy tất cả thể loại
-export const getAllGenres = async (): Promise<Genre[]> => {
+export const getAllGenres = async (bookId?: string): Promise<Genre[]> => {
   const res = await axios.get(`${API_RK}/users/genres`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
+    params: bookId ? { bookId } : {},
   });
 
   // ✅ Một số BE trả dạng Page, nên ta lấy content nếu có

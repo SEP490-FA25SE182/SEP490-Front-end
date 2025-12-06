@@ -20,6 +20,7 @@ export default function Signup() {
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
     agreeTerms: false
   });
 
@@ -28,6 +29,7 @@ export default function Signup() {
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
   });
 
   const { data: rolesData } = useGetAllRoles();
@@ -59,11 +61,18 @@ export default function Signup() {
   };
 
   const validate = () => {
-    const newErr = { name: '', email: '', phone: '', password: '' };
+    const newErr = { name: '', email: '', phone: '', password: '', confirmPassword: '' };
     if (!formData.name.trim()) newErr.name = 'Vui lòng nhập tên.';
     if (!formData.email.trim()) newErr.email = 'Vui lòng nhập email.';
     if (!formData.phone.trim()) newErr.phone = 'Vui lòng nhập số điện thoại.';
-    if (!formData.password.trim()) newErr.password = 'Vui lòng nhập mật khẩu.';
+    if (!formData.password.trim()) {
+      newErr.password = 'Vui lòng nhập mật khẩu.';
+    } else if (formData.password.length < 8) {
+      newErr.password = 'Mật khẩu phải có ít nhất 8 ký tự.';
+    }
+    if (!formData.confirmPassword.trim()) newErr.confirmPassword = 'Vui lòng nhập lại mật khẩu.';
+    else if (formData.password !== formData.confirmPassword)
+      newErr.confirmPassword = 'Mật khẩu không khớp.';
     setErrors(newErr);
     return !(newErr.name || newErr.email || newErr.phone || newErr.password);
   };
@@ -90,45 +99,59 @@ export default function Signup() {
           });
           window.location.href = "/login";
         },
-        onError: (err) => {
+        onError: (err: any) => {
           console.error("Register error:", err);
+
+          const status = err?.response?.status;
+          const message = (err?.response?.data?.message || "").toLowerCase();
+
+          if (status === 409 || message.includes("email")) {
+            setErrors(prev => ({
+              ...prev,
+              email: "Email đã tồn tại!",
+            }));
+            return; // 🔥 Quan trọng: không chạy đoạn toast lỗi chung phía dưới
+          }
+
           toast.error("Đăng ký thất bại!", {
             description: "Vui lòng thử lại sau.",
           });
         },
+
+
       }
     );
   };
 
   /** Xử lý đăng nhập qua Google */
   const handleGoogleLogin = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    const idToken = await user.getIdToken(); // 🔥 Lấy idToken chuẩn từ Firebase
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const idToken = await user.getIdToken(); // 🔥 Lấy idToken chuẩn từ Firebase
 
-    console.log("Firebase ID Token:", idToken);
+      console.log("Firebase ID Token:", idToken);
 
-    googleAuth(
-      { idToken }, 
-      {
-        onSuccess: (res) => {
-          console.log("Google Auth success:", res);
-          localStorage.setItem("token", res.token || "");
-          toast.success("Đăng nhập Google thành công!");
-          window.location.href = "/";
-        },
-        onError: (err) => {
-          console.error("Google Auth error:", err);
-          toast.error("Đăng nhập Google thất bại!");
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Google login error:", error);
-    toast.error("Đăng nhập Google thất bại!");
-  }
-};
+      googleAuth(
+        { idToken },
+        {
+          onSuccess: (res) => {
+            console.log("Google Auth success:", res);
+            localStorage.setItem("token", res.token || "");
+            toast.success("Đăng nhập Google thành công!");
+            window.location.href = "/";
+          },
+          onError: (err) => {
+            console.error("Google Auth error:", err);
+            toast.error("Đăng nhập Google thất bại!");
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Đăng nhập Google thất bại!");
+    }
+  };
 
 
 
@@ -245,6 +268,22 @@ export default function Signup() {
               </div>
               {errors.password && <div className="text-red-600 text-xs mt-1">{errors.password}</div>}
             </div>
+
+            {/* Confirm Password Input */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Nhập lại mật khẩu</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                className="h-12 bg-slate-700 border-0 text-white placeholder:text-gray-400 text-sm"
+              />
+              {errors.confirmPassword && (
+                <div className="text-red-600 text-xs mt-1">{errors.confirmPassword}</div>
+              )}
+            </div>
+
 
             {/* Terms Agreement */}
             <div className="flex items-start space-x-2">

@@ -1,10 +1,10 @@
 // src/context/CartContext.tsx
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import { type Book, getBookById } from "@/services/BookService";
 import { CartService } from "@/services/CartService";
 import { CartItemService, type CartItem } from "@/services/CartItemService";
 import { toast } from "sonner";
-import { getCurrentUserId } from "@/utils/authStorage";
+import { useAuth } from "./AuthContext";
 
 export type CartLine = {
   book: Book;
@@ -16,7 +16,7 @@ export type CartLine = {
 export type CartState = { cartId: string | null; lines: CartLine[]; };
 
 type Action =
-  | { type: "INIT"; cartId: string; lines: CartLine[] }
+  | { type: "INIT"; cartId: string | null; lines: CartLine[] }
   | { type: "ADD"; line: CartLine }
   | { type: "SET_QTY"; bookId: string; qty: number }
   | { type: "REMOVE"; bookId: string }
@@ -61,70 +61,55 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saved = localStorage.getItem("cart_state");
     return saved ? JSON.parse(saved) : initialState;
   });
+  const { user, isInitialized } = useAuth();
+  const userId = user?.userId ?? null;
 
-  const [userId, setUserId] = useState<string | null>(null);
+
+
 
   // 🔑 Lấy userId từ localStorage (đã được set khi login) + sync khi storage thay đổi
   useEffect(() => {
-    setUserId(getCurrentUserId());
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "rookie.auth.currentUserId") setUserId(e.newValue);
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    if (!isInitialized) return;
+    dispatch({ type: "INIT", cartId: null, lines: [] });
+  }, [userId, isInitialized]);
 
-  // 🛒 Tải giỏ hàng khi userId sẵn sàng
+  // 🛒 Load Cart sau khi Auth sẵn sàng và có userId
   useEffect(() => {
+    if (!isInitialized) return;
+    if (!userId) return;
+
     const fetchCart = async () => {
-      if (!userId) return;
       try {
-        let cart: { cartId: string } | null = null;
-
-        try {
-          cart = await CartService.getCartByUserId(userId);
-        } catch (err: any) {
-          if (err.response?.status === 404) {
-            cart = await CartService.createCart(userId);
-          } else {
-            throw err;
-          }
-        }
-
-        if (!cart) return; // ⭐ TS không còn báo lỗi nữa
+        const cart = await CartService.getCartByUserId(userId);
+        if (!cart?.cartId) return;
 
         const items = await CartItemService.getItemsByCartId(cart.cartId);
 
-        const lines: CartLine[] = await Promise.all(
+        const lines = await Promise.all(
           items.map(async (i: CartItem) => {
-            try {
-              const book = await getBookById(i.bookId);
-              return {
-                book,
-                qty: i.quantity,
-                price: i.price,
-                cartItemId: i.cartItemId,
-              };
-            } catch (err) {
-              return {
-                book: { bookId: i.bookId } as Book,
-                qty: i.quantity,
-                price: i.price,
-                cartItemId: i.cartItemId,
-              };
-            }
+            const book =
+              (await getBookById(i.bookId).catch(() => null)) ||
+              ({ bookId: i.bookId } as Book);
+
+            return {
+              book,
+              qty: i.quantity,
+              price: i.price,
+              cartItemId: i.cartItemId,
+            };
           })
         );
 
         dispatch({ type: "INIT", cartId: cart.cartId, lines });
-
       } catch (err) {
-        console.error("❌ Lỗi khi tải giỏ hàng:", err);
+        console.error("❌ Lỗi fetchCart:", err);
+        // ⚠️ Không logout hoặc throw — tránh làm mất Auth
       }
     };
 
     fetchCart();
-  }, [userId]);
+  }, [isInitialized, userId]);
+
 
   // 💾 Lưu giỏ hàng vào localStorage
   useEffect(() => {
@@ -154,7 +139,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, book.price);
         dispatch({
           type: "ADD",
-          line: { book, qty, price: newItem.price , cartItemId: newItem.cartItemId },
+          line: { book, qty, price: newItem.price, cartItemId: newItem.cartItemId },
         });
         toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
       }

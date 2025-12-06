@@ -4,7 +4,6 @@ import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Heart,
   MessageCircle,
   PlusCircle,
   Search,
@@ -12,8 +11,6 @@ import {
   Loader2,
   Send,
   Edit2,
-  Eye,
-  
 } from "lucide-react";
 import {
   Dialog,
@@ -33,12 +30,10 @@ import {
   type Comment,
 } from "@/services/BlogService";
 import { TagService, type Tag } from "@/services/BlogService";
-import { getAllBooks, type Book } from "@/services/BookService";
 import { UploadService } from "@/services/FirebaseService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { getUserById, type User } from "@/services/UserService";
-import { useNavigate } from "react-router-dom";
 
 /* =======================================================
    🗨️ CommentDialog Component
@@ -120,7 +115,8 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
           variant="ghost"
           className="flex items-center gap-2 text-gray-300 hover:text-blue-400"
         >
-          <MessageCircle size={18} /> Bình luận ({comments.length})
+          <MessageCircle size={18} />
+          Bình luận
         </Button>
       </DialogTrigger>
 
@@ -186,7 +182,7 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
                       </p>
                     )}
                     <p className="text-xs text-gray-400 mt-1">
-                      {new Date(c.createdAt).toLocaleString("vi-VN")}
+                      {new Date(c.updatedAt).toLocaleString("vi-VN")}
                     </p>
                   </div>
                   {isMine && editingId !== c.commentId && (
@@ -226,10 +222,10 @@ const BlogCard: React.FC<{
   post: BlogPost;
   currentUserId?: string;
   onDelete?: (id: string) => void;
-}> = ({ post, currentUserId, onDelete }) => {
+  onHashtagClick?: (tagName: string) => void;
+}> = ({ post, currentUserId, onDelete, onHashtagClick }) => {
   const [author, setAuthor] = useState<User | null>(null);
   const [commentCount, setCommentCount] = useState(0);
-  const navigate = useNavigate();
   const isMine = post.authorId === currentUserId;
 
   useEffect(() => {
@@ -243,19 +239,22 @@ const BlogCard: React.FC<{
 
   // 🔹 Chuyển #TênSách -> Link
   const renderHashtags = (text: string) =>
-    text.split(/(\#[A-Za-zÀ-ỹ0-9_]+)/g).map((part, idx) =>
+    text.split(/(#[A-Za-zÀ-ỹ0-9_]+)/g
+    ).map((part, idx) =>
       part.startsWith("#") ? (
-        <span
+        <button
           key={idx}
-          onClick={() => navigate(`/book/${part.substring(1)}`)}
-          className="text-blue-400 cursor-pointer hover:underline"
+          type="button"
+          onClick={() => onHashtagClick?.(part.substring(1))}
+          className="text-blue-400 cursor-pointer hover:underline bg-transparent border-none p-0"
         >
           {part}
-        </span>
+        </button>
       ) : (
         part
       )
     );
+
 
   return (
     <div className="bg-white/10 rounded-2xl p-5 mb-6 border border-white/10 hover:bg-white/20 transition-all shadow-lg">
@@ -303,12 +302,10 @@ const BlogCard: React.FC<{
       {/* Footer */}
       <div className="flex justify-between items-center text-gray-300 pt-3 border-t border-white/10">
         <div className="flex items-center gap-4">
-          <Heart size={18} className="hover:text-pink-400 cursor-pointer" />
           <CommentDialog blogId={post.blogId} currentUserId={currentUserId} />
         </div>
 
         <div className="flex items-center gap-4 text-gray-400 text-sm">
-          <Eye size={16} /> {Math.floor(Math.random() * 400 + 50)} lượt xem
           <MessageCircle size={16} /> {commentCount}
         </div>
       </div>
@@ -322,22 +319,20 @@ const BlogCard: React.FC<{
 export default function BlogPage() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [, setTags] = useState<Tag[]>([]);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [selectedTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<Tag[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder] = useState<"newest" | "oldest">("newest");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", coverUrl: "" });
-  const [bookSuggestions, setBookSuggestions] = useState<Book[]>([]);
+
 
   useEffect(() => {
     (async () => {
       try {
-        const [tagData, bookData] = await Promise.all([TagService.getAll(), getAllBooks()]);
+        const tagData = await TagService.getAll();
         setTags(tagData);
-        setBooks(bookData);
       } catch {
         toast.error("Không thể tải dữ liệu!");
       }
@@ -366,18 +361,62 @@ export default function BlogPage() {
     loadBlogs();
   }, [sortOrder]);
 
-  // 🔹 Tìm hashtag -> gợi ý sách
-  const handleContentChange = (text: string) => {
-    setNewPost((prev) => ({ ...prev, content: text }));
-    const match = text.match(/#([^\s#]*)$/);
-    if (match && match[1].length > 0) {
-      const keyword = match[1].toLowerCase();
-      const suggestions = books.filter((b) =>
-        b.bookName.toLowerCase().includes(keyword)
+  const handleFilterByTag = async (tagName: string) => {
+    setSearchTerm(`#${tagName}`);
+
+    const tag = tags.find(
+      (t) => t.name.toLowerCase() === tagName.toLowerCase()
+    );
+    if (!tag) return toast.warning(`Không tìm thấy hashtag #${tagName}`);
+
+    try {
+      setLoading(true);
+      const data = await BlogService.search({ tagIds: [tag.tagId] });
+      const active = data.filter((b) => b.isActived === "ACTIVE");
+
+      const sorted = [...active].sort((a, b) =>
+        sortOrder === "newest"
+          ? new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          : new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
       );
-      setBookSuggestions(suggestions.slice(0, 5));
-    } else setBookSuggestions([]);
+
+      setPosts(sorted);
+    } catch {
+      toast.error("Không thể lọc bài viết theo hashtag!");
+    } finally {
+      setLoading(false);
+    }
   };
+
+
+
+  // 🔹 Tìm hashtag 
+  const handleContentChange = (text: string) => {
+    setNewPost(prev => ({ ...prev, content: text }));
+
+    const match = text.match(/#([A-Za-z0-9_À-ỹ]*)$/);
+    if (!match) {
+      setTagSuggestions([]);
+      return;
+    }
+
+    const keyword = match[1].toLowerCase();
+    if (!keyword) return setTagSuggestions([]);
+
+    const suggest = tags.filter(t =>
+      t.name.toLowerCase().includes(keyword)
+    );
+
+    setTagSuggestions(suggest.slice(0, 6));
+  };
+
+  const extractHashtags = (text: string): string[] => {
+    return [...new Set(
+      text.match(/#[A-Za-zÀ-ỹ0-9_]+/g)?.map(x => x.substring(1)) || []
+    )];
+  };
+
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -395,25 +434,56 @@ export default function BlogPage() {
   };
 
   const handleSubmit = async () => {
-    if (!newPost.content.trim()) return toast.warning("Vui lòng nhập nội dung!");
+    if (!newPost.content.trim())
+      return toast.warning("Vui lòng nhập nội dung!");
+
+    const hashtagNames = extractHashtags(newPost.content); // không có dấu #
+
+    let tagIds: string[] = [];
+
+    try {
+      const existing = await TagService.getAll();
+
+      const newOnes = hashtagNames.filter(
+        h => !existing.some(e => e.name.toLowerCase() === h.toLowerCase())
+      );
+
+      if (newOnes.length > 0) {
+        const created = await TagService.create(
+          newOnes.map(h => ({ name: h, isActived: "ACTIVE" }))
+        );
+        tagIds = [...created.map(t => t.tagId)];
+      }
+
+      const existMapped = existing
+        .filter(e => hashtagNames.includes(e.name.toLowerCase()))
+        .map(e => e.tagId);
+
+      tagIds.push(...existMapped);
+    } catch {
+      toast.error("Không thể xử lý hashtag!");
+    }
+
     const payload = {
       title: newPost.title || "Bài viết mới",
       coverUrl: newPost.coverUrl || null,
       content: newPost.content,
       authorId: user?.userId || "guest",
       isActived: "ACTIVE" as const,
-      tagIds: selectedTags,
-      bookId: null,
+      tagIds, // 🔥 Gắn thẳng mapping
     };
+
     try {
       const created = await BlogService.create(payload);
-      setPosts((prev) => [created, ...prev]);
-      setNewPost({ title: "", content: "", coverUrl: "" });
+      setPosts(prev => [created, ...prev]);
       toast.success("🎉 Đăng bài thành công!");
+      setNewPost({ title: "", content: "", coverUrl: "" });
     } catch {
       toast.error("Không thể đăng bài!");
     }
   };
+
+
 
   const handleDelete = async (id: string) => {
     if (!confirm("Bạn có chắc muốn xoá bài viết này không?")) return;
@@ -463,28 +533,29 @@ export default function BlogPage() {
                   className="bg-white/10 border-white/20 text-white"
                 />
 
-                {/* Gợi ý sách */}
-                {bookSuggestions.length > 0 && (
-                  <div className="absolute z-10 bg-[#2a2a3e] border border-white/10 rounded-lg p-2 max-h-40 overflow-y-auto">
-                    {bookSuggestions.map((b) => (
+                {tagSuggestions.length > 0 && (
+                  <div className="absolute bg-[#2a2a3e] border border-white/10 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto z-20 w-full">
+                    {tagSuggestions.map((t) => (
                       <div
-                        key={b.bookId}
-                        onClick={() =>
+                        key={t.tagId}
+                        onClick={() => {
                           setNewPost((prev) => ({
                             ...prev,
                             content: prev.content.replace(
-                              /#([^\s#]*)$/,
-                              `#${b.bookId}`
+                              /#([A-Za-z0-9_À-ỹ]*)$/,
+                              `#${t.name} `
                             ),
-                          }))
-                        }
-                        className="px-3 py-1 hover:bg-white/10 cursor-pointer text-sm text-white"
+                          }));
+                          setTagSuggestions([]);
+                        }}
+                        className="px-3 py-1 hover:bg-white/10 cursor-pointer text-sm"
                       >
-                        📘 {b.bookName}
+                        #{t.name}
                       </div>
                     ))}
                   </div>
                 )}
+
 
                 <Label>Ảnh minh họa (tùy chọn)</Label>
                 <Input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -515,15 +586,27 @@ export default function BlogPage() {
               className="pl-10 bg-white/10 border-white/20 text-white"
             />
             <Button
-              onClick={() =>
-                BlogService.search({ title: searchTerm, content: searchTerm }).then((res) =>
-                  setPosts(res)
-                )
-              }
+              onClick={() => {
+                if (!searchTerm.startsWith("#")) {
+                  toast.warning("Vui lòng nhập hashtag! (Ví dụ: #truyenchu)");
+                  return;
+                }
+
+                const keyword = searchTerm.substring(1).toLowerCase();
+                const tag = tags.find((t) => t.name.toLowerCase() === keyword);
+
+                if (!tag) {
+                  toast.warning("Không tìm thấy hashtag này!");
+                  return;
+                }
+
+                handleFilterByTag(tag.name);
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Search size={18} />
             </Button>
+
           </div>
         </div>
 
@@ -542,6 +625,7 @@ export default function BlogPage() {
                   post={p}
                   currentUserId={user?.userId}
                   onDelete={handleDelete}
+                  onHashtagClick={handleFilterByTag}
                 />
               ))
             ) : (

@@ -47,6 +47,7 @@ import RoleManagementPage from "./pages/admin/RoleManagement";
 import PaymentMethodManagementPage from "./pages/admin/PaymentMethodManagement";
 import GenresManagementPage from "./pages/admin/GenresManagement";
 import BookManagementPage from "./pages/admin/BookManagement";
+import BlogManagementPage from "./pages/admin/BlogManagement";
 
 export default function AppRouter() {
   return (
@@ -56,7 +57,7 @@ export default function AppRouter() {
       <Route path="/forgotpassword" element={<ForgotPassword />} />
 
       <Route path="/" element={<Homepage />} />
-      <Route path="/genre/:gerneId" element={<Homepage />} />
+      <Route path="/genre/:genreId" element={<Homepage />} />
       <Route path="/book/:bookId" element={<BookDetail />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
@@ -108,6 +109,7 @@ export default function AppRouter() {
       <Route path="/admin/payment-method" element={<PaymentMethodManagementPage />} />
       <Route path="/admin/genres" element={<GenresManagementPage />} />
       <Route path="/admin/books" element={<BookManagementPage />} />
+      <Route path="/admin/blogs" element={<BlogManagementPage />} />
 
       <Route path="/moderator" element={<ModeratorPage />} />
     </Routes>

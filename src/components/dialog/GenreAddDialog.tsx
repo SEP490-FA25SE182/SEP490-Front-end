@@ -47,6 +47,12 @@ const GenreAddDialog: React.FC<Props> = ({ isOpen, onClose, bookId, onSaved }) =
     );
   }, [genres, search]);
 
+  const truncateWords = (text?: string, limit = 6) => {
+    if (!text) return "";
+    const words = text.trim().split(/\s+/);
+    return words.length <= limit ? text : words.slice(0, limit).join(" ") + "...";
+  };
+
   const toggle = (id: string) => {
     setSelected(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -86,7 +92,7 @@ const GenreAddDialog: React.FC<Props> = ({ isOpen, onClose, bookId, onSaved }) =
             className="bg-transparent border-white/20"
           />
 
-          <div className="max-h-[320px] overflow-auto rounded border border-white/10 p-2">
+          <div className="max-h-80 overflow-auto rounded border border-white/10 p-2">
             {loading ? (
               <div className="p-4 text-sm text-gray-400">Đang tải thể loại...</div>
             ) : filtered.length === 0 ? (
@@ -104,7 +110,13 @@ const GenreAddDialog: React.FC<Props> = ({ isOpen, onClose, bookId, onSaved }) =
                     <div>
                       <div className="font-medium">{g.genreName}</div>
                       {g.description && (
-                        <div className="text-xs text-gray-400">{g.description}</div>
+                        <div
+                          className="text-xs text-gray-400"
+                          title={g.description}
+                          aria-label={g.description}
+                        >
+                          {truncateWords(g.description, 6)}
+                        </div>
                       )}
                     </div>
                   </li>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Menu, X, Save, UploadCloud } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, UploadCloud } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useUnityContext } from "react-unity-webgl";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -557,9 +557,9 @@ export default function AuthorModelView() {
               className="text-white hover:bg-white/10"
             >
               {sidebarOpen ? (
-                <X className="w-6 h-6" />
+                <ChevronLeft className="w-6 h-6" />
               ) : (
-                <Menu className="w-6 h-6" />
+                <ChevronRight className="w-6 h-6" />
               )}
             </Button>
 

@@ -158,12 +158,15 @@ const Asset3DCreateDialog: React.FC<Props> = ({ isOpen, onClose, markerId, userI
       format,
       quality: "balanced", // mặc định ẩn trên UI
       fileName: normalizeFileName(fileName),
+      refine: true,
+      enablePbr: withColor || false
     };
 
     if (withColor) {
       meta.texturePrompt = texturePrompt.trim() || undefined;
       meta.textureImageUrl = textureImageUrl.trim() || undefined;
     }
+
 
     try {
       await generateAsset.mutateAsync(meta);

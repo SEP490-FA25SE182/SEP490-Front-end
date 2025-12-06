@@ -7,6 +7,7 @@ import { getBookById, updateBook } from "@/services/BookService";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft } from "lucide-react";
 import { getAllChapters } from "@/services/BookManageService";
+import { UploadService } from "@/services/FirebaseService";
 
 
 export default function AuthorEditBook() {
@@ -26,11 +27,14 @@ export default function AuthorEditBook() {
 
   const [meta, setMeta] = useState({
     publicationStatus: 0,
-    progressStatus: 0,
     chapterCount: 0,
   });
 
 
+  // New states for cover uploader
+  const [selectedCoverPreview, setSelectedCoverPreview] = useState<string | null>(null);
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,7 +68,6 @@ export default function AuthorEditBook() {
 
         setMeta({
           publicationStatus: res.publicationStatus ?? 0,
-          progressStatus: res.progressStatus ?? 0,
           chapterCount,
         });
         setOriginalBook({
@@ -72,8 +75,6 @@ export default function AuthorEditBook() {
           coverUrl: res.coverUrl ?? "",
           decription: res.decription ?? "",
         });
-
-
       } catch (err) {
         console.error("Lỗi khi tải sách:", err);
         toast({
@@ -98,17 +99,49 @@ export default function AuthorEditBook() {
     !book.bookName?.trim() ||
     !book.decription?.trim() ||
     titleTooLong ||
-    descTooLong;
+    descTooLong ||
+    isUploadingCover;
+
+  const getDisplayImageUrl = (url: string | undefined | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
+    return url;
+  };
 
   const handleSave = async () => {
     if (!bookId) return;
     setIsSaving(true);
     try {
-      const payload: any = {};
+      let payload: any = {};
 
       if (book.bookName?.trim()) payload.bookName = book.bookName;
-      if (book.coverUrl?.trim()) payload.coverUrl = book.coverUrl;
       if (book.decription?.trim()) payload.decription = book.decription;
+
+      // If user selected a new cover file, upload it first
+      if (selectedCoverFile) {
+        setIsUploadingCover(true);
+        try {
+          toast({ title: "Đang upload ảnh bìa..." });
+          const gsUrl = await UploadService.uploadImageToFirebase(selectedCoverFile, "book");
+          payload.coverUrl = gsUrl;
+          toast({ title: "Upload ảnh bìa thành công" });
+        } catch (err) {
+          console.error("Upload cover failed:", err);
+          toast({ title: "Upload thất bại", description: "Không thể upload ảnh bìa.", variant: "destructive" });
+          setIsUploadingCover(false);
+          setIsSaving(false);
+          return;
+        } finally {
+          setIsUploadingCover(false);
+        }
+      } else if (book.coverUrl?.trim()) {
+        payload.coverUrl = book.coverUrl;
+      }
 
       if (isChanged) {
         payload.publicationStatus = "3";
@@ -150,7 +183,8 @@ export default function AuthorEditBook() {
     (
       book.bookName !== originalBook.bookName ||
       book.coverUrl !== originalBook.coverUrl ||
-      book.decription !== originalBook.decription
+      book.decription !== originalBook.decription ||
+      selectedCoverFile !== null
     );
 
 
@@ -159,12 +193,6 @@ export default function AuthorEditBook() {
     1: "ĐÃ XUẤT BẢN",
     2: "LƯU TRỮ",
     3: "CHỜ KIỂM DUYỆT",
-  };
-
-  const progressMap: Record<number, string> = {
-    0: "IN_PROGRESS",
-    1: "COMPLETED",
-    2: "DROPPED",
   };
 
 
@@ -212,16 +240,36 @@ export default function AuthorEditBook() {
                     {titleTooLong && <div className="text-red-400">Vượt tối đa {MAX_TITLE} ký tự</div>}
                   </div>
 
-                  <Input
-                    placeholder="Link ảnh bìa (coverUrl)"
-                    value={book.coverUrl}
-                    onChange={(e) => setBook({ ...book, coverUrl: e.target.value })}
-                    className="bg-transparent border-white/20 text-white"
-                  />
-                  {book.coverUrl && (
+                  {/* Cover uploader (replaces cover URL input) */}
+                  <div className="flex items-center gap-4">
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700 text-white flex items-center"
+                      onClick={() => document.getElementById("coverFileInput")?.click()}
+                      disabled={isUploadingCover}
+                    >
+                      Chọn ảnh bìa
+                    </Button>
+
+                    <input
+                      type="file"
+                      id="coverFileInput"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        if (f) {
+                          setSelectedCoverFile(f);
+                          setSelectedCoverPreview(URL.createObjectURL(f));
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Preview: selected file preview takes precedence, otherwise existing coverUrl */}
+                  {(selectedCoverPreview || book.coverUrl) && (
                     <div className="flex justify-center">
                       <img
-                        src={book.coverUrl}
+                        src={selectedCoverPreview ?? getDisplayImageUrl(book.coverUrl)}
                         alt="Book Cover"
                         className="w-40 h-56 object-cover rounded-lg border border-gray-600"
                         onError={(e) => {
@@ -238,13 +286,6 @@ export default function AuthorEditBook() {
                       <span className="text-gray-400">Trạng thái xuất bản:</span>{" "}
                       <span className="font-semibold text-purple-400">
                         {publicationMap[meta.publicationStatus]}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-gray-400">Trạng thái sách:</span>{" "}
-                      <span className="font-semibold text-blue-400">
-                        {progressMap[meta.progressStatus]}
                       </span>
                     </div>
 
@@ -270,7 +311,7 @@ export default function AuthorEditBook() {
                     {descTooLong && <div className="text-red-400">Vượt tối đa {MAX_DESC} ký tự</div>}
                   </div>
 
-                  {/* Footer buttons — same layout as ImageCreate (Hủy | Upload) */}
+                  {/* Footer buttons */}
                   <div className="flex gap-4 mt-8">
                     <Button
                       variant="outline"

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Menu, X } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,7 @@ export default function ImagePageCreate() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
             </Button>
             <h2 className="text-white text-lg font-medium">Tạo nội dung ảnh</h2>
           </div>
@@ -190,7 +190,7 @@ export default function ImagePageCreate() {
                         : "border-white/10 hover:border-gray-300"
                       }`}
                   >
-                    <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img
                         src={gsToHttp(it.url)}
                         alt={it.title}

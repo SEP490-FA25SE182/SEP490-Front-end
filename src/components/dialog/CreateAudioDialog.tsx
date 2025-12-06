@@ -269,7 +269,6 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
     }
   };
 
-
   // Normalize various mutation-state shapes (some hooks may expose isPending / isLoading or status)
   const isGeneratePending =
     "isPending" in generateTTS
@@ -283,14 +282,17 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
 
   const isProcessing = Boolean(isGeneratePending || isUploadPending);
 
+  // đường dẫn sample theo voiceName (file để trong public/audio_files/<VoiceName>.wav)
+  const voiceSampleSrc = `/audio_files/${audioData.voiceName}.wav`;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl w-full">
+      <DialogContent className="max-w-2xl w-full h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Tạo Audio (TTS)</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 flex-1 overflow-auto pr-2">
           {/* IMPORT FROM LOCAL FILE */}
           <div className="border p-3 rounded">
             <div className="flex items-center justify-between">
@@ -397,30 +399,35 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-6 mt-3">
+              <div className="grid grid-cols-2 gap-10 mt-3">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">
                     Giọng nói
                   </label>
-                  <Select
-                    value={audioData.voiceName}
-                    onValueChange={(value) =>
-                      setAudioData({ ...audioData, voiceName: value })
-                    }
-                  >
-                    <SelectTrigger className="bg-white border-gray-300">
-                      <SelectValue placeholder="Chọn giọng" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VOICE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.name} value={opt.name}>
-                          {opt.name} — {opt.desc}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* make first column wider and prevent overflow into the language column */}
+                  <div className="min-w-0">
+                    <Select
+                      value={audioData.voiceName}
+                      onValueChange={(value) =>
+                        setAudioData({ ...audioData, voiceName: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-white border-gray-300 min-w-0">
+                        <SelectValue placeholder="Chọn giọng" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VOICE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.name} value={opt.name}>
+                            <div className="truncate">
+                              {opt.name} — {opt.desc}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-
+ 
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">
                     Ngôn ngữ
@@ -444,21 +451,39 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
                   </Select>
                 </div>
               </div>
+
+              {/* 🔊 Nghe thử giọng đã chọn */}
+              <div className="mt-4">
+                <div className="text-xs text-gray-600 mb-1">
+                  Nghe thử giọng: <span className="font-semibold">{audioData.voiceName}</span>
+                </div>
+                <audio
+                  controls
+                  src={voiceSampleSrc}
+                  className="w-full"
+                  preload="none"
+                >
+                  Trình duyệt của bạn không hỗ trợ audio.
+                </audio>
+                <div className="text-[11px] text-gray-400 mt-1">
+                  File: <code>/audio_files/{audioData.voiceName}.wav</code>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🔄 Loading Jumping Dots khi đang xử lý (vẫn giữ component) */}
+          {isProcessing && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <LoadingThreeDotsJumping />
+              <p className="text-xs text-gray-500 text-center">
+                {mode === "import"
+                  ? "Đang xử lý audio..."
+                  : "Đang tạo audio bằng AI, vui lòng chờ..."}
+              </p>
             </div>
           )}
         </div>
-
-        {/* 🔄 Loading Jumping Dots khi đang xử lý */}
-        {isProcessing && (
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <LoadingThreeDotsJumping />
-            <p className="text-xs text-gray-500 text-center">
-              {mode === "import"
-                ? "Đang xử lý audio..."
-                : "Đang tạo audio bằng AI, vui lòng chờ..."}
-            </p>
-          </div>
-        )}
 
         <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={() => onClose()} className="mr-2">
@@ -481,7 +506,6 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
       </DialogContent>
     </Dialog>
   );
-
 };
 
 export default CreateAudioDialog;

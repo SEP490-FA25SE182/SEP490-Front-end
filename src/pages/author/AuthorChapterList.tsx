@@ -14,7 +14,7 @@ const publicationStatusLabelLocal = (status: number | string | undefined) => {
   }
 };
 
-import { Menu, X, Plus, Edit, Trash2, MoreVertical, BookOpen, Gamepad2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, MoreVertical, BookOpen, Gamepad2 } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,7 +165,7 @@ export default function AuthorChapterList() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
             </Button>
             <div className="ml-4 text-white">
               <div className="text-sm">Danh sách chương</div>

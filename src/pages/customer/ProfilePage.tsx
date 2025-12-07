@@ -338,7 +338,7 @@ function AddOrEditAddressForm({
 
   // 🌍 Fetch danh sách tỉnh/huyện/xã
   useEffect(() => {
-    fetch("http://provinces.open-api.vn/api/p/")
+    fetch("https://provinces.open-api.vn/api/p/")
       .then((res) => res.json())
       .then(setProvinces)
       .catch(() => toast.error("Không tải được danh sách tỉnh/thành!"));
@@ -346,7 +346,7 @@ function AddOrEditAddressForm({
 
   useEffect(() => {
     if (!province) return;
-    fetch(`http://provinces.open-api.vn/api/p/${province}?depth=2`)
+    fetch(`https://provinces.open-api.vn/api/p/${province}?depth=2`)
       .then((res) => res.json())
       .then((data) => setDistricts(data.districts || []))
       .catch(() => toast.error("Không tải được danh sách quận/huyện!"));
@@ -354,7 +354,7 @@ function AddOrEditAddressForm({
 
   useEffect(() => {
     if (!district) return;
-    fetch(`http://provinces.open-api.vn/api/d/${district}?depth=2`)
+    fetch(`https://provinces.open-api.vn/api/d/${district}?depth=2`)
       .then((res) => res.json())
       .then((data) => setWards(data.wards || []))
       .catch(() => toast.error("Không tải được danh sách phường/xã!"));

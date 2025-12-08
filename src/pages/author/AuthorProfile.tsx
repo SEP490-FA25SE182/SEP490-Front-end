@@ -14,11 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// ⬇️ Đổi getAllWallets -> searchWallets, vẫn dùng Wallet type
-import { searchWallets, type Wallet } from "@/services/WalletService";
+import { getWalletByUserId, type Wallet } from "@/services/WalletService";
 import { getUserById, updateUser, type User } from "@/services/UserService";
 import { UploadService } from "@/services/FirebaseService";
 import { TransactionService } from "@/services/TransactionService";
+import { getCurrentUserId } from "@/utils/authStorage";
 
 export default function AuthorProfile() {
   const { userId } = useParams<{ userId: string }>();
@@ -42,37 +42,32 @@ export default function AuthorProfile() {
   const [txError, setTxError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
     let mounted = true;
 
     const fetchAll = async () => {
       setLoading(true);
       setError(null);
       try {
-        const userRes = await getUserById(userId);
+        // xác định userId: lấy từ params trước, fallback localStorage
+        const uid = userId ?? getCurrentUserId();
+        if (!uid) {
+          if (mounted) setError("Không tìm thấy userId.");
+          return;
+        }
+
+        const userRes = await getUserById(uid);
         if (!mounted) return;
         setUser(userRes);
         setEdited(userRes);
 
-        // 🔄 Lấy ví bằng searchWallets, lọc theo userId (BE đang trả về page)
+        // Lấy wallet theo userId bằng getWalletByUserId (trả về 1 wallet)
         try {
-          const page = await searchWallets({
-            userId,
-            isActived: "ACTIVE",
-            page: 0,
-            size: 50,
-          });
-
-          const my = page && Array.isArray((page as any).content)
-            ? ((page as any).content as Wallet[])
-            : Array.isArray(page)
-            ? (page as Wallet[])
-            : [];
-
+          const w = await getWalletByUserId(uid);
           if (!mounted) return;
-          setWallets(my);
+          setWallets(w ? [w] : []);
         } catch (werr) {
           console.warn("Không lấy được wallets:", werr);
+          if (!mounted) return;
           setWallets([]);
         }
       } catch (err: any) {
@@ -139,7 +134,8 @@ export default function AuthorProfile() {
   };
 
   const handleSave = async () => {
-    if (!userId || !edited) return;
+    const uid = userId ?? getCurrentUserId();
+    if (!uid || !edited) return;
     setLoading(true);
     try {
       // 1) upload avatar if changed
@@ -152,28 +148,16 @@ export default function AuthorProfile() {
       }
 
       // 2) call updateUser
-      await updateUser(userId, edited);
+      await updateUser(uid, edited);
       // 3) refetch user and wallets
-      const refreshed = await getUserById(userId);
+      const refreshed = await getUserById(uid);
       setUser(refreshed);
       setEdited(refreshed);
 
       // 🔄 refresh wallets bằng searchWallets
       try {
-        const page = await searchWallets({
-          userId,
-          isActived: "ACTIVE",
-          page: 0,
-          size: 50,
-        });
-
-        const my = page && Array.isArray((page as any).content)
-          ? ((page as any).content as Wallet[])
-          : Array.isArray(page)
-          ? (page as Wallet[])
-          : [];
-
-        setWallets(my);
+        const w = await getWalletByUserId(uid);
+        setWallets(w ? [w] : []);
       } catch (werr) {
         console.warn("Không lấy được wallets sau khi lưu:", werr);
       }

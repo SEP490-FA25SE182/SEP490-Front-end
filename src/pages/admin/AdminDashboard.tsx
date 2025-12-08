@@ -616,7 +616,7 @@ export default function AdminDashboardPage() {
                         <Card className="bg-[#1a2332] border border-white/10">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-white">
-                                    <Star className="w-5 h-5" /> Sách nhiều người quan tâm
+                                    <Star className="w-5 h-5" /> Bài viết có nhiều lượt bình luận
                                 </CardTitle>
                             </CardHeader>
 

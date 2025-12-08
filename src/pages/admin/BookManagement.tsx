@@ -253,7 +253,7 @@ export default function BookManagementPage() {
                                         <TableHead className="text-white">Tiến độ</TableHead>
                                         <TableHead className="text-white">Xuất bản</TableHead>
                                         <TableHead className="text-white">Số lượng</TableHead>
-                                        <TableHead className="text-white">Giá tiền</TableHead>
+                                        <TableHead className="text-white">Đơn giá</TableHead>
                                         <TableHead className="text-white text-right">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -388,9 +388,9 @@ export default function BookManagementPage() {
                             />
                         </div>
 
-                        {/* Giá tiền */}
+                        {/*Đơn giá*/}
                         <div className="mb-6">
-                            <label className="text-gray-600 text-sm">Giá tiền (price)</label>
+                            <label className="text-gray-600 text-sm">Đơn giá</label>
                             <Input
                                 type="number"
                                 value={price}

@@ -71,7 +71,7 @@ export default function AuthorBookPreview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ EXPORT FILE .DOC (có trang bìa + ảnh + marker, KHÔNG hiện "Trang X")
+  // ✅ EXPORT FILE .DOC (nhúng ảnh base64, có trang bìa, KHÔNG hiện "Trang X")
   const handleExportDoc = async () => {
     if (!book) {
       toast({
@@ -90,6 +90,52 @@ export default function AuthorBookPreview() {
       return;
     }
 
+    // helper: tải ảnh -> data URL
+    const loadImageAsDataUrl = async (
+      rawUrl: string
+    ): Promise<string | null> => {
+      try {
+        const url = getDisplayUrl(rawUrl);
+        if (!url) return null;
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        console.error("Không tải được ảnh cho DOC:", e, rawUrl);
+        return null;
+      }
+    };
+
+    // helper: chèn ảnh base64 vào HTML content (các <img src="..."> bên trong story)
+    const embedImagesInHtml = async (htmlContent: string): Promise<string> => {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, "text/html");
+        const imgs = Array.from(doc.images);
+
+        for (const img of imgs) {
+          const src = img.getAttribute("src");
+          if (!src) continue;
+          if (src.startsWith("data:")) continue; // đã là base64 rồi
+
+          const dataUrl = await loadImageAsDataUrl(src);
+          if (dataUrl) {
+            img.setAttribute("src", dataUrl);
+          }
+        }
+
+        return doc.body.innerHTML;
+      } catch (e) {
+        console.error("Lỗi khi embed ảnh trong HTML content:", e);
+        return htmlContent;
+      }
+    };
+
     // sort pages giống preview
     const sortedPages = [...pages].sort((a, b) => {
       const c1 = a.chapterNumber ?? 0;
@@ -103,7 +149,10 @@ export default function AuthorBookPreview() {
       "_"
     );
 
-    const coverUrl = book.coverUrl ? getDisplayUrl(book.coverUrl) : "";
+    // ảnh bìa -> base64
+    const coverDataUrl = book.coverUrl
+      ? await loadImageAsDataUrl(book.coverUrl)
+      : null;
 
     let html = `
 <!DOCTYPE html>
@@ -134,8 +183,8 @@ export default function AuthorBookPreview() {
     if (book.decription) {
       html += `<div class="cover-desc">${escapeHtml(book.decription)}</div>`;
     }
-    if (coverUrl) {
-      html += `<img class="cover-image" src="${coverUrl}" alt="${escapeHtml(
+    if (coverDataUrl) {
+      html += `<img class="cover-image" src="${coverDataUrl}" alt="${escapeHtml(
         book.bookName || "Cover"
       )}" />`;
     }
@@ -162,7 +211,8 @@ export default function AuthorBookPreview() {
         if (content) {
           const isHtml = /<\/?[a-z][\s\S]*>/i.test(content);
           if (isHtml) {
-            html += `<div class="page-content">${content}</div>`;
+            const processed = await embedImagesInHtml(content);
+            html += `<div class="page-content">${processed}</div>`;
           } else {
             html += `<p class="page-content">${escapeHtml(content)}</p>`;
           }
@@ -170,9 +220,9 @@ export default function AuthorBookPreview() {
       }
 
       // 🔹 Ảnh minh hoạ
-      let illustrationUrl: string | null = null;
+      let illustrationRaw: string | null = null;
       if (p.illustration?.imageUrl) {
-        illustrationUrl = getDisplayUrl(p.illustration.imageUrl);
+        illustrationRaw = p.illustration.imageUrl;
       } else if (isPicturePage && typeof p.content === "string") {
         const raw = p.content.trim();
         if (
@@ -180,23 +230,29 @@ export default function AuthorBookPreview() {
           raw.startsWith("https://") ||
           raw.startsWith("gs://")
         ) {
-          illustrationUrl = getDisplayUrl(raw);
+          illustrationRaw = raw;
         }
       }
 
-      if (illustrationUrl) {
-        html += `<img class="illustration" src="${illustrationUrl}" alt="${escapeHtml(
-          p.illustration?.title || `Trang ${p.pageNumber}`
-        )}" />`;
+      if (illustrationRaw) {
+        const illusDataUrl = await loadImageAsDataUrl(illustrationRaw);
+        if (illusDataUrl) {
+          html += `<img class="illustration" src="${illusDataUrl}" alt="${escapeHtml(
+            p.illustration?.title || `Trang ${p.pageNumber}`
+          )}" />`;
+        }
       } else if (isPicturePage) {
         html += `<p class="page-content">[Trang ảnh]</p>`;
       }
 
       // 🔹 Marker (nếu có)
       if (p.markerImageUrl) {
-        html += `<img class="marker" src="${getDisplayUrl(
-          p.markerImageUrl
-        )}" alt="Marker trang ${p.pageNumber}" />`;
+        const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
+        if (markerDataUrl) {
+          html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${
+            p.pageNumber
+          }" />`;
+        }
       }
 
       html += `</div><div class="page-break"></div>`;
@@ -274,7 +330,7 @@ export default function AuthorBookPreview() {
           if (cancelled) return;
         }
 
-        // Sort theo chapterNumber + pageNumber ở FE (đoạn này giữ nguyên)
+        // Sort theo chapterNumber + pageNumber ở FE
         basePages.sort((a, b) => {
           const c1 = a.chapterNumber ?? 0;
           const c2 = b.chapterNumber ?? 0;
@@ -310,7 +366,6 @@ export default function AuthorBookPreview() {
             const marker = markerRes?.content?.[0];
             if (marker) {
               hasMarker = true;
-              // ưu tiên file pdf in ấn, fallback sang imageUrl
               markerImageUrl =
                 marker.printablePdfUrl || marker.imageUrl || null;
             }
@@ -481,14 +536,14 @@ export default function AuthorBookPreview() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* đổi nút xuất DOC */}
+              {/* nút xuất DOC */}
               <Button
                 size="sm"
                 variant="outline"
                 className="bg-white hover:bg-gray-200 text-gray-800"
                 onClick={handleExportDoc}
               >
-                Xuất DOC
+                Xuất file
               </Button>
 
               <Button

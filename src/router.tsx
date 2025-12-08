@@ -49,6 +49,7 @@ import GenresManagementPage from "./pages/admin/GenresManagement";
 import BookManagementPage from "./pages/admin/BookManagement";
 import BlogManagementPage from "./pages/admin/BlogManagement";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import ResetPassword from "./pages/authen/ResetPassword";
 
 export default function AppRouter() {
   return (
@@ -56,6 +57,7 @@ export default function AppRouter() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgotpassword" element={<ForgotPassword />} />
+      <Route path="/resetpassword" element={<ResetPassword />} />
 
       <Route path="/" element={<Homepage />} />
       <Route path="/genre/:genreId" element={<Homepage />} />

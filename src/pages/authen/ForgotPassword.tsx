@@ -57,7 +57,7 @@ export default function ForgotPassword() {
 
           <div className="space-y-4">
             <p className="text-sm text-gray-600 text-center">
-              Nhập email được đăng ký với tài khoản của bạn để nhận mã đặt lại mật khẩu.
+              Nhập email được đăng ký với tài khoản của bạn để đặt lại mật khẩu.
             </p>
 
             <div className="space-y-2">

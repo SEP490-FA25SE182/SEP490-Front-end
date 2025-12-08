@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Star, Heart } from "lucide-react";
+import { ShoppingCart, Star } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import {
@@ -13,13 +13,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatVND } from "@/lib/money";
-import { useFavorites } from "@/context/FavoriteContext";
 import { getAllBooks, getBookById, type Book } from "@/services/BookService";
 import { useCart } from "@/context/CartContext";
 
 import { FeedbackService, type Feedback } from "@/services/FeedbackService";
 import { getUserById } from "@/services/UserService";
 import { getAllGenres, type Genre } from "@/services/GenreService";
+import { useAuth } from "@/context/AuthContext";
 
 
 /* ---------------------------
@@ -72,7 +72,6 @@ export const BookDetail = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { toggleFavorite, isFavorite } = useFavorites();
   const { addToCart } = useCart();
   const [showPreview, setShowPreview] = useState(false);
   const [genres, setGenres] = useState<Genre[]>([]);
@@ -81,6 +80,8 @@ export const BookDetail = () => {
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
 
   // 🩵 Feedback state
   interface FeedbackWithUser extends Feedback {
@@ -185,28 +186,6 @@ export const BookDetail = () => {
     });
   };
 
-  /* ---------------------------
-   ❤️ Yêu thích
-  --------------------------- */
-  const handleToggleFavorite = () => {
-    if (!book) return;
-    toggleFavorite(book);
-    toast({
-      title: isFavorite(book.bookId)
-        ? "Đã xóa khỏi thư viện"
-        : "Đã thêm vào thư viện",
-      description: `"${book.bookName}" ${isFavorite(book.bookId) ? "đã được xóa khỏi" : "đã được thêm vào"
-        } thư viện của bạn.`,
-      action: !isFavorite(book.bookId) ? (
-        <ToastAction
-          altText="Xem thư viện"
-          onClick={() => navigate("/bookshelf")}
-        >
-          Xem thư viện
-        </ToastAction>
-      ) : undefined,
-    });
-  };
 
   /* ---------------------------
    🖼 Giao diện chính
@@ -229,10 +208,10 @@ export const BookDetail = () => {
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
-      <main className="container mx-auto px-4 md:px-20 py-12">
+      <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Left side - Book Cover */}
-          <div className="md:w-1/3">
+          <div className="w-full md:w-[35%] lg:w-[30%]">
             <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-xl">
               <img
                 src={book.coverUrl}
@@ -243,23 +222,12 @@ export const BookDetail = () => {
           </div>
 
           {/* Right side - Book Info */}
-          <div className="md:w-2/3">
+          <div className="w-full md:w-[60%] lg:w-[55%] xl:w-[50%]">
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-3xl font-bold text-white">{book.bookName}</h1>
-              <button
-                onClick={handleToggleFavorite}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <Heart
-                  className={`w-6 h-6 ${isFavorite(book.bookId)
-                    ? "fill-red-500 text-red-500"
-                    : "text-white"
-                    }`}
-                />
-              </button>
             </div>
 
-            <div className="space-y-4 text-white/80">
+            <div className="space-y-3 text-white/80">
               <p className="text-lg">
                 <span className="font-semibold">Mô tả:</span>{" "}
                 {book.decription || "Không có mô tả"}
@@ -294,12 +262,13 @@ export const BookDetail = () => {
                 {formatDate(book.updatedAt)}
               </p>
 
-              <div className="pt-6">
+              <div className="pt-3">
                 <h3 className="text-xl font-bold text-white mb-4">
                   Giá: {formatVND(book.price)}
                 </h3>
 
                 <div className="flex gap-4">
+                  {isAuthenticated && (
                   <Button
                     size="lg"
                     variant="outline"
@@ -309,6 +278,7 @@ export const BookDetail = () => {
                     <ShoppingCart className="mr-2 h-5 w-5" />
                     Thêm vào giỏ
                   </Button>
+                  )}
                 </div>
               </div>
             </div>

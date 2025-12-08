@@ -38,10 +38,10 @@ const PROGRESS_COLOR: Record<number, string> = {
 };
 
 const PUBLIC_COLOR: Record<number, string> = {
-    0: "text-gray-600",     // DRAFT
-    1: "text-green-600",    // PUBLISHED
-    2: "text-orange-600",   // ARCHIVED
-    3: "text-yellow-600",   // PENDING
+    0: "text-gray-600",     // Bản nháp
+    1: "text-green-600",    // Đã xuất bản
+    2: "text-orange-600",   // Đã được duyệt
+    3: "text-yellow-600",   // Đang chờ duyệt
 };
 
 
@@ -54,10 +54,10 @@ const BOOK_PROGRESS: Record<number, string> = {
 };
 
 const BOOK_PUBLIC: Record<number, string> = {
-    0: "DRAFT",
-    1: "PUBLISHED",
-    2: "ARCHIVED",
-    3: "PENDING",
+    0: "Bản nháp",
+    1: "Đã xuất bản",
+    2: "Đã được duyệt",
+    3: "Đang chờ duyệt",
 };
 
 
@@ -229,10 +229,10 @@ export default function BookManagementPage() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tất cả</SelectItem>
-                            <SelectItem value="0">DRAFT</SelectItem>
-                            <SelectItem value="1">PUBLISHED</SelectItem>
-                            <SelectItem value="2">ARCHIVED</SelectItem>
-                            <SelectItem value="3">PENDING</SelectItem>
+                            <SelectItem value="0">Bản nháp</SelectItem>
+                            <SelectItem value="1">Đã xuất bản</SelectItem>
+                            <SelectItem value="2">Đã được duyệt</SelectItem>
+                            <SelectItem value="3">Đang chờ duyệt</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -253,7 +253,7 @@ export default function BookManagementPage() {
                                         <TableHead className="text-white">Tiến độ</TableHead>
                                         <TableHead className="text-white">Xuất bản</TableHead>
                                         <TableHead className="text-white">Số lượng</TableHead>
-                                        <TableHead className="text-white">Giá tiền</TableHead>
+                                        <TableHead className="text-white">Đơn giá</TableHead>
                                         <TableHead className="text-white text-right">Hành động</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -369,10 +369,10 @@ export default function BookManagementPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="0">DRAFT</SelectItem>
-                                    <SelectItem value="1">PUBLISHED</SelectItem>
-                                    <SelectItem value="2">ARCHIVED</SelectItem>
-                                    <SelectItem value="3">PENDING</SelectItem>
+                                    <SelectItem value="0">Bản nháp</SelectItem>
+                                    <SelectItem value="1">Đã xuất bản</SelectItem>
+                                    <SelectItem value="2">Đã được duyệt</SelectItem>
+                                    <SelectItem value="3">Đang chờ duyệt</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -388,9 +388,9 @@ export default function BookManagementPage() {
                             />
                         </div>
 
-                        {/* Giá tiền */}
+                        {/*Đơn giá*/}
                         <div className="mb-6">
-                            <label className="text-gray-600 text-sm">Giá tiền (price)</label>
+                            <label className="text-gray-600 text-sm">Đơn giá</label>
                             <Input
                                 type="number"
                                 value={price}

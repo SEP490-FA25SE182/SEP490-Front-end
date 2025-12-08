@@ -318,6 +318,7 @@ const BlogCard: React.FC<{
 ======================================================= */
 export default function BlogPage() {
   const { user } = useAuth();
+  const isAuthenticated = !!user;
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<Tag[]>([]);
@@ -434,6 +435,10 @@ export default function BlogPage() {
   };
 
   const handleSubmit = async () => {
+    if (!isAuthenticated) {
+      toast.error("Bạn cần đăng nhập để đăng bài viết!");
+      return;
+    }
     if (!newPost.content.trim())
       return toast.warning("Vui lòng nhập nội dung!");
 
@@ -506,12 +511,26 @@ export default function BlogPage() {
             Cộng đồng chia sẻ & đánh giá
           </h1>
 
+          {isAuthenticated && (
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button
+                className={`text-white ${isAuthenticated
+                    ? "bg-purple-600 hover:bg-purple-700"
+                    : "bg-purple-600 hover:bg-purple-700 opacity-100 cursor-pointer"
+                  }`}
+                onClick={(e) => {
+                  if (!isAuthenticated) {
+                    e.preventDefault(); // 🚫 CHẶN mở Dialog
+                    toast.warning("Bạn cần đăng nhập để tạo bài viết!"); // 🔔 Hiện toast
+                  }
+                }}
+              >
                 <PlusCircle className="mr-2 w-5 h-5" /> Tạo bài viết
               </Button>
             </DialogTrigger>
+
+
 
             <DialogContent className="max-w-lg bg-[#1e1e2e] text-white border border-white/10">
               <DialogHeader>
@@ -573,7 +592,7 @@ export default function BlogPage() {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+          </Dialog>)}
         </div>
 
         {/* Search */}

@@ -1,6 +1,6 @@
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
-import { BookOpen, Clock, CreditCard, User } from 'lucide-react';
+import { Clock, CreditCard, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
@@ -12,7 +12,6 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
   const navigationItems = [
     { path: '/profile', icon: User, label: 'Thông tin khách hàng' },
     { path: '/transactions', icon: Clock, label: 'Lịch sử thanh toán' },
-    { path: '/bookshelf', icon: BookOpen, label: 'Thư viện của bạn' },
     { path: '/wallet', icon: CreditCard, label: 'Ví của bạn' },
   ];
 

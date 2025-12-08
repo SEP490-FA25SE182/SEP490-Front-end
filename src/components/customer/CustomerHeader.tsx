@@ -124,12 +124,6 @@ const CustomerHeader = () => {
                           Lịch sử giao dịch
                         </Link>
                         <Link
-                          to="/bookshelf"
-                          className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
-                        >
-                          Tủ sách của tôi
-                        </Link>
-                        <Link
                           to="/wallet"
                           className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
                         >

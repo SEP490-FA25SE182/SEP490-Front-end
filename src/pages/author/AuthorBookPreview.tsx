@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import jsPDF from "jspdf";
 import {
   ChevronLeft,
   ChevronRight,
@@ -46,16 +45,13 @@ type LocationState = {
   book?: Book;
 };
 
-// helper: convert ArrayBuffer -> base64 (để add font vào jsPDF VFS)
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return window.btoa(binary);
-};
+// helper escape text khi nhét vào HTML .doc
+const escapeHtml = (str: string) =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 export default function AuthorBookPreview() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -75,12 +71,12 @@ export default function AuthorBookPreview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ HÀM EXPORT PDF (có hỗ trợ ảnh + marker)
-  const handleExportPdf = async () => {
+  // ✅ EXPORT FILE .DOC (có trang bìa + ảnh + marker, KHÔNG hiện "Trang X")
+  const handleExportDoc = async () => {
     if (!book) {
       toast({
         title: "Không có sách",
-        description: "Không tìm thấy thông tin sách để xuất PDF.",
+        description: "Không tìm thấy thông tin sách để xuất DOC.",
         variant: "destructive",
       });
       return;
@@ -88,151 +84,13 @@ export default function AuthorBookPreview() {
     if (pages.length === 0) {
       toast({
         title: "Chưa có trang",
-        description: "Sách chưa có trang nào để xuất PDF.",
+        description: "Sách chưa có trang nào để xuất DOC.",
         variant: "destructive",
       });
       return;
     }
 
-    const doc = new jsPDF({
-      unit: "pt",
-      format: "a4",
-    });
-
-    // ====== 1) NẠP FONT TIẾNG VIỆT ======
-    try {
-      const fontUrl = "/fonts/NotoSans-VariableFont_wdth,wght.ttf";
-      const fontBuffer = await fetch(fontUrl).then((r) => r.arrayBuffer());
-      const fontBase64 = arrayBufferToBase64(fontBuffer);
-
-      (doc as any).addFileToVFS(
-        "NotoSans-VariableFont_wdth,wght.ttf",
-        fontBase64
-      );
-      (doc as any).addFont(
-        "NotoSans-VariableFont_wdth,wght.ttf",
-        "NotoSans",
-        "normal"
-      );
-
-      doc.setFont("NotoSans", "normal");
-    } catch (e) {
-      console.error("Không load được font NotoSans:", e);
-    }
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 40;
-    const marginY = 60;
-    const lineHeight = 16;
-
-    let cursorY = marginY;
-    const maxWidth = pageWidth - marginX * 2;
-
-    const ensureNewPage = () => {
-      if (cursorY > pageHeight - marginY) {
-        doc.addPage();
-        cursorY = marginY;
-      }
-    };
-
-    const addParagraph = (
-      text: string,
-      opts?: { bold?: boolean; fontSize?: number }
-    ) => {
-      if (!text) return;
-
-      const fontSize = opts?.fontSize ?? 11;
-      doc.setFontSize(fontSize);
-      doc.setFont("NotoSans", "normal"); // nếu muốn bold thật thì add thêm file font bold
-
-      const lines = doc.splitTextToSize(text, maxWidth);
-      lines.forEach((line: string) => {
-        ensureNewPage();
-        doc.text(line, marginX, cursorY);
-        cursorY += lineHeight;
-      });
-      cursorY += 4;
-    };
-
-    // ✅ helper: tải ảnh (illustration / marker) về dạng dataURL
-    const loadImageAsDataUrl = async (
-      rawUrl: string
-    ): Promise<string | null> => {
-      try {
-        // dùng lại quy tắc gs:// -> https
-        const url = getDisplayUrl(rawUrl);
-        const res = await fetch(url);
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.error("Không tải được ảnh cho PDF:", e);
-        return null;
-      }
-    };
-
-    // ✅ block ảnh minh hoạ lớn (CĂN GIỮA)
-    const addImageBlock = async (rawUrl: string, maxHeight = 260) => {
-      const dataUrl = await loadImageAsDataUrl(rawUrl);
-      if (!dataUrl) return;
-
-      const imgProps = (doc as any).getImageProperties(dataUrl);
-      let imgWidth = maxWidth;
-      let imgHeight = (imgWidth * imgProps.height) / imgProps.width;
-
-      if (imgHeight > maxHeight) {
-        imgHeight = maxHeight;
-        imgWidth = (imgHeight * imgProps.width) / imgProps.height;
-      }
-
-      ensureNewPage();
-      if (cursorY + imgHeight > pageHeight - marginY) {
-        doc.addPage();
-        cursorY = marginY;
-      }
-
-      // 🔹 Căn giữa theo chiều ngang trong vùng maxWidth
-      const startX = marginX + (maxWidth - imgWidth) / 2;
-
-      doc.addImage(dataUrl, "PNG", startX, cursorY, imgWidth, imgHeight);
-      cursorY += imgHeight + 8;
-    };
-
-    // ✅ block marker nhỏ (ở góc phải)
-    const addMarkerImage = async (rawUrl: string) => {
-      const dataUrl = await loadImageAsDataUrl(rawUrl);
-      if (!dataUrl) return;
-
-      const size = 80; // px
-      ensureNewPage();
-      if (cursorY + size > pageHeight - marginY) {
-        doc.addPage();
-        cursorY = marginY;
-      }
-
-      const x = pageWidth - marginX - size;
-      doc.addImage(dataUrl, "PNG", x, cursorY, size, size);
-      cursorY += size + 8;
-    };
-
-    // ==== TIÊU ĐỀ SÁCH ====
-    doc.setFont("NotoSans", "normal");
-    doc.setFontSize(18);
-    doc.text(book.bookName || "Không tên", marginX, cursorY);
-    cursorY += lineHeight * 1.5;
-
-    // Mô tả sách
-    if (book.decription) {
-      addParagraph(book.decription, { fontSize: 12 });
-      cursorY += lineHeight;
-    }
-
-    // Sort pages
+    // sort pages giống preview
     const sortedPages = [...pages].sort((a, b) => {
       const c1 = a.chapterNumber ?? 0;
       const c2 = b.chapterNumber ?? 0;
@@ -240,39 +98,81 @@ export default function AuthorBookPreview() {
       return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
     });
 
+    const filenameBase = (book.bookName || book.bookId || "book").replace(
+      /[\\/:*?"<>|]+/g,
+      "_"
+    );
+
+    const coverUrl = book.coverUrl ? getDisplayUrl(book.coverUrl) : "";
+
+    let html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(book.bookName || "Book")}</title>
+<style>
+  body { font-family: "Times New Roman", Arial, sans-serif; line-height: 1.5; font-size: 12pt; }
+  .page-break { page-break-after: always; }
+  .cover-title { text-align: center; font-size: 28pt; font-weight: bold; margin-top: 80px; }
+  .cover-desc { max-width: 70%; margin: 24px auto 0 auto; text-align: center; }
+  .cover-image { display: block; margin: 40px auto 0 auto; max-width: 60%; height: auto; }
+  .chapter-title { font-size: 18pt; font-weight: bold; margin-top: 24px; }
+  .page-content { margin-top: 8px; }
+  .illustration { display:block; margin: 16px auto; max-width:80%; height:auto; }
+  .marker { display:block; margin: 8px auto; max-width:120px; height:auto; }
+</style>
+</head>
+<body>
+`;
+
+    // 🔹 TRANG BÌA: tên sách + mô tả + ảnh bìa
+    html += `<div class="cover page-break">`;
+    html += `<div class="cover-title">${escapeHtml(
+      book.bookName || "Không tên"
+    )}</div>`;
+    if (book.decription) {
+      html += `<div class="cover-desc">${escapeHtml(book.decription)}</div>`;
+    }
+    if (coverUrl) {
+      html += `<img class="cover-image" src="${coverUrl}" alt="${escapeHtml(
+        book.bookName || "Cover"
+      )}" />`;
+    }
+    html += `</div>`;
+
     let currentChapterId: string | undefined;
 
-    // dùng for...of để await được
     for (const p of sortedPages) {
-      // Heading chương
-      if (p.chapterId !== currentChapterId) {
-        currentChapterId = p.chapterId;
-        cursorY += lineHeight;
-        addParagraph(
-          `Chương ${p.chapterNumber ?? ""}: ${p.chapterName ?? ""}`,
-          { fontSize: 14 }
-        );
-      }
-
-      // Tiêu đề trang
-      addParagraph(`Trang ${p.pageNumber}`, { fontSize: 12 });
+      html += `<div class="page">`;
 
       const isPicturePage = p.pageType === "PICTURE";
 
-      // Nội dung text (chỉ cho trang chữ)
-      let content = "";
+      // 🔹 Heading chương (khi đổi chapter)
+      if (p.chapterId !== currentChapterId) {
+        currentChapterId = p.chapterId;
+        html += `<div class="chapter-title">Chương ${
+          p.chapterNumber ?? ""
+        }: ${escapeHtml(p.chapterName ?? "")}</div>`;
+      }
+
+      // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
       if (!isPicturePage && typeof p.content === "string") {
-        content = p.content.replace(/<\/?[^>]+(>|$)/g, "");
-      }
-      if (content) {
-        addParagraph(content, { fontSize: 11 });
+        const content = p.content.trim();
+        if (content) {
+          const isHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+          if (isHtml) {
+            html += `<div class="page-content">${content}</div>`;
+          } else {
+            html += `<p class="page-content">${escapeHtml(content)}</p>`;
+          }
+        }
       }
 
-      // Ảnh minh hoạ (illustration entity hoặc URL trong content nếu là trang ảnh)
+      // 🔹 Ảnh minh hoạ
       let illustrationUrl: string | null = null;
-
       if (p.illustration?.imageUrl) {
-        illustrationUrl = p.illustration.imageUrl;
+        illustrationUrl = getDisplayUrl(p.illustration.imageUrl);
       } else if (isPicturePage && typeof p.content === "string") {
         const raw = p.content.trim();
         if (
@@ -280,30 +180,41 @@ export default function AuthorBookPreview() {
           raw.startsWith("https://") ||
           raw.startsWith("gs://")
         ) {
-          illustrationUrl = raw;
+          illustrationUrl = getDisplayUrl(raw);
         }
       }
 
       if (illustrationUrl) {
-        await addImageBlock(illustrationUrl);
+        html += `<img class="illustration" src="${illustrationUrl}" alt="${escapeHtml(
+          p.illustration?.title || `Trang ${p.pageNumber}`
+        )}" />`;
       } else if (isPicturePage) {
-        // fallback nếu không lấy được ảnh
-        addParagraph("[Trang ảnh]", { fontSize: 11 });
+        html += `<p class="page-content">[Trang ảnh]</p>`;
       }
 
-      // Marker (nếu có)
+      // 🔹 Marker (nếu có)
       if (p.markerImageUrl) {
-        await addMarkerImage(p.markerImageUrl);
+        html += `<img class="marker" src="${getDisplayUrl(
+          p.markerImageUrl
+        )}" alt="Marker trang ${p.pageNumber}" />`;
       }
 
-      cursorY += 4;
+      html += `</div><div class="page-break"></div>`;
     }
 
-    const filenameBase = (book.bookName || book.bookId || "book").replace(
-      /[\\/:*?"<>|]+/g,
-      "_"
-    );
-    doc.save(`${filenameBase}.pdf`);
+    html += `</body></html>`;
+
+    const blob = new Blob([html], {
+      type: "application/msword;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filenameBase}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -570,13 +481,14 @@ export default function AuthorBookPreview() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* đổi nút xuất DOC */}
               <Button
                 size="sm"
                 variant="outline"
                 className="bg-white hover:bg-gray-200 text-gray-800"
-                onClick={handleExportPdf}
+                onClick={handleExportDoc}
               >
-                Xuất PDF
+                Xuất DOC
               </Button>
 
               <Button

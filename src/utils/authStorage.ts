@@ -2,6 +2,7 @@
 export const AUTH_TOKEN_KEY = "rookie.auth.token";
 export const CURRENT_USER_ID_KEY = "rookie.auth.currentUserId";
 export const CURRENT_USER_KEY = "rookie.auth.currentUser";
+export const LEGACY_USER_KEY = "user";
 
 export type StoredUser = {
   userId: string;
@@ -47,6 +48,7 @@ export function clearAuth() {
   safeRemove(AUTH_TOKEN_KEY);
   safeRemove(CURRENT_USER_ID_KEY);
   safeRemove(CURRENT_USER_KEY);
+  safeRemove(LEGACY_USER_KEY);
 }
 
 

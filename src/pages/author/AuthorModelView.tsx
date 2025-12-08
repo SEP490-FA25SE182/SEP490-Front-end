@@ -61,8 +61,11 @@ export default function AuthorModelView() {
   const userId = user.userId;
 
   // Tải danh sách asset 3D của user
-  const { data: asset3DResp, isLoading: assetsLoading } =
-    useSearchAsset3D({ userId });
+  const {
+    data: asset3DResp,
+    isLoading: assetsLoading,
+    refetch: refetchAssets,
+  } = useSearchAsset3D({ userId });
   const assets: any[] = asset3DResp?.content ?? [];
 
   // Tải marker detail (có initialData để hiển thị ngay)
@@ -326,15 +329,27 @@ export default function AuthorModelView() {
   const handleUploadGlb = async (file?: File) => {
     if (!file || !markerId) return;
     try {
-      const meta = { markerId };
+      const meta = {
+        markerId,
+        userId,               // 👈 thêm dòng này
+        fileName: file.name,  // optional: cho backend biết tên file
+        format: "GLB",        // optional: clear format
+      };
+
       const res = await uploadMut.mutateAsync({ file, meta });
-      const asset3DId = (res as any).asset3DId ?? (res as any).id ?? undefined;
-      const assetUrl = (res as any).assetUrl ?? (res as any).assetUrl;
+
+      const asset3DId =
+        (res as any).asset3DId ?? (res as any).id ?? undefined;
+      const assetUrl = (res as any).assetUrl ?? ""; // bớt lặp
 
       try {
         const payload = JSON.stringify({ asset3DId, assetUrl });
         sendMessage("SceneManager", "AddAssetFromUrl", payload);
       } catch (e) { }
+
+      // ⬇️ sẽ refetch list (bước 2 ở dưới)
+      await refetchAssets?.();
+
       toast({
         title: "Upload thành công",
         description: `Asset được upload`,
@@ -346,6 +361,7 @@ export default function AuthorModelView() {
       });
     }
   };
+
 
   // Scene save/publish
   const [sceneDialogOpen, setSceneDialogOpen] = useState(false);

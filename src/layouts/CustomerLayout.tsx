@@ -1,6 +1,6 @@
 import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
-import { BookOpen, Clock, CreditCard, User } from 'lucide-react';
+import { Clock, CreditCard, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 

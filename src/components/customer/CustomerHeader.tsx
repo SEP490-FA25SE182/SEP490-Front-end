@@ -6,6 +6,8 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import CartBadge from "./CartBagde";
 import { getAllGenres, type Genre } from "@/services/GenreService";
+import { useAuth } from "@/context/AuthContext";
+import { clearAuth } from "@/utils/authStorage";
 
 const CustomerHeader = () => {
   const [isGenreOpen, setIsGenreOpen] = useState(false);
@@ -17,6 +19,7 @@ const CustomerHeader = () => {
   const isHomePage = location.pathname === "/";
   const [showAllGenres, setShowAllGenres] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const { setUser, setToken } = useAuth();
 
 
 
@@ -41,24 +44,28 @@ const CustomerHeader = () => {
   }, []);
 
   useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      dropdownRef.current &&
-      !dropdownRef.current.contains(event.target as Node)
-    ) {
-      setIsGenreOpen(false);
-      setShowAllGenres(false);
-    }
-  };
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsGenreOpen(false);
+        setShowAllGenres(false);
+      }
+    };
 
-  document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-  };
-}, []);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = () => {
+    clearAuth();
+    setUser(null);
+    setToken(null);
+
     localStorage.removeItem("token");
     localStorage.removeItem("userRole");
     localStorage.removeItem("rememberEmail");
@@ -171,16 +178,16 @@ const CustomerHeader = () => {
 
                 {/* Dropdown hiển thị khi click */}
                 {isGenreOpen && (
-                  <div 
-                  ref={dropdownRef}
-                  className="absolute top-full left-0 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
+                  <div
+                    ref={dropdownRef}
+                    className="absolute top-full left-0 bg-[#1a1a2e] border border-[#2a3857] rounded-lg shadow-xl z-50">
                     {loadingGenres ? (
                       <p className="text-white/60 text-sm px-4 py-2">Đang tải...</p>
                     ) : genres.length > 0 ? (
                       <div
                         className={`grid gap-1 p-3 transition-all duration-300 ${showAllGenres
-                            ? "grid-cols-4 w-[560px]"  // 👉 dạng mega menu 4 cột
-                            : "grid-cols-1 w-64"       // 👉 dạng thường 1 cột
+                          ? "grid-cols-4 w-[560px]"  // 👉 dạng mega menu 4 cột
+                          : "grid-cols-1 w-64"       // 👉 dạng thường 1 cột
                           }`}
                       >
                         {(showAllGenres ? genres : genres.slice(0, 10)).map((genre) => (

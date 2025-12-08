@@ -530,7 +530,7 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                                             className="w-4 h-4"
                                                         />
                                                         <span className="text-gray-300 whitespace-nowrap">
-                                                            Đúng
+                                                            {a.isCorrect ? "Đúng" : "Sai"}
                                                         </span>
                                                     </div>
                                                     <div className="text-gray-400 h-4">

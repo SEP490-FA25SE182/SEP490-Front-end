@@ -50,6 +50,11 @@ const QuizCreateDialog: React.FC<Props> = ({
     chapterId: initialChapterId ?? "",
   });
 
+  // limits
+  const MAX_TOTAL_SCORE = 10000;
+  const MAX_ATTEMPT = 1000;
+  const MAX_QUESTION_COUNT = 1000;
+
   useEffect(() => {
     if (!isOpen) {
       // reset form khi dialog quiz đóng – KHÔNG ảnh hưởng tới questionConfig
@@ -65,24 +70,52 @@ const QuizCreateDialog: React.FC<Props> = ({
     setForm((f) => ({ ...f, chapterId: initialChapterId ?? f.chapterId }));
   }, [isOpen, initialChapterId]);
 
+  const isFormValid = Boolean(
+    form.title?.toString().trim() &&
+      form.chapterId?.toString().trim() &&
+      Number(form.totalScore) > 0 &&
+      Number(form.totalScore) <= MAX_TOTAL_SCORE &&
+      Number((form as any).attemptCount) > 0 &&
+      Number((form as any).attemptCount) <= MAX_ATTEMPT &&
+      Number((form as any).questionCount) > 0 &&
+      Number((form as any).questionCount) <= MAX_QUESTION_COUNT
+  );
+
   const handleSubmit = async () => {
-    if (!form.title.trim()) {
+    // validate tất cả field bắt buộc, show toast nếu thiếu
+    const missing: string[] = [];
+    if (!form.title?.toString().trim()) missing.push("Tiêu đề");
+    if (!form.chapterId?.toString().trim()) missing.push("Chapter ID");
+    if (!form.totalScore || Number(form.totalScore) <= 0) missing.push("Tổng điểm");
+    if (!Number((form as any).attemptCount) || Number((form as any).attemptCount) <= 0)
+      missing.push("Số lần làm quiz");
+    if (!Number((form as any).questionCount) || Number((form as any).questionCount) <= 0)
+      missing.push("Số câu hỏi");
+
+    // validate max limits
+    const exceed: string[] = [];
+    if (Number(form.totalScore) > MAX_TOTAL_SCORE) exceed.push(`Tổng điểm (max ${MAX_TOTAL_SCORE})`);
+    if (Number((form as any).attemptCount) > MAX_ATTEMPT) exceed.push(`Số lần làm quiz (max ${MAX_ATTEMPT})`);
+    if (Number((form as any).questionCount) > MAX_QUESTION_COUNT) exceed.push(`Số câu hỏi (max ${MAX_QUESTION_COUNT})`);
+
+    if (missing.length > 0) {
       toast({
-        title: "Thiếu tiêu đề",
-        description: "Vui lòng nhập tiêu đề quiz.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!form.chapterId.trim()) {
-      toast({
-        title: "Thiếu chapterId",
-        description: "Vui lòng nhập chapterId (ID chương).",
+        title: "Thiếu thông tin",
+        description: `Vui lòng nhập/điền hợp lệ: ${missing.join(", ")}.`,
         variant: "destructive",
       });
       return;
     }
 
+    if (exceed.length > 0) {
+      toast({
+        title: "Giá trị vượt giới hạn",
+        description: `Vui lòng điều chỉnh: ${exceed.join(", ")}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       const totalScoreNumber = Number(form.totalScore) || 100;
       const questionCountNumber =
@@ -162,9 +195,11 @@ const QuizCreateDialog: React.FC<Props> = ({
                   onChange={(e: any) =>
                     setForm({
                       ...form,
-                      totalScore: Number(e.target.value),
+                      totalScore: Math.max(0, Math.min(MAX_TOTAL_SCORE, Number(e.target.value || 0))),
                     })
                   }
+                  min={0}
+                  max={MAX_TOTAL_SCORE}
                   placeholder="Tổng điểm"
                   className="bg-white"
                 />
@@ -180,9 +215,11 @@ const QuizCreateDialog: React.FC<Props> = ({
                   onChange={(e: any) =>
                     setForm({
                       ...form,
-                      attemptCount: Number(e.target.value),
+                      attemptCount: Math.max(1, Math.min(MAX_ATTEMPT, Number(e.target.value || 1))),
                     })
                   }
+                  min={1}
+                  max={MAX_ATTEMPT}
                   placeholder="Số lần làm quiz"
                   className="bg-white"
                 />
@@ -198,9 +235,11 @@ const QuizCreateDialog: React.FC<Props> = ({
                   onChange={(e: any) =>
                     setForm({
                       ...form,
-                      questionCount: Number(e.target.value),
+                      questionCount: Math.max(1, Math.min(MAX_QUESTION_COUNT, Number(e.target.value || 1))),
                     })
                   }
+                  min={1}
+                  max={MAX_QUESTION_COUNT}
                   placeholder="Số câu hỏi"
                   className="bg-white"
                 />
@@ -219,7 +258,7 @@ const QuizCreateDialog: React.FC<Props> = ({
             <Button
               onClick={handleSubmit}
               className="bg-purple-600 hover:bg-purple-700 text-white"
-              disabled={createQuiz.status === "pending"}
+              disabled={createQuiz.status === "pending" || !isFormValid}
             >
               {createQuiz.status === "pending"
                 ? "Đang tạo..."

@@ -51,7 +51,7 @@ useEffect(() => {
     const load = async () => {
       const res = await getAllChapters({ bookId });
       const list = Array.isArray(res) ? res : res.content ?? [];
-      setChapters(list.filter((c: any) => c.publicationStatus === 1)); // IN_REVIEW
+      setChapters(list.filter((c: any) => c.progressStatus === 0)); // IN_REVIEW
     };
     load();
   }, [bookId]);
@@ -75,8 +75,7 @@ useEffect(() => {
       chapterNumber: selectedChapter.chapterNumber,
       decription: selectedChapter.decription,
       bookId: selectedChapter.bookId,
-
-      publicationStatus: String(status),
+      progressStatus: status,
       review: comment,
     });
 

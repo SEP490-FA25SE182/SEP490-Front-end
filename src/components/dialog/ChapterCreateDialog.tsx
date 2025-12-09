@@ -66,6 +66,7 @@ export const ChapterCreateDialog: React.FC<Props> = ({ isOpen, onClose, bookId, 
         chapterName: chapterName.trim(),
         chapterNumber: Number(chapterNumber),
         decription: decription.trim(),
+        progressStatus: 3,
         bookId,
       });
 

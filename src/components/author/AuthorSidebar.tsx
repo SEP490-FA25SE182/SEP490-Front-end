@@ -1,6 +1,8 @@
 import { BookOpenText, CircleDollarSign, LogOut, CircleUser } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getCurrentUserId } from "@/utils/authStorage";
+import { useAuth } from '@/context/AuthContext';
+import { clearAuth } from '@/utils/authStorage';  
 
 
 interface AuthorSidebarProps {
@@ -10,6 +12,18 @@ interface AuthorSidebarProps {
 export default function AuthorSidebar({ isOpen }: AuthorSidebarProps) {
   const location = useLocation();
   const currentUserId = getCurrentUserId(); 
+  const { setUser, setToken } = useAuth();
+
+  const handleLogout = () => {
+      clearAuth();
+      setUser(null);
+      setToken(null);
+  
+      localStorage.removeItem("token");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("rememberEmail");
+      window.location.href = "/login";
+    };
 
   const navItems = [
     {
@@ -64,15 +78,13 @@ export default function AuthorSidebar({ isOpen }: AuthorSidebarProps) {
 
       {/* Logout area */}
       <div className="mt-auto px-6 pb-6">
-        <div className="rounded-lg overflow-hidden">
-          <Link
-            to="/login"
-            className="flex items-center gap-3 w-full px-4 py-3 text-white hover:bg-white/20 transition-colors rounded-lg"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Đăng xuất</span>
-          </Link>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-3 text-white hover:bg-white/20 transition-colors rounded-lg"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>Đăng xuất</span>
+        </button>
       </div>
     </div>
   );

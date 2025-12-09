@@ -67,7 +67,7 @@ export const getAllChapters = async (params?: {
     sort?: string[];
     q?: string;
     bookId?: string;
-    publicationStatus?: string;
+    publishedDate?: string;
     progressStatus?: string;
     isActived?: string;
 }) => {
@@ -163,7 +163,7 @@ export const useGetAllChapters = (params?: {
     sort?: string[];
     q?: string;
     bookId?: string;
-    publicationStatus?: string;
+    publishedDate?: string;
     progressStatus?: string;
     isActived?: string;
 }) =>

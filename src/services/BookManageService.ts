@@ -24,8 +24,7 @@ export interface Chapter {
     decription?: string;
     review?: string;
     publishedDate?: string;
-    progressStatus?: string;
-    publicationStatus?: string;
+    progressStatus?: number;
     bookId: string;
     isActived?: string;
 }

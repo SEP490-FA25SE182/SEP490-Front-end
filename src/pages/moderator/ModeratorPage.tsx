@@ -28,7 +28,7 @@ export default function ModeratorPage() {
 
         const [books, chaptersRes, allUsers] = await Promise.all([
           getAllBooks(),
-          getAllChapters({ publicationStatus: "1" }), // IN_REVIEW
+          getAllChapters({ progressStatus: "0" }), // IN_REVIEW
           getAllUsers(),
         ]);
 

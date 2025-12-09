@@ -36,7 +36,6 @@ export default function OrderManagementPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
-
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundOrder, setRefundOrder] = useState<OrderResponse | null>(null);
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
@@ -72,6 +71,14 @@ export default function OrderManagementPage() {
     }
   };
 
+  const getAllowedStatuses = (current: number) => {
+    if (current === 1) return [2, 3, 4];
+    if (current === 2) return [3, 4];
+    if (current === 3) return [4];
+    return []; // 0,4,5,6 không cho đổi nữa
+  };
+
+
   // ===============================
   //  FETCH ALL ORDERS
   // ===============================
@@ -79,7 +86,11 @@ export default function OrderManagementPage() {
     setLoading(true);
     try {
       const res = await OrderService.getAllOrders();
-      setOrders(res);
+      const formatted = res.map(o => ({
+        ...o,
+        status: Number(o.status),
+      }));
+      setOrders(formatted);
     } catch {
       toast.error("Không thể tải danh sách đơn hàng");
     } finally {
@@ -92,12 +103,12 @@ export default function OrderManagementPage() {
   }, []);
 
   useEffect(() => {
-  if (refundOrder?.imageUrl) {
-    resolveFirebaseUrl(refundOrder.imageUrl).then((url) => {
-      setConvertedImageUrl(url);
-    });
-  }
-}, [refundOrder]);
+    if (refundOrder?.imageUrl) {
+      resolveFirebaseUrl(refundOrder.imageUrl).then((url) => {
+        setConvertedImageUrl(url);
+      });
+    }
+  }, [refundOrder]);
 
 
   // ===============================
@@ -177,7 +188,7 @@ export default function OrderManagementPage() {
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === refundOrder.orderId
-            ? { ...o, status: "5" }
+            ? { ...o, status: 5 }
             : o
         )
       );
@@ -229,7 +240,7 @@ export default function OrderManagementPage() {
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === order.orderId
-            ? { ...o, status: String(newStatus) }
+            ? { ...o, status: newStatus }
             : o
         )
       );
@@ -334,6 +345,7 @@ export default function OrderManagementPage() {
                     ) : (
                       filteredOrders.map((order) => {
                         const statusNum = Number(order.status);
+                        const allowed = getAllowedStatuses(statusNum);
 
                         return (
                           <TableRow key={order.orderId} className="hover:bg-gray-50 text-gray-800">
@@ -343,23 +355,21 @@ export default function OrderManagementPage() {
 
                             <TableCell>
                               <Select
+                                disabled={allowed.length === 0}
                                 value={String(statusNum)}
                                 onValueChange={(v) => handleUpdateStatus(order, parseInt(v))}
                               >
                                 <SelectTrigger className="w-[200px] bg-white/10 border-gray-300">
                                   <SelectValue>
                                     <span
-                                      className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(
-                                        statusNum
-                                      )}`}
-                                    >
+                                      className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(statusNum)}`}>
                                       {mapOrderStatus(statusNum)}
                                     </span>
                                   </SelectValue>
                                 </SelectTrigger>
 
                                 <SelectContent>
-                                  {[0, 1, 2, 3, 4, 5, 6].map((s) => (
+                                  {allowed.map((s) => (
                                     <SelectItem key={s} value={String(s)}>
                                       {mapOrderStatus(s)}
                                     </SelectItem>
@@ -388,6 +398,7 @@ export default function OrderManagementPage() {
                               <Button
                                 variant="destructive"
                                 size="icon"
+                                disabled={statusNum === 4 || statusNum === 5}
                                 onClick={() => handleDelete(order.orderId)}
                               >
                                 <Trash2 className="w-4 h-4" />

@@ -2,6 +2,8 @@ import { type ReactNode } from "react";
 import { ChevronRight, LogOut } from "lucide-react";   // đổi ArrowLeft -> LogOut
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { clearAuth } from "@/utils/authStorage";
+import { useAuth } from "@/context/AuthContext";
 
 interface Props {
   title: string;
@@ -11,8 +13,12 @@ interface Props {
 
 export default function ModeratorLayout({ title, breadcrumb, children }: Props) {
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuth();
 
   const handleLogout = () => {
+    clearAuth();
+    setUser(null);
+    setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("userRole");
     localStorage.removeItem("rememberEmail");

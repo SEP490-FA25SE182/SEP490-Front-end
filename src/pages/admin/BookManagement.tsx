@@ -32,13 +32,13 @@ const getAllBooks = async (): Promise<Book[]> => {
 };
 
 const PROGRESS_COLOR: Record<number, string> = {
-    0: "text-blue-600",     // IN_PROGRESS
-    1: "text-green-600",    // COMPLETED
-    2: "text-red-600",      // DROPPED
+    0: "text-yellow-600",     // Đang sáng tác
+    1: "text-green-600",    // Hoàn thành
+    2: "text-red-600",      // Ngưng
 };
 
 const PUBLIC_COLOR: Record<number, string> = {
-    0: "text-gray-600",     // Bản nháp
+    0: "text-white-600",    // Bản nháp
     1: "text-green-600",    // Đã xuất bản
     2: "text-orange-600",   // Đã được duyệt
     3: "text-yellow-600",   // Đang chờ duyệt
@@ -48,9 +48,9 @@ const PUBLIC_COLOR: Record<number, string> = {
 
 // ENUM mapping
 const BOOK_PROGRESS: Record<number, string> = {
-    0: "IN_PROGRESS",
-    1: "COMPLETED",
-    2: "DROPPED",
+    0: "Đang sáng tác",
+    1: "Hoàn thành",
+    2: "Ngưng",
 };
 
 const BOOK_PUBLIC: Record<number, string> = {
@@ -86,6 +86,12 @@ export default function BookManagementPage() {
     const [quantity, setQuantity] = useState("0");
 
     const [saving, setSaving] = useState(false);
+
+    const disableEditing =
+        modalMode === "edit" &&
+        selectedBook?.progressStatus === 1 &&
+        selectedBook?.publicationStatus === 1;
+
 
     // Load books + author names
     const loadBooks = async () => {
@@ -133,7 +139,27 @@ export default function BookManagementPage() {
         return matchSearch && matchStatus;
     });
 
-    
+    const handleProgressChange = (value: string) => {
+        setProgressStatus(value);
+
+        // Hoàn thành → XB chỉ được "Đã xuất bản"
+        if (value === "1") {
+            setPublicationStatus("1");
+        }
+
+        // Ngưng → XB về "Bản nháp"
+        if (value === "2") {
+            setPublicationStatus("0");
+        }
+
+        // Đang sáng tác → nếu đang lỡ là "Đã xuất bản" thì ép về "Bản nháp"
+        if (value === "0" && publicationStatus === "1") {
+            setPublicationStatus("0");
+        }
+    };
+
+
+
     // Open EDIT modal
     const handleEdit = (b: Book) => {
         setModalMode("edit");
@@ -153,13 +179,24 @@ export default function BookManagementPage() {
         try {
             setSaving(true);
 
-            const payload = {
+            const newPublicationStatus = Number(publicationStatus);
+
+            const payload: any = {
                 bookName,
                 progressStatus: Number(progressStatus),
                 publicationStatus: Number(publicationStatus),
                 price: Number(price),
                 quantity: Number(quantity),
             };
+
+            if (
+                modalMode === "edit" &&
+                selectedBook?.publicationStatus !== 1 &&
+                newPublicationStatus === 1
+            ) {
+                payload.publishedDate = new Date().toISOString();
+            }
+
 
             if (modalMode === "add") {
                 await createBook(payload);
@@ -230,9 +267,9 @@ export default function BookManagementPage() {
                         <SelectContent>
                             <SelectItem value="all">Tất cả</SelectItem>
                             <SelectItem value="0">Bản nháp</SelectItem>
-                            <SelectItem value="1">Đã xuất bản</SelectItem>
                             <SelectItem value="2">Đã được duyệt</SelectItem>
                             <SelectItem value="3">Đang chờ duyệt</SelectItem>
+                            <SelectItem value="1">Đã xuất bản</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -302,7 +339,6 @@ export default function BookManagementPage() {
                                                 >
                                                     <Pencil className="w-4 h-4" />
                                                 </Button>
-
                                                 <Button
                                                     variant="destructive"
                                                     size="icon"
@@ -335,28 +371,31 @@ export default function BookManagementPage() {
                             {modalMode === "add" ? "Thêm Sách" : "Cập nhật Sách"}
                         </h2>
 
+                        {/* FIELDSET */}
+
                         {/* Tên sách */}
                         <div className="mb-4">
                             <label className="text-gray-600 text-sm">Tên sách</label>
                             <Input
                                 value={bookName}
-                                disabled={modalMode === "edit"}
+                                disabled={disableEditing}
                                 onChange={(e) => setBookName(e.target.value)}
                                 className="text-black mt-1"
                             />
+
                         </div>
 
                         {/* Tiến độ */}
                         <div className="mb-4">
                             <label className="text-gray-600 text-sm">Tiến độ</label>
-                            <Select value={progressStatus} onValueChange={setProgressStatus}>
+                            <Select value={progressStatus} onValueChange={handleProgressChange} disabled={disableEditing}>
                                 <SelectTrigger className="w-full mt-1 text-black">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="0">IN_PROGRESS</SelectItem>
-                                    <SelectItem value="1">COMPLETED</SelectItem>
-                                    <SelectItem value="2">DROPPED</SelectItem>
+                                    <SelectItem value="0">Đang sáng tác</SelectItem>
+                                    <SelectItem value="1">Hoàn thành</SelectItem>
+                                    <SelectItem value="2">Ngưng</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -364,18 +403,38 @@ export default function BookManagementPage() {
                         {/* Xuất bản */}
                         <div className="mb-4">
                             <label className="text-gray-600 text-sm">Trạng thái xuất bản</label>
-                            <Select value={publicationStatus} onValueChange={setPublicationStatus}>
+                            <Select
+                                value={publicationStatus}
+                                onValueChange={setPublicationStatus}
+                                disabled={disableEditing || progressStatus === "2"}
+                            >
                                 <SelectTrigger className="w-full mt-1 text-black">
                                     <SelectValue />
                                 </SelectTrigger>
+
                                 <SelectContent>
-                                    <SelectItem value="0">Bản nháp</SelectItem>
-                                    <SelectItem value="1">Đã xuất bản</SelectItem>
-                                    <SelectItem value="2">Đã được duyệt</SelectItem>
-                                    <SelectItem value="3">Đang chờ duyệt</SelectItem>
+                                    {/* ⬅️ Đang sáng tác */}
+                                    {progressStatus === "0" && (
+                                        <>
+                                            <SelectItem value="0">Bản nháp</SelectItem>
+                                            <SelectItem value="2">Đã được duyệt</SelectItem>
+                                            <SelectItem value="3">Đang chờ duyệt</SelectItem>
+                                        </>
+                                    )}
+
+                                    {/* ⬅️ Hoàn thành */}
+                                    {progressStatus === "1" && (
+                                        <SelectItem value="1">Đã xuất bản</SelectItem>
+                                    )}
+
+                                    {/* ⬅️ Ngưng */}
+                                    {progressStatus === "2" && (
+                                        <SelectItem value="0">Bản nháp</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
+
 
                         {/* Số lượng */}
                         <div className="mb-4">
@@ -388,7 +447,7 @@ export default function BookManagementPage() {
                             />
                         </div>
 
-                        {/*Đơn giá*/}
+                        {/* Đơn giá */}
                         <div className="mb-6">
                             <label className="text-gray-600 text-sm">Đơn giá</label>
                             <Input
@@ -401,7 +460,11 @@ export default function BookManagementPage() {
 
                         {/* Buttons */}
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setOpenModal(false)} disabled={saving}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setOpenModal(false)}
+                                disabled={saving}
+                            >
                                 Hủy
                             </Button>
 
@@ -413,9 +476,18 @@ export default function BookManagementPage() {
                                 {saving ? "Đang lưu..." : "Lưu"}
                             </Button>
                         </div>
+
+
+                        {/* Thông báo trạng thái bị khóa */}
+                        {disableEditing && (
+                            <p className="mt-2 text-xs text-red-500">
+                                Sách đã <b>Hoàn thành</b> và <b>Đã xuất bản</b> — chỉ có thể chỉnh sửa <b>Số lượng</b> và <b>Đơn giá.</b>
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

@@ -409,19 +409,19 @@ export default function AuthorBookList() {
                     }}
                   >
                     {/* Dropdown Menu Button - top-right like chapter list */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          {/* stopPropagation so clicking menu does not trigger card navigation */}
-                          <Button
+                          {/* chỉ đúng cái nút 3 chấm nhận click */}
+                          <button
+                            type="button"
                             onClick={(e) => e.stopPropagation()}
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white h-8 w-8"
                           >
-                            <MoreVertical className="h-3 w-3" />
-                          </Button>
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
                         </DropdownMenuTrigger>
+
                         <DropdownMenuContent align="end" className="w-52">
                           {/* ✅ Chỉ hiện "Sửa" nếu chưa xuất bản và chưa gửi duyệt */}
                           {!isLocked && (
@@ -431,7 +431,6 @@ export default function AuthorBookList() {
                               <Edit className="mr-2 h-4 w-4" /> Sửa
                             </DropdownMenuItem>
                           )}
-                          {/* ✅ Với status = 2 (ARCHIVED) thì trong dropdown có nút Xem trước (preview) */}
                           {(String(publication) === "2" || publication === 2 || String(publication).toUpperCase() === "ARCHIVED") ? (
                             <DropdownMenuItem
                               onClick={(e) => { e.stopPropagation(); navigate(`/author/books/${id}/preview`, { state: { book } }); }}
@@ -456,6 +455,7 @@ export default function AuthorBookList() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+
 
                     {/* Book Cover */}
                     <div className="flex flex-col items-center space-y-2">

@@ -221,9 +221,8 @@ export default function AuthorBookPreview() {
         // 🔹 Heading chương (khi đổi chapter)
         if (p.chapterId !== currentChapterId) {
           currentChapterId = p.chapterId;
-          html += `<div class="chapter-title">Chương ${
-            p.chapterNumber ?? ""
-          }: ${escapeHtml(p.chapterName ?? "")}</div>`;
+          html += `<div class="chapter-title">Chương ${p.chapterNumber ?? ""
+            }: ${escapeHtml(p.chapterName ?? "")}</div>`;
         }
 
         // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
@@ -271,9 +270,8 @@ export default function AuthorBookPreview() {
         if (p.markerImageUrl) {
           const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
           if (markerDataUrl) {
-            html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${
-              p.pageNumber
-            }" />`;
+            html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${p.pageNumber
+              }" />`;
           }
         }
 
@@ -664,11 +662,10 @@ export default function AuthorBookPreview() {
                   <div>
                     Đang xem:{" "}
                     {totalPages > 0
-                      ? `${currentIndex + 1}${
-                          currentIndex + 2 <= totalPages
-                            ? " - " + (currentIndex + 2)
-                            : ""
-                        }`
+                      ? `${currentIndex + 1}${currentIndex + 2 <= totalPages
+                        ? " - " + (currentIndex + 2)
+                        : ""
+                      }`
                       : "-"}
                   </div>
                 </div>
@@ -694,9 +691,8 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canPrev}
                       onClick={handlePrev}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                        !canPrev ? "opacity-40 cursor-not-allowed" : ""
-                      }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canPrev ? "opacity-40 cursor-not-allowed" : ""
+                        }`}
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </Button>
@@ -705,9 +701,8 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canNext}
                       onClick={handleNext}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                        !canNext ? "opacity-40 cursor-not-allowed" : ""
-                      }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canNext ? "opacity-40 cursor-not-allowed" : ""
+                        }`}
                     >
                       <ChevronRight className="w-5 h-5" />
                     </Button>
@@ -766,9 +761,8 @@ function PageCard({
   if (!page) {
     return (
       <div
-        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${
-          side === "left" ? "origin-right" : "origin-left"
-        }`}
+        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${side === "left" ? "origin-right" : "origin-left"
+          }`}
       >
         Trang trống
       </div>
@@ -813,10 +807,9 @@ function PageCard({
         shadow-xl overflow-hidden 
         px-4 py-4 
         flex flex-col
-        ${
-          side === "left"
-            ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-            : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+        ${side === "left"
+          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
         }
       `}
     >
@@ -832,27 +825,33 @@ function PageCard({
             <MapPin className="w-4 h-4" />
           </div>
         )}
-        {audio && (
-          <button
-            type="button"
-            onClick={() => onToggleAudio(page.pageId)}
-            className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow ${
-              isPlaying
-                ? "bg-emerald-500 text-white"
-                : "bg-emerald-600/90 text-white hover:bg-emerald-500"
-            }`}
-          >
-            <Volume2 className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Header: chapter + page number */}
+
+      {/* Header: chapter + page number + audio icon cạnh tên chương */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-xs text-purple-300 font-medium truncate">
-          Chương {page.chapterNumber}: {page.chapterName}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="text-xs text-purple-300 font-medium truncate">
+            Chương {page.chapterNumber}: {page.chapterName}
+          </div>
+
+          {audio && (
+            <button
+              type="button"
+              onClick={() => onToggleAudio(page.pageId)}
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${isPlaying
+                  ? "bg-emerald-500 text-white"
+                  : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+                }`}
+            >
+              <Volume2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <div className="text-xs text-gray-400">Trang {page.pageNumber}</div>
+
+        <div className="text-xs text-gray-400 whitespace-nowrap">
+          Trang {page.pageNumber}
+        </div>
       </div>
 
       <div className="border-t border-white/10 my-2" />

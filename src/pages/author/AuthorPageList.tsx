@@ -417,18 +417,19 @@ const AuthorPageList = () => {
                       className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
                       onClick={() => navigate(`/author/page/${page.pageId}`)}
                     >
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
+                            {/* NÚT 3 CHẤM - to hơn, nằm đè lên preview, chỉ đúng nó nhận click */}
+                            <button
+                              type="button"
                               onClick={(e) => e.stopPropagation()}
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                              className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white h-8 w-8"
                             >
-                              <MoreVertical className="h-3 w-3" />
-                            </Button>
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </DropdownMenuTrigger>
+
                           <DropdownMenuContent align="end" className="w-48">
                             {/* removed 'Xem chi tiết' from menu - whole card is clickable */}
                             <DropdownMenuItem
@@ -451,6 +452,7 @@ const AuthorPageList = () => {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+
 
                       <div className="flex flex-col items-center space-y-2">
                         <div className="relative w-16 h-20 flex items-center justify-center rounded overflow-hidden bg-white/5">

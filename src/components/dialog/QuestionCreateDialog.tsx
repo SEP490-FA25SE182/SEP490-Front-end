@@ -543,7 +543,7 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                                 <div className="flex flex-col items-center gap-1 text-xs">
                                                     <div className="flex items-center gap-2">
                                                         <input
-                                                            type="checkbox"
+                                                            type="radio"
                                                             checked={!!a.isCorrect}
                                                             onChange={(e: any) => {
                                                                 if (a.saved) return;

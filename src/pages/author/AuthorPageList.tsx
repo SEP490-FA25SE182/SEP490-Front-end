@@ -61,6 +61,8 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { getUserByEmail } from "@/services/UserService";
+import { useUpdateChapter } from "@/services/BookManageService";
+
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -74,10 +76,13 @@ const AuthorPageList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const updateChapter = useUpdateChapter();
+
 
   // 🆕 lấy authorId giống AuthorIncome
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
+  
 
   useEffect(() => {
     const fetchAuthorId = async () => {
@@ -116,6 +121,7 @@ const AuthorPageList = () => {
   const { data: pagesResp, isLoading: loadingPages } = useGetAllPages(
     chapterId ? { chapterId } : undefined
   );
+  
 
   // 🆕 Markers (right panel) - lọc theo userId của author
   const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
@@ -280,6 +286,40 @@ const AuthorPageList = () => {
     }
   };
 
+  const handleSubmitForReview = async () => {
+    if (!chapterId || !chapter) return;
+
+    try {
+      await updateChapter.mutateAsync({
+        id: chapterId,
+        data: { chapterName: chapter.chapterName,
+        chapterNumber: chapter.chapterNumber,
+        decription: chapter.decription,
+        bookId: chapter.bookId,
+        progressStatus: 0, // chuyển sang chờ duyệt
+        isActived: chapter.isActived,
+        publishedDate: chapter.publishedDate,
+        review: chapter.review
+         },
+      });
+
+      toast({
+        title: "Đã gửi duyệt",
+        description: "Chương đã chuyển sang trạng thái chờ duyệt!",
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["chapter", chapterId] });
+
+    } catch (error) {
+      toast({
+        title: "Thất bại",
+        description: "Không thể cập nhật trạng thái chương",
+        variant: "destructive",
+      });
+    }
+  };
+
+
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
@@ -377,6 +417,15 @@ const AuthorPageList = () => {
                   {chapter?.decription || "Không có"}
                 </span>
               </div>
+              {(chapter?.progressStatus === 1 || chapter?.progressStatus === 3)
+                  && (
+                    <Button
+                      className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleSubmitForReview}
+                    >
+                      Hoàn thành chương → Gửi duyệt
+                    </Button>
+                  )}
             </div>
           </div>
 

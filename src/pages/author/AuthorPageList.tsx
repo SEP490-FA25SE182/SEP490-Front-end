@@ -296,7 +296,7 @@ const AuthorPageList = () => {
         chapterNumber: chapter.chapterNumber,
         decription: chapter.decription,
         bookId: chapter.bookId,
-        progressStatus: 0, // chuyển sang chờ duyệt
+        progressStatus: 0,
         isActived: chapter.isActived,
         publishedDate: chapter.publishedDate,
         review: chapter.review

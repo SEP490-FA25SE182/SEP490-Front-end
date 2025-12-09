@@ -99,7 +99,7 @@ export class BookService {
         ? Number(book.progressStatus)
         : book.progressStatus;
 
-    // 👇 THÊM ĐOẠN NÀY
+    
     const price =
       typeof book.price === "string" ? Number(book.price) : book.price;
 

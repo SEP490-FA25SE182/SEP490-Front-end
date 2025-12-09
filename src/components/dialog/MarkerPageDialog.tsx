@@ -96,7 +96,7 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
                 onClick={() => setSelectedMarkerId(m.id)}
                 className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedMarkerId === m.id ? "border-purple-500 ring-2 ring-purple-200" : "border-white/10 hover:border-gray-300"}`}
               >
-                <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
+                <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
                   {m.imageUrl ? (
                     <img src={gsToHttp(m.imageUrl)} alt={m.code} className="w-full h-full object-cover" />
                   ) : (

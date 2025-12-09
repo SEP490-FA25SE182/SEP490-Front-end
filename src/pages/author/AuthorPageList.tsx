@@ -246,8 +246,11 @@ const AuthorPageList = () => {
   // 🔹 SỬA: xác định trang ảnh dựa trên pageType + quan hệ page-illustration + content
   const isImagePage = (page: Page) => {
     const relationUrl = getImageUrlByPageId(page.pageId);
-    return page.pageType === "PICTURE" || !!relationUrl || isImageUrl(page.content);
+    const contentIsImage = isImageUrl(page.content);
+
+    return page.pageType === "PICTURE" || contentIsImage || !!relationUrl;
   };
+
 
   const getDisplayImageUrl = (url?: string): string => {
     if (!url) return "";
@@ -399,10 +402,12 @@ const AuthorPageList = () => {
               {currentPages.map((page) => {
                 const relationUrl = getImageUrlByPageId(page.pageId);
                 const contentIsImage = isImageUrl(page.content);
-                const imageUrl =
-                  relationUrl || (contentIsImage ? page.content : undefined);
+
+                // ƯU TIÊN content (luôn là dữ liệu mới nhất), relationUrl chỉ là fallback
+                const imageUrl = contentIsImage ? page.content : relationUrl;
 
                 const isImage = page.pageType === "PICTURE" || !!imageUrl;
+
                 const hasImageUrl = !!imageUrl;
 
                 return (

@@ -69,7 +69,8 @@ export default function ImagePageEdit() {
   const [content, setContent] = useState<string>("");
   const [chapterId, setChapterId] = useState<string>("");
 
-  const [selectedIllustrationId, setSelectedIllustrationId] = useState<string>("");
+  const [selectedIllustrationId, setSelectedIllustrationId] =
+    useState<string>("");
   const [pageIllustrationId, setPageIllustrationId] = useState<string>("");
 
   // marker state
@@ -81,7 +82,11 @@ export default function ImagePageEdit() {
   const userId = user.userId;
 
   // fetch only illustrations created by this author
-  const { data: illustrations = [] } = useSearchIllustrations({ userId });
+  // ⚠️ thêm size: 9999 để lấy đủ tất cả ảnh thay vì chỉ 1 page mặc định
+  const { data: illustrations = [] } = useSearchIllustrations({
+    userId,
+    size: 9999,
+  });
 
   // === Lấy liên kết page-illustration hiện có ===
   const { data: pageIllustrationsData } = useSearchPageIllustrations({
@@ -103,8 +108,7 @@ export default function ImagePageEdit() {
       return illustrations
         .filter(
           (it: any) =>
-            it.isActived === "ACTIVE" &&
-            !!it.illustrationId
+            it.isActived === "ACTIVE" && !!it.illustrationId
         )
         .map((it: any) => ({
           id: it.illustrationId as string,
@@ -115,9 +119,12 @@ export default function ImagePageEdit() {
     return [];
   }, [illustrations, userId]);
 
-  // === Tự động điền illustration đã liên kết ===
+  // === Tự động điền illustration đã liên kết (từ page-illustrations) ===
   useEffect(() => {
-    if (pageIllustrationsData?.content && pageIllustrationsData.content.length > 0) {
+    if (
+      pageIllustrationsData?.content &&
+      pageIllustrationsData.content.length > 0
+    ) {
       const firstPageIllustration = pageIllustrationsData.content[0];
       if (firstPageIllustration.illustrationId) {
         setSelectedIllustrationId(firstPageIllustration.illustrationId);
@@ -133,6 +140,22 @@ export default function ImagePageEdit() {
       }
     }
   }, [pageIllustrationsData, illustrationsList]);
+
+  // === Fallback: nếu KHÔNG có page-illustrations mà page.content trùng imageUrl
+  // => tự map selectedIllustrationId để Select hiển thị đúng tên ảnh
+  useEffect(() => {
+    if (selectedIllustrationId) return; // đã set rồi thì thôi
+    if (!pageData?.content) return;
+    if (!illustrationsList.length) return;
+
+    const matched = illustrationsList.find(
+      (it) => it.url === pageData.content
+    );
+    if (matched) {
+      setSelectedIllustrationId(matched.id);
+      // pageIllustrationId vẫn rỗng -> khi lưu nếu cần tạo mới mapping thì xử lý thêm sau
+    }
+  }, [pageData, illustrationsList, selectedIllustrationId]);
 
   // =============== MARKER LIST + PAGE MARKER ===============
   const markerList = useMemo(() => {
@@ -241,7 +264,8 @@ export default function ImagePageEdit() {
     }
   };
 
-  if (pageLoading) return <div className="p-8 text-white">Đang tải dữ liệu...</div>;
+  if (pageLoading)
+    return <div className="p-8 text-white">Đang tải dữ liệu...</div>;
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -257,9 +281,15 @@ export default function ImagePageEdit() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <ChevronLeft className="w-6 h-6" />
+              ) : (
+                <ChevronRight className="w-6 h-6" />
+              )}
             </Button>
-            <h2 className="text-white text-lg font-medium">Chỉnh sửa nội dung ảnh</h2>
+            <h2 className="text-white text-lg font-medium">
+              Chỉnh sửa nội dung ảnh
+            </h2>
           </div>
         </header>
 
@@ -268,7 +298,9 @@ export default function ImagePageEdit() {
           <div className="mx-auto bg-white rounded-xl shadow-xl p-8 max-w-4xl">
             {/* Số trang */}
             <div className="mb-5">
-              <label className="block text-gray-700 mb-2 text-sm font-medium">Số trang</label>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">
+                Số trang
+              </label>
               <Input
                 type="number"
                 value={pageNumber}
@@ -279,8 +311,13 @@ export default function ImagePageEdit() {
 
             {/* Chọn ảnh */}
             <div className="mb-6">
-              <label className="block text-gray-700 mb-2 text-sm font-medium">Chọn ảnh</label>
-              <Select value={selectedIllustrationId} onValueChange={handleSelectIllustration}>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">
+                Chọn ảnh
+              </label>
+              <Select
+                value={selectedIllustrationId}
+                onValueChange={handleSelectIllustration}
+              >
                 <SelectTrigger className="bg-white border-gray-300">
                   <SelectValue placeholder="-- Chọn ảnh minh hoạ --" />
                 </SelectTrigger>
@@ -297,7 +334,9 @@ export default function ImagePageEdit() {
             {/* Preview ảnh */}
             {content && (
               <div className="mb-8">
-                <label className="block text-gray-700 mb-2 text-sm font-medium">Xem trước</label>
+                <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  Xem trước
+                </label>
                 <div className="border border-gray-300 rounded-lg overflow-hidden flex justify-center">
                   <img
                     src={gsToHttp(content)}
@@ -319,15 +358,11 @@ export default function ImagePageEdit() {
                   <h3 className="text-base font-medium text-gray-800">
                     Marker cho trang (tuỳ chọn)
                   </h3>
-                  {hasPageMarker && selectedMarkerId && (
-                    <span className="text-xs text-gray-500">
-                      Đang có marker gắn với trang – chọn marker khác để thay đổi
-                    </span>
-                  )}
                 </div>
 
                 <p className="text-xs text-gray-500 mb-3">
-                  Khuyến nghị: dùng ảnh marker giống với ảnh trên trang để AR nhận diện tốt hơn.
+                  Khuyến nghị: dùng ảnh marker giống với ảnh trên trang để AR
+                  nhận diện tốt hơn.
                 </p>
 
                 <div className="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
@@ -343,10 +378,11 @@ export default function ImagePageEdit() {
                         key={m.id}
                         type="button"
                         onClick={() => handleSelectMarker(m.id)}
-                        className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedMarkerId === m.id
-                          ? "border-purple-500 ring-2 ring-purple-200"
-                          : "border-white/10 hover:border-gray-300"
-                          }`}
+                        className={`rounded border p-1 overflow-hidden focus:outline-none ${
+                          selectedMarkerId === m.id
+                            ? "border-purple-500 ring-2 ring-purple-200"
+                            : "border-white/10 hover:border-gray-300"
+                        }`}
                       >
                         <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
                           {m.imageUrl ? (
@@ -390,8 +426,8 @@ export default function ImagePageEdit() {
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {updatePage.isPending ||
-                  updatePageIllustration.isPending ||
-                  (!hasPageMarker && attachMarkerMutation.isPending)
+                updatePageIllustration.isPending ||
+                (!hasPageMarker && attachMarkerMutation.isPending)
                   ? "Đang lưu..."
                   : "Lưu thay đổi"}
               </Button>

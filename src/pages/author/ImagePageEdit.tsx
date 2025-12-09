@@ -77,14 +77,23 @@ export default function ImagePageEdit() {
     }
   }, [pageData]);
 
+  console.log("userId in FE:", userId);
+  console.log(
+    illustrations.map((i: any) => ({
+      title: i.title,
+      illustrationId: i.illustrationId,
+      userId: i.userId,
+      isActived: i.isActived,
+    }))
+  );
+
   // Memoize illustrationsList with userId filtering
   const illustrationsList = useMemo(() => {
     if (Array.isArray(illustrations) && illustrations.length > 0) {
       return illustrations
-        .filter((it: any) => 
-          it.isActived === "ACTIVE" && 
-          !!it.illustrationId && 
-          (it.userId === userId || !it.userId)
+        .filter((it: any) =>
+          it.isActived === "ACTIVE" &&
+          !!it.illustrationId
         )
         .map((it: any) => ({
           id: it.illustrationId as string,
@@ -102,7 +111,7 @@ export default function ImagePageEdit() {
       if (firstPageIllustration.illustrationId) {
         setSelectedIllustrationId(firstPageIllustration.illustrationId);
         setPageIllustrationId(firstPageIllustration.pageIllustrationId || "");
-        
+
         // Tìm illustration trong danh sách và set content
         const found = illustrationsList.find(
           (i) => i.id === firstPageIllustration.illustrationId

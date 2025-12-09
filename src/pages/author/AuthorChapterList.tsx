@@ -249,38 +249,53 @@ export default function AuthorChapterList() {
                     onClick={() => navigate(`/author/chapters/${id}/pages`, { state: { chapter: normalized } })}
                   >
                     {/* Dropdown Menu Button (stopPropagation so menu clicks don't navigate) */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
+                          {/* Chỉ đúng cái nút 3 chấm nhận click, to hơn cho dễ bấm */}
+                          <button
+                            type="button"
                             onClick={(e) => e.stopPropagation()}
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                            className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white h-8 w-8"
                           >
-                            <MoreVertical className="h-3 w-3" />
-                          </Button>
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
                         </DropdownMenuTrigger>
+
                         <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); setQuizDialogChapterId(id); setOpenQuizDialog(true); }}
-                            >
-                              <Gamepad2 className="mr-2 h-4 w-4" /> Xem quiz
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); setEditingChapter(normalized); setOpenEditDialog(true); }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" /> Sửa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={(e) => { e.stopPropagation(); handleConfirmDelete(normalized); }} 
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuizDialogChapterId(id);
+                              setOpenQuizDialog(true);
+                            }}
+                          >
+                            <Gamepad2 className="mr-2 h-4 w-4" /> Xem quiz
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingChapter(normalized);
+                              setOpenEditDialog(true);
+                            }}
+                          >
+                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConfirmDelete(normalized);
+                            }}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+
 
                     {/* Chapter Icon + Info */}
                     <div className="flex flex-col items-center space-y-2">
@@ -296,7 +311,7 @@ export default function AuthorChapterList() {
                     </div>
                   </div>
                 </div>
-               );
+              );
             })}
           </div>
 

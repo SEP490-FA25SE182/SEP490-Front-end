@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck, Eye } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook, updateBookStatusFull } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -334,34 +334,49 @@ export default function AuthorBookList() {
         <div className="flex-1 overflow-auto p-6 bg-[#0f172a]">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {currentBooks.map((book) => {
+              // existing variables for cover/name/id
               const cover = book.coverUrl ?? book.cover_url;
               const coverSrc = getDisplayImageUrl(cover);
               const name = book.bookName ?? book.book_name;
               const id = book.bookId ?? book.book_id;
+
+              // publication info
               const publication = book.publicationStatus ?? book.publication_status;
               const pubInfo = getPublicationLabel(publication);
+
+              // normalized flags
               const alreadySent = String(publication) === "3" || publication === 3;
               const isPublished = String(publication) === "1" || publication === 1;
-              const isLocked = isPublished || alreadySent; // ✅ locked nếu đã xuất bản hoặc đã gửi duyệt
 
+              // locked if published or already sent for review (keeps existing behavior)
+              const isLocked = isPublished || alreadySent;
+
+              // Nháp thực sự
               const isDraft =
                 String(publication) === "0" ||
                 publication === 0 ||
                 String(publication).toUpperCase() === "DRAFT";
 
+              // ✅ Với status = 2 (ARCHIVED) thì click card vẫn vào chapter list giống nháp
+              const openChaptersOnClick =
+                isDraft ||
+                String(publication) === "2" ||
+                publication === 2 ||
+                String(publication).toUpperCase() === "ARCHIVED";
+
               return (
                 <div key={id} className="group relative">
-                  {/* whole card clickable -> go to chapters of this book */}
+                  {/* whole card clickable */}
                   <div
                     className="bg-white/5 hover:bg-white/10 rounded-lg p-3 transition-all duration-200 border border-white/10 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer"
                     onClick={() => {
-                      if (isDraft) {
-                        // Nháp -> vào màn quản lý chương (giữ luồng cũ)
+                      if (openChaptersOnClick) {
+                        // status 0 (nháp) + 2 (đã được duyệt) -> vào chapter list
                         navigate(`/author/books/${id}/chapters`, { state: { book } });
-                      } else {
-                        // Không phải nháp -> vào màn preview sách lật
-                        navigate(`/author/books/${id}/preview`, { state: { book } });
+                        return;
                       }
+                      // các trạng thái khác -> preview
+                      navigate(`/author/books/${id}/preview`, { state: { book } });
                     }}
                   >
                     {/* Dropdown Menu Button - top-right like chapter list */}
@@ -387,13 +402,21 @@ export default function AuthorBookList() {
                               <Edit className="mr-2 h-4 w-4" /> Sửa
                             </DropdownMenuItem>
                           )}
-                          {/* ✅ Chỉ hiện "Đưa đi duyệt" nếu chưa xuất bản và chưa gửi duyệt */}
-                          {!isLocked && (
+                          {/* ✅ Với status = 2 (ARCHIVED) thì trong dropdown có nút Xem trước (preview) */}
+                          {(String(publication) === "2" || publication === 2 || String(publication).toUpperCase() === "ARCHIVED") ? (
                             <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/author/books/${id}/preview`, { state: { book } }); }}
                             >
-                              <CircleCheck className="mr-2 h-4 w-4" /> Đưa đi duyệt
+                              <Eye className="mr-2 h-4 w-4" /> Xem trước
                             </DropdownMenuItem>
+                          ) : (
+                            !isLocked && (
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); confirmSendForReview(book); }}
+                              >
+                                <CircleCheck className="mr-2 h-4 w-4" /> Đưa đi duyệt
+                              </DropdownMenuItem>
+                            )
                           )}
                           <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); confirmDeleteBook(book); }}

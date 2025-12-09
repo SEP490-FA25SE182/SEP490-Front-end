@@ -22,25 +22,54 @@ interface AIPromptPanelProps {
   onGenerated?: (payload: { imageUrl: string; aiGeneration?: any }) => void;
 }
 
+/** Tính width/height theo aspectRatio, giới hạn cạnh dài = 1024 */
+function getDimensionsForAspect(aspect: string, maxSide = 1024) {
+  const [wStr, hStr] = aspect.split(":");
+  const w = parseInt(wStr, 10);
+  const h = parseInt(hStr, 10);
+  if (!w || !h) {
+    return { width: maxSide, height: maxSide };
+  }
+
+  // w:h là width:height. Cạnh dài = maxSide.
+  if (w >= h) {
+    // landscape
+    return {
+      width: maxSide,
+      height: Math.round((maxSide * h) / w),
+    };
+  } else {
+    // portrait
+    return {
+      width: Math.round((maxSide * w) / h),
+      height: maxSide,
+    };
+  }
+}
+
+const DEFAULT_ASPECT = "2:3"; // ✅ mặc định 2:3
+const DEFAULT_DIMS = getDimensionsForAspect(DEFAULT_ASPECT);
+
 const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
   const [form, setForm] = useState({
     modelName: "stable-diffusion-xl-1024-v1-0",
     prompt: "",
     negativePrompt: "",
     mode: "TEXT_TO_IMAGE",
-    width: 1024,
-    height: 1024,
+    // ✅ width/height mặc định theo 2:3
+    width: DEFAULT_DIMS.width,
+    height: DEFAULT_DIMS.height,
     accept: "image/*",
     stylePreset: "PHOTOGRAPHIC",
     style: "Photographic",
-    aspectRatio: "1:1",
+    aspectRatio: DEFAULT_ASPECT, // ✅ 2:3
     format: "png",
     title: "",
     controlnetType: "",
     cfgScale: 8,
     strength: 1,
     seed: 77,
-    durationMs: 1, // ✅ default = 1 and will be hidden on UI
+    durationMs: 1, // giữ nguyên
   });
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -95,7 +124,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
             modelName: form.modelName,
             prompt: form.prompt,
             negativePrompt: form.negativePrompt,
-            durationMs: form.durationMs, // ✅ sử dụng giá trị từ form
+            durationMs: form.durationMs,
             status: 0,
             userId,
             mode: form.mode,
@@ -155,7 +184,9 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         <Textarea
           placeholder="Mô tả những gì bạn KHÔNG muốn ảnh tạo ra... (tùy chọn)"
           value={form.negativePrompt}
-          onChange={(e) => setForm({ ...form, negativePrompt: e.target.value })}
+          onChange={(e) =>
+            setForm({ ...form, negativePrompt: e.target.value })
+          }
           className="bg-transparent border-white/20 text-white"
         />
       </div>
@@ -180,7 +211,9 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
             required
             type="number"
             value={form.width}
-            onChange={(e) => setForm({ ...form, width: Number(e.target.value) })}
+            onChange={(e) =>
+              setForm({ ...form, width: Number(e.target.value) })
+            }
             className="bg-transparent border-white/20 text-white"
           />
         </div>
@@ -190,7 +223,9 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
             required
             type="number"
             value={form.height}
-            onChange={(e) => setForm({ ...form, height: Number(e.target.value) })}
+            onChange={(e) =>
+              setForm({ ...form, height: Number(e.target.value) })
+            }
             className="bg-transparent border-white/20 text-white"
           />
         </div>
@@ -201,7 +236,15 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         <Label className="mb-3">Tỷ lệ khung hình</Label>
         <Select
           value={form.aspectRatio}
-          onValueChange={(v) => setForm({ ...form, aspectRatio: v })}
+          onValueChange={(v) => {
+            const dims = getDimensionsForAspect(v);
+            setForm((prev) => ({
+              ...prev,
+              aspectRatio: v,
+              width: dims.width,
+              height: dims.height,
+            }));
+          }}
         >
           <SelectTrigger className="bg-[#1a2332] border-white/20 text-white">
             <SelectValue placeholder="Tỷ lệ khung hình" />
@@ -210,6 +253,8 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
             <SelectItem value="1:1">1:1 (Square)</SelectItem>
             <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
             <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+            <SelectItem value="2:3">2:3 (Portrait)</SelectItem>   {/* ✅ mới */}
+            <SelectItem value="5:7">5:7 (A5 gần đúng)</SelectItem> {/* ✅ mới */}
           </SelectContent>
         </Select>
       </div>
@@ -239,7 +284,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         />
       </div>
 
-      {/* durationMs is intentionally hidden in UI but kept in state */}
+      {/* durationMs hidden */}
       <input type="hidden" value={form.durationMs} />
 
       {/* Style Preset */}

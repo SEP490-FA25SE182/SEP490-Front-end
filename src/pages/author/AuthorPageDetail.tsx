@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetPageById } from "@/services/BookManageService";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import {
   useSearchPageIllustrations,
   useGetAllIllustrations,
   useSearchPageAudios,
-  useGetAudios,
+  useSearchAudios, // <-- changed
   type Illustration,
   type PageIllustration,
   type Audio,
@@ -17,12 +17,20 @@ import {
 } from "@/services/AIService";
 
 import { useSearchMarkers, type Marker } from "@/services/ARService";
+import { getCurrentUserId } from "@/utils/authStorage"; // <-- added
 
 const AuthorPageDetail = () => {
   const { pageId } = useParams<{ pageId: string }>();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { data: page, isLoading, isError } = useGetPageById(pageId);
+
+  // authorId from local storage (similar to AssetToolPanel)
+  const [authorId, setAuthorId] = useState<string | null>(null);
+  useEffect(() => {
+    const uid = getCurrentUserId();
+    if (uid) setAuthorId(uid);
+  }, []);
 
   // 🔹 lấy relations & illustrations
   const { data: pageIllustrationsResp } = useSearchPageIllustrations();
@@ -32,7 +40,8 @@ const AuthorPageDetail = () => {
 
   // 🔹 lấy quan hệ page-audio + list audio
   const { data: pageAudiosResp } = useSearchPageAudios({ pageId });
-  const { data: audiosResp } = useGetAudios();
+  // useSearchAudios filtered by authorId
+  const { data: audiosResp } = useSearchAudios(authorId ? { userId: authorId } : undefined);
 
   const pageIllustrations: PageIllustration[] = useMemo(() => {
     if (!pageIllustrationsResp) return [];

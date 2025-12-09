@@ -154,22 +154,20 @@ const QuestionCreateDialog: React.FC<Props> = ({
         }
 
         const q = forms[index];
-        if (!q.content.trim()) {
+
+        // validation: bắt buộc nội dung, điểm > 0, answerCount >= 1
+        const missingQ: string[] = [];
+        if (!q.content || !q.content.trim()) missingQ.push("Nội dung câu hỏi");
+        if (!Number(q.score) || Number(q.score) <= 0) missingQ.push("Điểm cho câu (> 0)");
+        if (!Number(q.answerCount) || Number(q.answerCount) <= 0) missingQ.push("Số đáp án (>= 1)");
+
+        if (missingQ.length > 0) {
             toast({
-                title: "Thiếu nội dung",
-                description: `Câu ${index + 1} chưa có nội dung.`,
+                title: "Thiếu thông tin câu hỏi",
+                description: `Vui lòng cung cấp: ${missingQ.join(", ")}.`,
                 variant: "destructive",
             });
             setActiveIdx(index);
-            return;
-        }
-
-        if (Number(q.score) <= 0) {
-            toast({
-                title: "Điểm không hợp lệ",
-                description: "Điểm câu hỏi phải lớn hơn 0.",
-                variant: "destructive",
-            });
             return;
         }
 
@@ -249,15 +247,39 @@ const QuestionCreateDialog: React.FC<Props> = ({
             });
             return;
         }
+
+        // validate each answer content
         for (let i = 0; i < q.answers.length; i++) {
-            if (!q.answers[i].content.trim()) {
+            if (!q.answers[i].content || !q.answers[i].content.trim()) {
                 toast({
-                    title: "Thiếu nội dung",
+                    title: "Thiếu nội dung đáp án",
                     description: `Đáp án ${i + 1} của câu ${qIdx + 1} chưa có nội dung.`,
                     variant: "destructive",
                 });
+                setActiveIdx(qIdx);
                 return;
             }
+        }
+
+        // validate at least one correct answer (and ideally only one)
+        const correctCount = q.answers.reduce((s, a) => s + (a.isCorrect ? 1 : 0), 0);
+        if (correctCount === 0) {
+            toast({
+                title: "Thiếu đáp án đúng",
+                description: "Vui lòng chọn ít nhất 1 đáp án là 'Đúng'.",
+                variant: "destructive",
+            });
+            setActiveIdx(qIdx);
+            return;
+        }
+        if (correctCount > 1) {
+            toast({
+                title: "Nhiều đáp án đúng",
+                description: "Vui lòng chỉ chọn 1 đáp án là 'Đúng' (hiện yêu cầu 1 đáp án đúng).",
+                variant: "destructive",
+            });
+            setActiveIdx(qIdx);
+            return;
         }
 
         try {
@@ -385,8 +407,10 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                         type="number"
                                         value={forms[activeIdx]?.score || ""}
                                         onChange={(e: any) => {
-                                            const v = Number(e.target.value) || 0;
-                                            if (v > remainingScore) {
+                                            const raw = Number(e.target.value) || 0;
+                                            const isLast = activeIdx === forms.length - 1;
+                                            // Nếu nhập lớn hơn phần còn lại -> báo lỗi
+                                            if (raw > remainingScore) {
                                                 toast({
                                                     title: "Vượt quá điểm",
                                                     description: `Chỉ còn ${remainingScore} điểm để phân phối`,
@@ -394,7 +418,16 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                                 });
                                                 return;
                                             }
-                                            updateField(activeIdx, { score: v });
+                                            // Nếu là câu cuối và nhập nhỏ hơn phần còn lại -> tự gán phần còn lại luôn
+                                            if (isLast && raw < remainingScore) {
+                                                updateField(activeIdx, { score: Number(remainingScore) });
+                                                toast({
+                                                    title: "Tự hoàn tất điểm câu cuối",
+                                                    description: `Câu cuối được tự gán ${remainingScore} điểm còn lại.`,
+                                                });
+                                                return;
+                                            }
+                                            updateField(activeIdx, { score: raw });
                                         }}
                                         placeholder="Điểm"
                                         className="bg-white h-10"

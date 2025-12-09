@@ -12,6 +12,7 @@ import {
   useSearchAudios,
   useUpdatePageAudio,
   useSearchPageAudios,
+  useCreatePageAudio,          // 🆕 THÊM
 } from "@/services/AIService";
 import {
   Select,
@@ -34,6 +35,7 @@ export default function TextPageEdit() {
 
   // === Audio ===
   const updatePageAudio = useUpdatePageAudio();
+  const createPageAudio = useCreatePageAudio();     // 🆕 HOOK TẠO MỚI
 
   // === State form ===
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -42,6 +44,7 @@ export default function TextPageEdit() {
   const [audioList, setAudioList] = useState<{ id: string; name: string; url: string }[]>([]);
   const [selectedAudio, setSelectedAudio] = useState<string>("");
   const [pageAudioId, setPageAudioId] = useState<string>("");
+  const [hasExistingPageAudio, setHasExistingPageAudio] = useState(false); // 🆕 CÓ SẴN HAY CHƯA
 
   // === Lấy user hiện tại ===
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -102,7 +105,13 @@ export default function TextPageEdit() {
         setSelectedAudio(firstPageAudio.audioId);
         setPageAudioId(firstPageAudio.pageAudioId || "");
         setShowAudioForm(true);
+        setHasExistingPageAudio(true);         // 🆕 ĐANG Ở CHẾ ĐỘ EDIT
       }
+    } else {
+      // Không có page-audio nào
+      setPageAudioId("");
+      setSelectedAudio("");
+      setHasExistingPageAudio(false);          // 🆕 SẼ TẠO MỚI NẾU USER CHỌN AUDIO
     }
   }, [pageAudiosData]);
 
@@ -129,15 +138,26 @@ export default function TextPageEdit() {
         },
       });
 
-      // 2️⃣ Cập nhật liên kết audio nếu có
-      if (showAudioForm && selectedAudio && pageAudioId) {
-        await updatePageAudio.mutateAsync({
-          id: pageAudioId,
-          data: {
-            pageId,
-            audioId: selectedAudio,
-          },
-        });
+      // 2️⃣ Cập nhật / tạo liên kết audio nếu có
+      if (showAudioForm && selectedAudio) {
+        if (hasExistingPageAudio && pageAudioId) {
+          // ✅ ĐÃ CÓ PAGE-AUDIO → UPDATE
+          await updatePageAudio.mutateAsync({
+            id: pageAudioId,
+            data: {
+              pageId,
+              audioId: selectedAudio,
+            },
+          });
+        } else {
+          // ✅ CHƯA CÓ PAGE-AUDIO → CREATE
+          await createPageAudio.mutateAsync([
+            {
+              pageId,
+              audioId: selectedAudio,
+            },
+          ]);
+        }
       }
 
       toast({
@@ -264,10 +284,18 @@ export default function TextPageEdit() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={updatePage.isPending || updatePageAudio.isPending}
+                disabled={
+                  updatePage.isPending ||
+                  updatePageAudio.isPending ||
+                  createPageAudio.isPending       // 🆕 disable khi đang tạo mới
+                }
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
-                {updatePage.isPending || updatePageAudio.isPending ? "Đang lưu..." : "Lưu thay đổi"}
+                {updatePage.isPending ||
+                updatePageAudio.isPending ||
+                createPageAudio.isPending
+                  ? "Đang lưu..."
+                  : "Lưu thay đổi"}
               </Button>
             </div>
           </div>

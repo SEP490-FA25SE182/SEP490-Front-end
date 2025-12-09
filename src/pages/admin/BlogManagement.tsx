@@ -54,7 +54,9 @@ export default function BlogManagementPage() {
         try {
             setLoading(true);
 
-            const blogsData = await BlogService.getAll();
+            const blogsData = (await BlogService.getAll()).filter(
+                (b) => b.isActived === "ACTIVE"
+            );
             const tagData = await TagService.getAll();
 
             // 🔹 Gán authorName cho mỗi blog
@@ -116,8 +118,8 @@ export default function BlogManagementPage() {
             const updated = { ...blog };
 
             if (updated.coverUrl?.startsWith("gs://")) {
-      updated.coverUrl = await resolveFirebaseUrl(updated.coverUrl);
-    }
+                updated.coverUrl = await resolveFirebaseUrl(updated.coverUrl);
+            }
 
             const userRes = await getUserById(blog.authorId);
             updated.authorName = userRes.fullName;

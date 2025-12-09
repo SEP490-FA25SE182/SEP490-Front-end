@@ -71,7 +71,7 @@ export default function AuthorBookPreview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ EXPORT FILE .DOC (nhúng ảnh base64, có trang bìa, KHÔNG hiện "Trang X")
+  // ✅ EXPORT FILE .DOC (nhúng ảnh base64, giữ nguyên rich text, có trang bìa, KHÔNG hiện "Trang X")
   const handleExportDoc = async () => {
     if (!book) {
       toast({
@@ -90,71 +90,92 @@ export default function AuthorBookPreview() {
       return;
     }
 
-    // helper: tải ảnh -> data URL
-    const loadImageAsDataUrl = async (
-      rawUrl: string
-    ): Promise<string | null> => {
-      try {
-        const url = getDisplayUrl(rawUrl);
-        if (!url) return null;
-        const res = await fetch(url);
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.error("Không tải được ảnh cho DOC:", e, rawUrl);
-        return null;
-      }
-    };
-
-    // helper: chèn ảnh base64 vào HTML content (các <img src="..."> bên trong story)
-    const embedImagesInHtml = async (htmlContent: string): Promise<string> => {
-      try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, "text/html");
-        const imgs = Array.from(doc.images);
-
-        for (const img of imgs) {
-          const src = img.getAttribute("src");
-          if (!src) continue;
-          if (src.startsWith("data:")) continue; // đã là base64 rồi
-
-          const dataUrl = await loadImageAsDataUrl(src);
-          if (dataUrl) {
-            img.setAttribute("src", dataUrl);
-          }
-        }
-
-        return doc.body.innerHTML;
-      } catch (e) {
-        console.error("Lỗi khi embed ảnh trong HTML content:", e);
-        return htmlContent;
-      }
-    };
-
-    // sort pages giống preview
-    const sortedPages = [...pages].sort((a, b) => {
-      const c1 = a.chapterNumber ?? 0;
-      const c2 = b.chapterNumber ?? 0;
-      if (c1 !== c2) return c1 - c2;
-      return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
+    // thông báo bắt đầu xuất
+    toast({
+      title: "Đang xuất file .doc",
+      description: "Tệp đang được tạo, vui lòng chờ trong giây lát...",
     });
 
-    const filenameBase = (book.bookName || book.bookId || "book").replace(
-      /[\\/:*?"<>|]+/g,
-      "_"
-    );
+    try {
+      // helper: tải ảnh -> data URL
+      const loadImageAsDataUrl = async (
+        rawUrl: string
+      ): Promise<string | null> => {
+        try {
+          const url = getDisplayUrl(rawUrl);
+          if (!url) return null;
+          const res = await fetch(url);
+          const blob = await res.blob();
+          return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error("Không tải được ảnh cho DOC:", e, rawUrl);
+          return null;
+        }
+      };
 
-    // ảnh bìa -> base64
-    const coverDataUrl = book.coverUrl
-      ? await loadImageAsDataUrl(book.coverUrl)
-      : null;
+      // helper: chỉ thay src của <img> trong HTML content, giữ nguyên mọi tag/style khác
+      const embedImagesInHtml = async (htmlContent: string): Promise<string> => {
+        try {
+          const imgSrcRegex =
+            /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
 
-    let html = `
+          const urls = new Set<string>();
+          let match: RegExpExecArray | null;
+
+          while ((match = imgSrcRegex.exec(htmlContent)) !== null) {
+            const src = match[1];
+            if (!src.startsWith("data:")) {
+              urls.add(src);
+            }
+          }
+
+          if (urls.size === 0) return htmlContent;
+
+          const map: Record<string, string> = {};
+          for (const src of urls) {
+            const dataUrl = await loadImageAsDataUrl(src);
+            if (dataUrl) {
+              map[src] = dataUrl;
+            }
+          }
+
+          let result = htmlContent;
+          for (const [src, dataUrl] of Object.entries(map)) {
+            // thay tất cả src cũ thành dataUrl
+            result = result.split(src).join(dataUrl);
+          }
+
+          return result;
+        } catch (e) {
+          console.error("Lỗi khi embed ảnh trong HTML content:", e);
+          return htmlContent;
+        }
+      };
+
+      // sort pages giống preview
+      const sortedPages = [...pages].sort((a, b) => {
+        const c1 = a.chapterNumber ?? 0;
+        const c2 = b.chapterNumber ?? 0;
+        if (c1 !== c2) return c1 - c2;
+        return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
+      });
+
+      const filenameBase = (book.bookName || book.bookId || "book").replace(
+        /[\\/:*?"<>|]+/g,
+        "_"
+      );
+
+      // ảnh bìa -> base64
+      const coverDataUrl = book.coverUrl
+        ? await loadImageAsDataUrl(book.coverUrl)
+        : null;
+
+      let html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -175,102 +196,117 @@ export default function AuthorBookPreview() {
 <body>
 `;
 
-    // 🔹 TRANG BÌA: tên sách + mô tả + ảnh bìa
-    html += `<div class="cover page-break">`;
-    html += `<div class="cover-title">${escapeHtml(
-      book.bookName || "Không tên"
-    )}</div>`;
-    if (book.decription) {
-      html += `<div class="cover-desc">${escapeHtml(book.decription)}</div>`;
-    }
-    if (coverDataUrl) {
-      html += `<img class="cover-image" src="${coverDataUrl}" alt="${escapeHtml(
-        book.bookName || "Cover"
-      )}" />`;
-    }
-    html += `</div>`;
-
-    let currentChapterId: string | undefined;
-
-    for (const p of sortedPages) {
-      html += `<div class="page">`;
-
-      const isPicturePage = p.pageType === "PICTURE";
-
-      // 🔹 Heading chương (khi đổi chapter)
-      if (p.chapterId !== currentChapterId) {
-        currentChapterId = p.chapterId;
-        html += `<div class="chapter-title">Chương ${
-          p.chapterNumber ?? ""
-        }: ${escapeHtml(p.chapterName ?? "")}</div>`;
+      // 🔹 TRANG BÌA: tên sách + mô tả + ảnh bìa
+      html += `<div class="cover page-break">`;
+      html += `<div class="cover-title">${escapeHtml(
+        book.bookName || "Không tên"
+      )}</div>`;
+      if (book.decription) {
+        html += `<div class="cover-desc">${escapeHtml(book.decription)}</div>`;
       }
+      if (coverDataUrl) {
+        html += `<img class="cover-image" src="${coverDataUrl}" alt="${escapeHtml(
+          book.bookName || "Cover"
+        )}" />`;
+      }
+      html += `</div>`;
 
-      // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
-      if (!isPicturePage && typeof p.content === "string") {
-        const content = p.content.trim();
-        if (content) {
-          const isHtml = /<\/?[a-z][\s\S]*>/i.test(content);
-          if (isHtml) {
-            const processed = await embedImagesInHtml(content);
-            html += `<div class="page-content">${processed}</div>`;
-          } else {
-            html += `<p class="page-content">${escapeHtml(content)}</p>`;
+      let currentChapterId: string | undefined;
+
+      for (const p of sortedPages) {
+        html += `<div class="page">`;
+
+        const isPicturePage = p.pageType === "PICTURE";
+
+        // 🔹 Heading chương (khi đổi chapter)
+        if (p.chapterId !== currentChapterId) {
+          currentChapterId = p.chapterId;
+          html += `<div class="chapter-title">Chương ${
+            p.chapterNumber ?? ""
+          }: ${escapeHtml(p.chapterName ?? "")}</div>`;
+        }
+
+        // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
+        if (!isPicturePage && typeof p.content === "string") {
+          const content = p.content.trim();
+          if (content) {
+            const isHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+            if (isHtml) {
+              // GIỮ NGUYÊN HTML (strong, em, span, list, v.v.), chỉ thay src của img
+              const processed = await embedImagesInHtml(content);
+              html += `<div class="page-content">${processed}</div>`;
+            } else {
+              html += `<p class="page-content">${escapeHtml(content)}</p>`;
+            }
           }
         }
-      }
 
-      // 🔹 Ảnh minh hoạ
-      let illustrationRaw: string | null = null;
-      if (p.illustration?.imageUrl) {
-        illustrationRaw = p.illustration.imageUrl;
-      } else if (isPicturePage && typeof p.content === "string") {
-        const raw = p.content.trim();
-        if (
-          raw.startsWith("http://") ||
-          raw.startsWith("https://") ||
-          raw.startsWith("gs://")
-        ) {
-          illustrationRaw = raw;
+        // 🔹 Ảnh minh hoạ
+        let illustrationRaw: string | null = null;
+        if (p.illustration?.imageUrl) {
+          illustrationRaw = p.illustration.imageUrl;
+        } else if (isPicturePage && typeof p.content === "string") {
+          const raw = p.content.trim();
+          if (
+            raw.startsWith("http://") ||
+            raw.startsWith("https://") ||
+            raw.startsWith("gs://")
+          ) {
+            illustrationRaw = raw;
+          }
         }
-      }
 
-      if (illustrationRaw) {
-        const illusDataUrl = await loadImageAsDataUrl(illustrationRaw);
-        if (illusDataUrl) {
-          html += `<img class="illustration" src="${illusDataUrl}" alt="${escapeHtml(
-            p.illustration?.title || `Trang ${p.pageNumber}`
-          )}" />`;
+        if (illustrationRaw) {
+          const illusDataUrl = await loadImageAsDataUrl(illustrationRaw);
+          if (illusDataUrl) {
+            html += `<img class="illustration" src="${illusDataUrl}" alt="${escapeHtml(
+              p.illustration?.title || `Trang ${p.pageNumber}`
+            )}" />`;
+          }
+        } else if (isPicturePage) {
+          html += `<p class="page-content">[Trang ảnh]</p>`;
         }
-      } else if (isPicturePage) {
-        html += `<p class="page-content">[Trang ảnh]</p>`;
-      }
 
-      // 🔹 Marker (nếu có)
-      if (p.markerImageUrl) {
-        const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
-        if (markerDataUrl) {
-          html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${
-            p.pageNumber
-          }" />`;
+        // 🔹 Marker (nếu có)
+        if (p.markerImageUrl) {
+          const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
+          if (markerDataUrl) {
+            html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${
+              p.pageNumber
+            }" />`;
+          }
         }
+
+        html += `</div><div class="page-break"></div>`;
       }
 
-      html += `</div><div class="page-break"></div>`;
+      html += `</body></html>`;
+
+      const blob = new Blob([html], {
+        type: "application/msword;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filenameBase}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // thông báo thành công
+      toast({
+        title: "Xuất file thành công",
+        description: "Tệp .doc đã được tạo và tải về. Vui lòng kiểm tra thư mục tải về của trình duyệt.",
+      });
+    } catch (e) {
+      console.error("Lỗi khi xuất DOC:", e);
+      toast({
+        title: "Xuất file thất bại",
+        description: "Không thể xuất file .doc. Vui lòng thử lại sau.",
+        variant: "destructive",
+      });
     }
-
-    html += `</body></html>`;
-
-    const blob = new Blob([html], {
-      type: "application/msword;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filenameBase}.doc`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {

@@ -275,11 +275,12 @@ export default function BookCreationWizard(props: WizardProps) {
           </div>
         )}
 
-        <Input
+        <textarea
           placeholder="Mô tả"
           value={book.decription}
           onChange={(e) => setBook({ ...book, decription: e.target.value })}
-          className="bg-transparent border-white/20 text-white"
+          rows={4}
+          className="w-full bg-transparent border border-white/20 text-white rounded-md p-2 resize-y focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <div className="flex justify-between text-xs mt-1">
           <div

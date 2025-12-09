@@ -242,22 +242,24 @@ export const generateIllustrationWithImage = async (
   controlImage?: File
 ) => {
   const formData = new FormData();
+
+  // 👇 meta có aspectRatio → gửi xuống backend
   formData.append("meta", JSON.stringify(meta));
+
   if (controlImage) formData.append("controlImage", controlImage);
 
   const response = await axios.post(
     `${API_AI}/illustrations/generate/generate`,
     formData,
     {
-      headers: {
-        "X-User-Id": userId, // ✅ giữ lại header này
-      },
-      withCredentials: false, // hoặc true nếu backend yêu cầu cookie
+      headers: { "X-User-Id": userId },
+      withCredentials: false,
     }
   );
 
   return response.data;
 };
+
 
 export const generateTTS = async (
   userId: string,

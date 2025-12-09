@@ -130,6 +130,34 @@ export default function AuthorBookList() {
 
   // helper to match publication filter (supports numeric or token forms)
   const PUB_TOKEN: Record<string, string> = { "0": "DRAFT", "1": "PUBLISHED", "2": "ARCHIVED", "3": "PENDING" };
+
+  // helper: chỉ lấy sách đang ACTIVE
+  const isBookActive = (book: any) => {
+    const rawStatus =
+      book.status ??
+      book.bookStatus ??
+      book.isActived ??
+      book.is_active ??
+      book.isActive ??
+      book.publicationStatus ??
+      book.publication_status;
+
+    // Nếu backend chưa có field trạng thái thì coi như ACTIVE để không ẩn nhầm
+    if (rawStatus == null) return true;
+
+    const val = String(rawStatus).toUpperCase().trim();
+
+    // Các giá trị coi là active
+    if (["ACTIVE", "1", "TRUE"].includes(val)) return true;
+
+    // Các giá trị coi là inactive
+    if (["INACTIVE", "0", "FALSE"].includes(val)) return false;
+
+    // Giá trị lạ thì mặc định cho qua (tránh ẩn nhầm)
+    return true;
+  };
+
+
   const publicationMatches = (publication: any, selected: string) => {
     if (selected === "all") return true;
     const pubStr = String(publication ?? "").trim();
@@ -146,6 +174,7 @@ export default function AuthorBookList() {
   // Filter books
   const filteredBooks = useMemo(() => {
     return books.filter(book => {
+      if (!isBookActive(book)) return false;
       const name = book.bookName ?? book.book_name ?? '';
       const progress = (book.progressStatus ?? book.progress_status) as any;
       const publication = (book.publicationStatus ?? book.publication_status) as any;

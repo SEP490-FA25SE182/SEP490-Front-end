@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
-  TrendingUp,
   BookOpen,
   Clock,
   CheckCircle,
@@ -208,7 +207,7 @@ export default function AuthorIncome() {
       title: "Tổng Doanh Thu",
       // dùng doanh thu thực từ order DELIVERED
       value: formatCurrency(authorRevenue),
-      desc: "Tổng doanh thu từ đơn hàng đã giao (DELIVERED)",
+      desc: "Tổng doanh thu từ đơn hàng đã giao",
       icon: <DollarSign className="w-6 h-6" />,
       accent: "from-[#764BA2] to-[#667EEA]",
     },
@@ -246,6 +245,9 @@ export default function AuthorIncome() {
   // Timeframe state for line chart
   type Timeframe = "week" | "month" | "quarter" | "year";
   const [timeframe, setTimeframe] = useState<Timeframe>("month");
+
+  // Toggle: show numbers or percentages in pie chart
+  const [showPercent, setShowPercent] = useState(false);
 
   // Helper: generate time buckets and counts
   function generateTimeSeries(booksList: any[], tf: Timeframe) {
@@ -305,13 +307,24 @@ export default function AuthorIncome() {
 
   const lineData = useMemo(() => generateTimeSeries(books, timeframe), [books, timeframe]);
 
-  const pieData = useMemo(
+  // raw counts for pie
+  const pieDataCounts = useMemo(
     () => [
       { name: "Đã xuất bản", value: publishedBooks },
       { name: "Chờ duyệt", value: pendingBooks },
     ],
     [publishedBooks, pendingBooks]
   );
+
+  // pie data displayed either as counts or rounded percentages
+  const pieDataDisplayed = useMemo(() => {
+    const total = publishedBooks + pendingBooks;
+    if (!showPercent || total === 0) return pieDataCounts;
+    return pieDataCounts.map((d) => ({
+      name: d.name,
+      value: Number(((d.value / total) * 100).toFixed(1)), // percent with 1 decimal
+    }));
+  }, [pieDataCounts, showPercent, publishedBooks, pendingBooks]);
 
   const COLORS = ["#10b981", "#f59e0b"];
 
@@ -342,8 +355,7 @@ export default function AuthorIncome() {
               <Card key={card.title} className={`text-white bg-linear-to-l ${card.accent}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="p-3 bg-white/20 rounded-lg">{card.icon}</div>
-                    <TrendingUp className="w-5 h-5 text-green-300" />
+                    <div className="p-3 bg-white/20 rounded-lg">{card.icon}</div>                   
                   </div>
                   <CardDescription className="text-white/70">{card.title}</CardDescription>
                   <CardTitle className="text-2xl">{card.value}</CardTitle>
@@ -360,29 +372,39 @@ export default function AuthorIncome() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
               <div className="flex gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTimeframe("week")}
+                    className={`px-3 py-1 rounded ${timeframe === "week" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                  >
+                    Tuần
+                  </button>
+                  <button
+                    onClick={() => setTimeframe("month")}
+                    className={`px-3 py-1 rounded ${timeframe === "month" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                  >
+                    Tháng
+                  </button>
+                  <button
+                    onClick={() => setTimeframe("quarter")}
+                    className={`px-3 py-1 rounded ${timeframe === "quarter" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                  >
+                    Quý
+                  </button>
+                  <button
+                    onClick={() => setTimeframe("year")}
+                    className={`px-3 py-1 rounded ${timeframe === "year" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                  >
+                    Năm
+                  </button>
+                </div>
+
+                {/* Toggle numbers / percent for Pie chart */}
                 <button
-                  onClick={() => setTimeframe("week")}
-                  className={`px-3 py-1 rounded ${timeframe === "week" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
+                  onClick={() => setShowPercent((s) => !s)}
+                  className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-sm"
                 >
-                  Tuần
-                </button>
-                <button
-                  onClick={() => setTimeframe("month")}
-                  className={`px-3 py-1 rounded ${timeframe === "month" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
-                >
-                  Tháng
-                </button>
-                <button
-                  onClick={() => setTimeframe("quarter")}
-                  className={`px-3 py-1 rounded ${timeframe === "quarter" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
-                >
-                  Quý
-                </button>
-                <button
-                  onClick={() => setTimeframe("year")}
-                  className={`px-3 py-1 rounded ${timeframe === "year" ? "bg-indigo-600 text-white" : "bg-gray-100"}`}
-                >
-                  Năm
+                  {showPercent ? "Hiện số" : "Hiện %"}
                 </button>
               </div>
             </div>
@@ -409,20 +431,22 @@ export default function AuthorIncome() {
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie
-                        data={pieData}
+                        data={pieDataDisplayed}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label
+                        label={({ name, value }) =>
+                          `${name}: ${showPercent ? String(value) + "%" : String(value)}`
+                        }
                       >
-                        {pieData.map((_entry, idx) => (
+                        {pieDataDisplayed.map((_entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
                         ))}
                       </Pie>
                       <Legend />
-                      <Tooltip />
+                      <Tooltip formatter={(val: any) => (showPercent ? `${val}%` : String(val))} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>

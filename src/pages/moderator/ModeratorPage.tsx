@@ -6,7 +6,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getAllUsers } from "@/services/UserService";
 
 export default function ModeratorPage() {
-
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [, setLoading] = useState(true);
@@ -18,15 +17,15 @@ export default function ModeratorPage() {
       try {
         setLoading(true);
 
-        // giờ không cần chaptersRes nữa, nhưng có thể giữ Promise.all cho dễ
-        const [books, /* chaptersRes */, allUsers = []] = await Promise.all([
-          getAllBooks(),
-          // getAllChapters({ progressStatus: "0" }),
+        // 🔹 Lấy thật nhiều sách để không miss sách PENDING
+        const [books, allUsers] = await Promise.all([
+          // lấy 0–1000, bạn có thể tăng thêm nếu cần
+          getAllBooks({ page: 0, size: 1000 }),
           getAllUsers(),
         ]);
 
-        // 🔹 chỉ lấy sách PENDING (3)
-        const visibleBooks = books.filter((b: any) => {
+        // 🔹 Chỉ giữ sách PENDING (3 hoặc "PENDING")
+        const pendingBooks = (books ?? []).filter((b: any) => {
           const rawPub =
             b.publicationStatus ??
             b.publication_status ??
@@ -42,13 +41,13 @@ export default function ModeratorPage() {
           return isPending;
         });
 
-        // Lấy authorId từ các sách PENDING
+        // 🔹 Lấy authorId từ các sách PENDING
         const authorIdSet = new Set(
-          visibleBooks.map((b: any) => String(b.authorId))
+          pendingBooks.map((b: any) => String(b.authorId))
         );
 
         const userMap = new Map(
-          allUsers.map((u: any) => [String(u.userId), u])
+          (allUsers ?? []).map((u: any) => [String(u.userId), u])
         );
 
         const authors = [...authorIdSet]
@@ -56,7 +55,7 @@ export default function ModeratorPage() {
           .filter(Boolean);
 
         setUsers(authors as any[]);
-        setBooksState(visibleBooks);
+        setBooksState(pendingBooks);
       } catch (err) {
         console.error("❌ Load moderator users failed", err);
       } finally {
@@ -95,7 +94,6 @@ export default function ModeratorPage() {
                 state: { books: relatedBooks },
               });
             }}
-
           >
             <CardHeader>
               <CardTitle className="flex items-center gap-3">

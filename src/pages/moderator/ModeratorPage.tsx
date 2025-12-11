@@ -1,14 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllBooks } from "@/services/BookService";
-import { getAllChapters } from "@/services/BookManageService";
 import ModeratorLayout from "./ModeratorLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getAllUsers } from "@/services/UserService";
-
-
-
-
 
 export default function ModeratorPage() {
 
@@ -18,56 +13,50 @@ export default function ModeratorPage() {
   const [searchQuery] = useState("");
   const [booksState, setBooksState] = useState<any[]>([]);
 
-
-
-
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
 
-        const [books, chaptersRes, allUsers] = await Promise.all([
+        // giờ không cần chaptersRes nữa, nhưng có thể giữ Promise.all cho dễ
+        const [books, /* chaptersRes */, allUsers = []] = await Promise.all([
           getAllBooks(),
-          getAllChapters({ progressStatus: "0" }), // IN_REVIEW
+          // getAllChapters({ progressStatus: "0" }),
           getAllUsers(),
         ]);
 
-        // Chuẩn hóa chapters
-        const chapterList: any[] = Array.isArray(chaptersRes)
-          ? chaptersRes
-          : (chaptersRes as any)?.content ?? [];
+        // 🔹 chỉ lấy sách PENDING (3)
+        const visibleBooks = books.filter((b: any) => {
+          const rawPub =
+            b.publicationStatus ??
+            b.publication_status ??
+            b.status;
 
-        // Book có chương cần duyệt
-        const bookIdsHasReview = new Set(
-          chapterList.map((c: any) => String(c.bookId))
-        );
+          if (rawPub == null) return false;
 
-        // Book cần hiển thị (PENDING hoặc có chapter IN_REVIEW)
-        const visibleBooks = books.filter((b: any) =>
-          Number(b.publicationStatus) === 3 ||
-          bookIdsHasReview.has(String(b.bookId))
-        );
+          const rawStr = String(rawPub).trim();
+          const upper = rawStr.toUpperCase();
+          const num = Number(rawStr);
 
+          const isPending = num === 3 || upper === "PENDING";
+          return isPending;
+        });
 
-        // Lấy authorId từ book
+        // Lấy authorId từ các sách PENDING
         const authorIdSet = new Set(
           visibleBooks.map((b: any) => String(b.authorId))
         );
 
-        // Map userId -> user
         const userMap = new Map(
           allUsers.map((u: any) => [String(u.userId), u])
         );
 
-        // Build list tác giả cần duyệt
         const authors = [...authorIdSet]
           .map((id) => userMap.get(id))
           .filter(Boolean);
 
         setUsers(authors as any[]);
         setBooksState(visibleBooks);
-
-
       } catch (err) {
         console.error("❌ Load moderator users failed", err);
       } finally {
@@ -78,7 +67,6 @@ export default function ModeratorPage() {
     load();
   }, []);
 
-
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const name = (u.fullName ?? "").toLowerCase();
@@ -87,8 +75,6 @@ export default function ModeratorPage() {
       return name.includes(keyword) || email.includes(keyword);
     });
   }, [users, searchQuery]);
-
-
 
   return (
     <ModeratorLayout
@@ -129,7 +115,6 @@ export default function ModeratorPage() {
             </CardContent>
           </Card>
         ))}
-
       </div>
     </ModeratorLayout>
   );

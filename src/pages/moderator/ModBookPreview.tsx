@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
     ChevronLeft,
     ChevronRight,
@@ -48,6 +48,7 @@ type LocationState = {
 
 export default function ModBookPreview() {
     const { bookId } = useParams<{ bookId: string }>();
+    const navigate = useNavigate();
     const location = useLocation() as { state?: LocationState };
     const { toast } = useToast();
 
@@ -264,16 +265,14 @@ export default function ModBookPreview() {
         return url;
     };
 
-    // 👉 handler duyệt / từ chối (chưa xử lý điều hướng, chỉ cập nhật trạng thái + toast)
     // 👉 handler duyệt / từ chối: lưu cả review + publicationStatus
     const handleModerate = async (newStatus: number) => {
         if (!book) return;
 
         try {
-            // payload chỉ cần những field muốn update
             const payload: Partial<Book> = {
                 review: reviewText,
-                publicationStatus: newStatus, // 2 = ARCHIVED (đã được duyệt), 4 = REJECTED (từ chối)
+                publicationStatus: newStatus,
             };
 
             const updated = await updateBook(book.bookId, payload);
@@ -289,8 +288,9 @@ export default function ModBookPreview() {
                         : "Tác phẩm đã bị từ chối.",
             });
 
-            // nếu muốn sau khi duyệt / từ chối quay về list:
-            // navigate(-1);
+            // ✅ Sau khi duyệt / từ chối xong, quay về trang moderator
+            navigate("/moderator");
+
         } catch (err) {
             console.error("Lỗi duyệt sách:", err);
             toast({
@@ -300,7 +300,6 @@ export default function ModBookPreview() {
             });
         }
     };
-
 
     return (
         <ModeratorLayout
@@ -404,19 +403,19 @@ export default function ModBookPreview() {
                                 />
                                 <div className="flex gap-2">
                                     <Button
-                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                                        size="sm"
-                                        onClick={() => handleModerate(2)}   // ✅ duyệt -> 2
-                                    >
-                                        Duyệt sách
-                                    </Button>
-                                    <Button
                                         className="flex-1"
                                         size="sm"
                                         variant="destructive"
                                         onClick={() => handleModerate(4)}   // ✅ từ chối -> 4
                                     >
                                         Từ chối sách
+                                    </Button>
+                                    <Button
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                        size="sm"
+                                        onClick={() => handleModerate(2)}   // ✅ duyệt -> 2
+                                    >
+                                        Duyệt sách
                                     </Button>
                                 </div>
                             </div>
@@ -557,8 +556,8 @@ function PageCard({
         px-4 py-4 
         flex flex-col
         ${side === "left"
-          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+                    ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+                    : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
                 }
       `}
         >

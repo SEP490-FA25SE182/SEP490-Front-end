@@ -25,6 +25,11 @@ export interface Chapter {
     decription?: string;
     bookId: string;
     isActived?: string;
+
+    // 🆕 thêm các field dưới đây
+    progressStatus?: number;      // vì bạn đang dùng 0, 1, 3 => number
+    publishedDate?: string;       // kiểu string (ISO date) cho an toàn
+    review?: string | null;       // giống bên Book
 }
 
 export interface Page {
@@ -65,6 +70,7 @@ export const getAllChapters = async (params?: {
     q?: string;
     bookId?: string;
     isActived?: string;
+    progressStatus?: string;
 }) => {
     const res = await axios.get(`${API_RK}/users/books/chapters`, { params });
     return res.data;

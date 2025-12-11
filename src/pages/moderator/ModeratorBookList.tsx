@@ -10,10 +10,31 @@ export default function ModeratorBookList() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
+  // 🔹 chỉ hiện sách có publicationStatus = 3 hoặc PENDING
   const list = useMemo(() => {
-    return books.filter((b) =>
-      (b.bookName ?? "").toLowerCase().includes(search.toLowerCase())
-    );
+    const keyword = search.toLowerCase();
+
+    return books.filter((b) => {
+      const rawPub =
+        b.publicationStatus ??
+        b.publication_status ??
+        b.status;
+
+      // ko có status => không hiện
+      if (rawPub == null) return false;
+
+      const rawStr = String(rawPub).trim();
+      const upper = rawStr.toUpperCase();
+      const num = Number(rawStr);
+
+      const isPending =
+        num === 3 || upper === "PENDING";
+
+      if (!isPending) return false;
+
+      const name = (b.bookName ?? "").toLowerCase();
+      return name.includes(keyword);
+    });
   }, [books, search]);
 
   return (
@@ -41,7 +62,6 @@ export default function ModeratorBookList() {
             <div className="text-center mt-2 text-sm">{b.bookName}</div>
 
             <div className="flex items-center gap-2 mt-2">
-              {/* Chỉ còn nút xem sách */}
               <Button
                 variant="outline"
                 className="
@@ -53,7 +73,7 @@ export default function ModeratorBookList() {
                 onClick={() =>
                   navigate(`/moderator/books/${b.bookId}/preview`, {
                     state: {
-                      book: b,           // truyền sẵn book cho preview
+                      book: b,
                       bookId: b.bookId,
                       authorId: b.authorId,
                     },

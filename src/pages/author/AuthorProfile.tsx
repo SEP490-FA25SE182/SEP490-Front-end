@@ -88,9 +88,9 @@ export default function AuthorProfile() {
     n === undefined || n === null
       ? "-"
       : new Intl.NumberFormat("vi-VN", {
-          style: "currency",
-          currency: "VND",
-        }).format(n);
+        style: "currency",
+        currency: "VND",
+      }).format(n);
 
   const formatDate = (d?: string | null) => {
     if (!d) return "-";
@@ -104,6 +104,49 @@ export default function AuthorProfile() {
     if (g === "MALE") return "Nam";
     if (g === "FEMALE") return "Nữ";
     return g;
+  };
+
+  // ----- Mapping transType (+/- và label tiếng Việt) -----
+  const TRANS_TYPE_META: Record<
+    string,
+    { label: string; sign: "+" | "-" }
+  > = {
+    PAYMENT: { label: "Thanh toán đơn hàng", sign: "-" },
+    AI_IMAGE: { label: "Thanh toán tạo ảnh AI", sign: "-" },
+    AI_MODEL: { label: "Thanh toán tạo model 3D AI", sign: "-" },
+    DEPOSIT: { label: "Nạp tiền vào ví", sign: "+" },
+    WITHDRAW: { label: "Rút tiền khỏi ví", sign: "-" },
+    SETTLEMENT: { label: "Phí tác quyền", sign: "+" },
+    RETURN: { label: "Hoàn tiền đơn hàng", sign: "+" },
+    REFUND: { label: "Hoàn tiền đơn hàng", sign: "+" }, // phòng khi BE dùng REFUND
+  };
+
+  const formatTransType = (t?: string) => {
+    if (!t) return "-";
+    const meta = TRANS_TYPE_META[t];
+    if (!meta) return t;
+    return `${meta.label} (${meta.sign})`;
+  };
+
+  const getTransSign = (t?: string): "" | "+" | "-" => {
+    if (!t) return "";
+    const meta = TRANS_TYPE_META[t];
+    return meta?.sign ?? "";
+  };
+
+  // ----- Mapping status number -> label -----
+  const STATUS_LABEL: Record<number, string> = {
+    0: "Chưa thanh toán",
+    1: "Đang xử lý",
+    2: "Đã hủy",
+    3: "Đã thanh toán", // bạn bảo số 3 là đã trả
+  };
+
+  const formatStatus = (s?: number | string) => {
+    if (s === undefined || s === null) return "-";
+    const num = typeof s === "string" ? Number(s) : s;
+    const label = STATUS_LABEL[num];
+    return label ?? String(s);
   };
 
   // actions for editing
@@ -196,8 +239,8 @@ export default function AuthorProfile() {
         const items = Array.isArray(res)
           ? res
           : res && res.content
-          ? res.content
-          : [];
+            ? res.content
+            : [];
         if (!mounted) return;
         setTransactions(items);
       } catch (err) {
@@ -267,17 +310,17 @@ export default function AuthorProfile() {
                           src={
                             avatarPreview ??
                             (user?.avatarUrl &&
-                            String(user.avatarUrl).startsWith("gs://")
+                              String(user.avatarUrl).startsWith("gs://")
                               ? (() => {
-                                  const parts = String(
-                                    user.avatarUrl
-                                  ).split("/");
-                                  const bucket = parts[2];
-                                  const path = parts.slice(3).join("/");
-                                  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-                                    path
-                                  )}?alt=media`;
-                                })()
+                                const parts = String(
+                                  user.avatarUrl
+                                ).split("/");
+                                const bucket = parts[2];
+                                const path = parts.slice(3).join("/");
+                                return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+                                  path
+                                )}?alt=media`;
+                              })()
                               : user?.avatarUrl ?? "")
                           }
                           alt="avatar"
@@ -375,8 +418,8 @@ export default function AuthorProfile() {
                           value={
                             edited?.birthDate
                               ? new Date(edited.birthDate)
-                                  .toISOString()
-                                  .slice(0, 10)
+                                .toISOString()
+                                .slice(0, 10)
                               : ""
                           }
                           onChange={(e) =>
@@ -417,7 +460,7 @@ export default function AuthorProfile() {
                           placeholder="Phần trăm (ví dụ: 30)"
                           value={
                             edited?.royalty !== undefined &&
-                            edited?.royalty !== null
+                              edited?.royalty !== null
                               ? String(edited.royalty)
                               : ""
                           }
@@ -560,9 +603,14 @@ export default function AuthorProfile() {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              {/* ❌ Bỏ cột ID, chỉ hiển thị số tiền + thời gian */}
+                              <TableHead className="text-white">
+                                Loại giao dịch
+                              </TableHead>
                               <TableHead className="text-white">
                                 Số tiền
+                              </TableHead>
+                              <TableHead className="text-white">
+                                Trạng thái
                               </TableHead>
                               <TableHead className="text-white">
                                 Thời gian
@@ -573,7 +621,7 @@ export default function AuthorProfile() {
                             {transactions.length === 0 ? (
                               <TableRow>
                                 <TableCell
-                                  colSpan={2}
+                                  colSpan={4}
                                   className="text-center text-white/60"
                                 >
                                   Không có giao dịch
@@ -602,9 +650,47 @@ export default function AuthorProfile() {
 
                                 return (
                                   <TableRow key={id}>
+                                    {/* Loại giao dịch + (+/-) */}
                                     <TableCell className="text-white">
-                                      {formatCurrency(Number(amount))}
+                                      {formatTransType(
+                                        tx.transType ??
+                                        tx.type ??
+                                        tx.tranType ??
+                                        tx.transactionType
+                                      )}
                                     </TableCell>
+
+                                    {/* Số tiền, tô màu theo dấu */}
+                                    {(() => {
+                                      const rawType =
+                                        tx.transType ??
+                                        tx.type ??
+                                        tx.tranType ??
+                                        tx.transactionType;
+                                      const sign = getTransSign(rawType);
+                                      const amountNumber = Number(amount);
+
+                                      return (
+                                        <TableCell
+                                          className={`text-white ${sign === "+"
+                                              ? "text-emerald-400"
+                                              : sign === "-"
+                                                ? "text-red-400"
+                                                : ""
+                                            }`}
+                                        >
+                                          {sign ? `${sign} ` : ""}
+                                          {formatCurrency(amountNumber)}
+                                        </TableCell>
+                                      );
+                                    })()}
+
+                                    {/* Trạng thái */}
+                                    <TableCell className="text-white">
+                                      {formatStatus(tx.status)}
+                                    </TableCell>
+
+                                    {/* Thời gian */}
                                     <TableCell className="text-white">
                                       {formatDate(time)}
                                     </TableCell>

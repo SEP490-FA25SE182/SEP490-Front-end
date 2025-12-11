@@ -37,11 +37,14 @@ import UserManagementPage from "./pages/admin/UserManagement";
 import OrderManagementPage from "./pages/admin/OrderManagement";
 
 import AuthorManagementPage from "./pages/admin/AuthorManagement";
+
 import ModeratorBookList from "./pages/moderator/ModeratorBookList";
 import ModeratorChapterList from "./pages/moderator/ModeratorChapterList";
 import ModeratorPageList from "./pages/moderator/ModeratorPageList";
 import ModeratorPageDetail from "./pages/moderator/ModeratorPageDetail";
+import ModBookPreview from "./pages/moderator/ModBookPreview";
 import ModeratorPage from "./pages/moderator/ModeratorPage";
+
 import RoleManagementPage from "./pages/admin/RoleManagement";
 import PaymentMethodManagementPage from "./pages/admin/PaymentMethodManagement";
 import GenresManagementPage from "./pages/admin/GenresManagement";
@@ -93,6 +96,7 @@ export default function AppRouter() {
       <Route path="/moderator/books/:bookId/chapters" element={<ModeratorChapterList />} />
       <Route path="/moderator/chapters/:chapterId/pages" element={<ModeratorPageList />} />
       <Route path="/moderator/pages/:pageId" element={<ModeratorPageDetail />} />
+      <Route path="/moderator/books/:bookId/preview" element={<ModBookPreview />} />
     </Route>
 
     <Route element={ <ProtectedRoute allowedRoles={["admin", "staff"]} /> } >

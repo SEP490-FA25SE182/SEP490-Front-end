@@ -125,7 +125,7 @@ export default function ModeratorPage() {
             </CardHeader>
 
             <CardContent className="text-sm text-gray-300">
-              👤 {u.fullName} có sách/chương cần duyệt
+              👤 {u.fullName} có sách cần duyệt
             </CardContent>
           </Card>
         ))}

@@ -117,10 +117,16 @@ export default function AuthorBookList() {
       "1": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
       "2": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
       "3": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
+      // 👇 thêm status 4
+      "4": { text: "Bị từ chối duyệt", className: "bg-red-500/20 text-red-300" },
+
       "DRAFT": { text: "Nháp (đang làm)", className: "bg-gray-500/20 text-gray-300" },
       "PENDING": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
       "PUBLISHED": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
       "ARCHIVED": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
+      // 👇 token REJECTED
+      "REJECTED": { text: "Bị từ chối duyệt", className: "bg-red-500/20 text-red-300" },
+
       "ACTIVE": { text: "Hoạt động", className: "bg-green-500/20 text-green-300" },
       "INACTIVE": { text: "Không hoạt động", className: "bg-gray-500/20 text-gray-300" },
     };
@@ -128,8 +134,9 @@ export default function AuthorBookList() {
     return map[p] ?? { text: publication ?? "-", className: "bg-gray-500/20 text-gray-300" };
   };
 
+
   // helper to match publication filter (supports numeric or token forms)
-  const PUB_TOKEN: Record<string, string> = { "0": "DRAFT", "1": "PUBLISHED", "2": "ARCHIVED", "3": "PENDING" };
+  const PUB_TOKEN: Record<string, string> = { "0": "DRAFT", "1": "PUBLISHED", "2": "ARCHIVED", "3": "PENDING", "4": "REJECTED" };
 
   // helper: chỉ lấy sách đang ACTIVE
   const isBookActive = (book: any) => {
@@ -346,6 +353,7 @@ export default function AuthorBookList() {
                 <SelectItem value="1">Đã xuất bản</SelectItem>
                 <SelectItem value="2">Đã được duyệt</SelectItem>
                 <SelectItem value="3">Chờ duyệt</SelectItem>
+                <SelectItem value="4">Bị từ chối duyệt</SelectItem>
               </SelectContent>
             </Select>
 
@@ -386,12 +394,20 @@ export default function AuthorBookList() {
                 publication === 0 ||
                 String(publication).toUpperCase() === "DRAFT";
 
-              // ✅ Với status = 2 (ARCHIVED) thì click card vẫn vào chapter list giống nháp
-              const openChaptersOnClick =
-                isDraft ||
+              // ✅ ARCHIVED
+              const isArchived =
                 String(publication) === "2" ||
                 publication === 2 ||
                 String(publication).toUpperCase() === "ARCHIVED";
+
+              // ✅ REJECTED (4) – sách bị từ chối duyệt
+              const isRejected =
+                String(publication) === "4" ||
+                publication === 4 ||
+                String(publication).toUpperCase() === "REJECTED";
+
+              // ✅ Với status = 2 (ARCHIVED) thì click card vẫn vào chapter list giống nháp
+              const openChaptersOnClick = isDraft || isArchived || isRejected;
 
               return (
                 <div key={id} className="group relative">

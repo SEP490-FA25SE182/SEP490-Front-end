@@ -1,13 +1,12 @@
 import { useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ModeratorLayout from "./ModeratorLayout";
-import { updateBookStatusFull } from "@/services/BookService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function ModeratorBookList() {
   const { state } = useLocation() as any;
-  const [books, setBooks] = useState<any[]>(state?.books ?? []);
+  const [books] = useState<any[]>(state?.books ?? []);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -17,17 +16,12 @@ export default function ModeratorBookList() {
     );
   }, [books, search]);
 
-  const approveBook = async (b: any, status: number) => {
-    await updateBookStatusFull(b, status);
-    setBooks((prev) => prev.filter((x) => x.bookId !== b.bookId));
-  };
-
   return (
     <ModeratorLayout
       title="Danh sách sách"
       breadcrumb={[
         { label: "Moderator", to: "/moderator" },
-        { label: "Books",  },
+        { label: "Books" },
       ]}
     >
       <Input
@@ -40,36 +34,33 @@ export default function ModeratorBookList() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {list.map((b) => (
           <div key={b.bookId} className="bg-white/5 p-3 rounded">
-            <img src={b.coverUrl} className="w-full aspect-[2/3] object-cover rounded" />
+            <img
+              src={b.coverUrl}
+              className="w-full aspect-2/3 object-cover rounded"
+            />
             <div className="text-center mt-2 text-sm">{b.bookName}</div>
 
             <div className="flex items-center gap-2 mt-2">
-              {b.publicationStatus === 3 && (
-                <Button
-                  className="bg-green-600 text-xs"
-                  onClick={() => approveBook(b, 2)}
-                >
-                  Duyệt sách
-                </Button>
-              )}
-
+              {/* Chỉ còn nút xem sách */}
               <Button
                 variant="outline"
                 className="
-    text-xs text-white
-    bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500
-    border-none
-    ml-auto
-  "
+                  text-xs text-white
+                  bg-linear-to-r from-blue-500 via-purple-500 to-pink-500
+                  border-none
+                  ml-auto
+                "
                 onClick={() =>
-                  navigate(`/moderator/books/${b.bookId}/chapters`, {
-                    state: { bookId: b.bookId,
-                      authorId: b.authorId
-                     }
+                  navigate(`/moderator/books/${b.bookId}/preview`, {
+                    state: {
+                      book: b,           // truyền sẵn book cho preview
+                      bookId: b.bookId,
+                      authorId: b.authorId,
+                    },
                   })
                 }
               >
-                Xem chương
+                Xem sách
               </Button>
             </div>
           </div>

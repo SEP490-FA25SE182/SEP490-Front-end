@@ -1,17 +1,32 @@
 import { useState, useMemo } from "react";
 const publicationStatusLabelLocal = (status: number | string | undefined) => {
-  switch (Number(status)) {
-    case 0:
-      return "Chưa xuất bản";
-    case 1:
-      return "Đã xuất bản";
-    case 2:
-      return "Đang lưu";
-    case 3:
-      return "Pending";
-    default:
-      return "Không xác định";
-  }
+  const raw = status ?? "";
+  const s = String(raw).toUpperCase().trim();
+
+  const map: Record<string, string> = {
+    // numeric
+    "0": "Nháp (đang làm)",
+    "1": "Đã xuất bản",
+    "2": "Đã được duyệt",
+    "3": "Chờ duyệt",
+    "4": "Bị từ chối duyệt",
+
+    // enum text từ backend
+    "DRAFT": "Nháp (đang làm)",
+    "PUBLISHED": "Đã xuất bản",
+    "ARCHIVED": "Đã được duyệt",
+    "PENDING": "Chờ duyệt",
+    "REJECTED": "Bị từ chối duyệt",
+  };
+
+  if (!s) return "Không xác định";
+  return map[s] ?? "Không xác định";
+};
+
+// --- thêm helper kiểm tra draft ---
+const isDraftStatus = (status: number | string | undefined) => {
+  const s = String(status ?? "").toUpperCase().trim();
+  return s === "0" || s === "DRAFT";
 };
 
 import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, MoreVertical, BookOpen, Gamepad2 } from "lucide-react";
@@ -193,16 +208,32 @@ export default function AuthorChapterList() {
                 />
               )}
               <div className="flex flex-col gap-2 text-white">
-                <h2 className="text-xl font-semibold">{book?.bookName ?? "Chưa có tiêu đề"}</h2>
+                <h2 className="text-xl font-semibold">
+                  {book?.bookName ?? "Chưa có tiêu đề"}
+                </h2>
                 <p className="text-gray-300 text-sm leading-relaxed">
                   {book?.decription || "Không có mô tả"}
                 </p>
 
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-2 text-sm">
                   <div>
-                    <span className="font-medium text-gray-200">Trạng thái xuất bản:</span>{" "}
-                    <span className="text-gray-300">{publicationStatusLabelLocal(book?.publicationStatus)}</span>
+                    <span className="font-medium text-gray-200">
+                      Trạng thái xuất bản:
+                    </span>{" "}
+                    <span className="text-gray-300">
+                      {publicationStatusLabelLocal(book?.publicationStatus)}
+                    </span>
                   </div>
+
+                  {/* 👇 Thêm review ở ngay dưới trạng thái xuất bản (ẩn khi là nháp) */}
+                  {!isDraftStatus(book?.publicationStatus) && (
+                    <div className="col-span-2">
+                      <span className="font-medium text-gray-200">Đánh giá:</span>{" "}
+                      <span className="text-gray-300">
+                        {book?.review || "Chưa có đánh giá"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -226,6 +257,7 @@ export default function AuthorChapterList() {
             </div>
           </div>
         </div>
+
 
         {/* Chapter Grid - File View */}
         <div className="flex-1 overflow-auto p-6 bg-[#0f172a]">

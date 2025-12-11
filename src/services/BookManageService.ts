@@ -15,6 +15,7 @@ export interface Book {
     publicationStatus?: string;
     publishedDate?: string;
     isActived?: string;
+    review: string | null;   
 }
 
 export interface Chapter {
@@ -22,9 +23,6 @@ export interface Chapter {
     chapterName: string;
     chapterNumber: number;
     decription?: string;
-    review?: string;
-    publishedDate?: string;
-    progressStatus?: number;
     bookId: string;
     isActived?: string;
 }
@@ -60,20 +58,18 @@ export const createChapter = async (data: Chapter): Promise<Chapter> => {
     return res.data;
 };
 
-/** Lấy tất cả chapter (GET /api/rookie/users/books/chapters) */
 export const getAllChapters = async (params?: {
     page?: number;
     size?: number;
     sort?: string[];
     q?: string;
     bookId?: string;
-    publishedDate?: string;
-    progressStatus?: string;
     isActived?: string;
 }) => {
     const res = await axios.get(`${API_RK}/users/books/chapters`, { params });
     return res.data;
 };
+
 
 /** Lấy chapter theo ID (GET /api/rookie/users/books/chapters/{id}) */
 export const getChapterById = async (id: string): Promise<Chapter> => {
@@ -163,16 +159,15 @@ export const useGetAllChapters = (params?: {
     sort?: string[];
     q?: string;
     bookId?: string;
-    publishedDate?: string;
-    progressStatus?: string;
     isActived?: string;
 }) =>
     useQuery({
         queryKey: ["chapters", params?.bookId ?? "all"],
         queryFn: () => getAllChapters(params),
         enabled: !!params?.bookId,   // chỉ fetch khi đã có bookId
-        retry: 1,                    // tránh retry vô hạn nếu BE lỗi
+        retry: 1,
     });
+
 
 
 // GET CHAPTER BY ID hook

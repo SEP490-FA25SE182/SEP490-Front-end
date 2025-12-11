@@ -296,13 +296,17 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
           <SelectTrigger className="bg-[#1a2332] border-white/20 text-white">
             <SelectValue placeholder="Tỷ lệ khung hình" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1:1">1:1 (Square)</SelectItem>
-            <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-            <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-            <SelectItem value="2:3">2:3 (Portrait)</SelectItem>   {/* ✅ mới */}
-            <SelectItem value="5:7">5:7 (A5 gần đúng)</SelectItem> {/* ✅ mới */}
-          </SelectContent>
+            <SelectContent>
+              <SelectItem value="21:9">21:9 (Siêu Rộng)</SelectItem>
+              <SelectItem value="16:9">16:9 (Ngang)</SelectItem>
+              <SelectItem value="3:2">3:2</SelectItem>
+              <SelectItem value="5:4">5:4</SelectItem>
+              <SelectItem value="1:1">1:1 (Vuông)</SelectItem>
+              <SelectItem value="4:5">4:5</SelectItem>
+              <SelectItem value="2:3">2:3 (Dọc)</SelectItem>
+              <SelectItem value="9:16">9:16 (Dọc Cao)</SelectItem>
+              <SelectItem value="9:21">9:21 (Dọc Dài)</SelectItem>
+            </SelectContent>
         </Select>
       </div>
 

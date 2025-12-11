@@ -51,7 +51,7 @@ useEffect(() => {
     const load = async () => {
       const res = await getAllChapters({ bookId });
       const list = Array.isArray(res) ? res : res.content ?? [];
-      setChapters(list.filter((c: any) => c.progressStatus === 0)); // IN_REVIEW
+      setChapters(list.filter((c: any) => c.progressStatus === 0));
     };
     load();
   }, [bookId]);
@@ -85,12 +85,6 @@ useEffect(() => {
 
     setOpen(false);
   };
-
-
-
-
-
-
 
 
 
@@ -196,14 +190,14 @@ useEffect(() => {
                 <Button
 
                   className="bg-red-600"
-                  onClick={() => handleReview(2)}
+                  onClick={() => handleReview(1)}
                 >
                   Từ chối
                 </Button>
 
                 <Button
                   className="bg-green-600"
-                  onClick={() => handleReview(3)}
+                  onClick={() => handleReview(2)}
                 >
                   Duyệt
                 </Button>

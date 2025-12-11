@@ -17,7 +17,7 @@ export interface OrderResponse {
   orderId: string;
   amount: number;
   totalPrice: number;
-  status: string;
+  status: number;
   cartId: string;
   walletId: string;
   createdAt?: string;

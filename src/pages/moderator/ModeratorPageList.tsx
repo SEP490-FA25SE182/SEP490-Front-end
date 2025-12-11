@@ -2,15 +2,21 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ModeratorLayout from "./ModeratorLayout";
 import { getAllPages } from "@/services/BookManageService";
+import type { Page } from "@/services/BookManageService";
+
 
 export default function ModeratorPageList() {
   const { chapterId } = useParams<{ chapterId: string }>();
-  const [pages, setPages] = useState<any[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const navigate = useNavigate();
+
 
   useEffect(() => {
     getAllPages({ chapterId }).then((res) => {
-      const list = Array.isArray(res) ? res : res.content ?? [];
+      const list: Page[] = Array.isArray(res) ? res : res.content ?? [];
+
+      list.sort((a: Page, b: Page) => a.pageNumber - b.pageNumber);
+
       setPages(list);
     });
   }, [chapterId]);

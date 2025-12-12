@@ -101,8 +101,12 @@ export default function AuthorProfile() {
 
   const renderGender = (g?: string | null) => {
     if (!g) return "-";
-    if (g === "MALE") return "Nam";
-    if (g === "FEMALE") return "Nữ";
+    const norm = String(g).toLowerCase();
+    if (norm === "male" || norm === "m") return "Nam";
+    if (norm === "female" || norm === "f") return "Nữ";
+    // fallback: nếu backend dùng MALE/FEMALE khác, vẫn trả về nguyên g
+    if (String(g).toUpperCase() === "MALE") return "Nam";
+    if (String(g).toUpperCase() === "FEMALE") return "Nữ";
     return g;
   };
 
@@ -125,7 +129,7 @@ export default function AuthorProfile() {
     if (!t) return "-";
     const meta = TRANS_TYPE_META[t];
     if (!meta) return t;
-    return `${meta.label} (${meta.sign})`;
+    return meta.label; // không in dấu +/- nữa
   };
 
   const getTransSign = (t?: string): "" | "+" | "-" => {
@@ -436,12 +440,15 @@ export default function AuthorProfile() {
                         Giới tính
                       </label>
                       {isEditing ? (
-                        <Input
+                        <select
                           value={edited?.gender ?? ""}
-                          onChange={(e) =>
-                            onChangeField("gender", e.target.value)
-                          }
-                        />
+                          onChange={(e) => onChangeField("gender", e.target.value)}
+                          className="bg-transparent text-white border border-white/20 p-2 rounded"
+                        >
+                          <option value="">-- Chọn giới tính --</option>
+                          <option value="male">Nam</option>
+                          <option value="female">Nữ</option>
+                        </select>
                       ) : (
                         <div className="text-white">
                           {renderGender(user?.gender)}
@@ -449,7 +456,7 @@ export default function AuthorProfile() {
                       )}
 
                       <label className="text-white/70 text-xs">
-                        Royalty (%)
+                        Phí tác quyền (%)
                       </label>
                       {isEditing ? (
                         <Input
@@ -474,8 +481,7 @@ export default function AuthorProfile() {
                         />
                       ) : (
                         <div className="text-white">
-                          {(user?.royalty ?? 0) + "%"
-                          }
+                          {(edited?.royalty ?? user?.royalty ?? 0) + "%"}
                         </div>
                       )}
                     </div>
@@ -667,20 +673,21 @@ export default function AuthorProfile() {
                                         tx.type ??
                                         tx.tranType ??
                                         tx.transactionType;
-                                      const sign = getTransSign(rawType);
-                                      const amountNumber = Number(amount);
+                                      let sign = getTransSign(rawType);
+                                      const amountNumber = Number(amount || 0);
+
+                                      // nếu backend không cung cấp kiểu nhưng amount âm, suy ngược sign từ amount
+                                      if (!sign) {
+                                        if (amountNumber < 0) sign = "-";
+                                        else if (amountNumber > 0) sign = "+";
+                                      }
+
+                                      const colorClass =
+                                        sign === "+" ? "text-emerald-400" : sign === "-" ? "text-red-400" : "";
 
                                       return (
-                                        <TableCell
-                                          className={`text-white ${sign === "+"
-                                              ? "text-emerald-400"
-                                              : sign === "-"
-                                                ? "text-red-400"
-                                                : ""
-                                            }`}
-                                        >
-                                          {sign ? `${sign} ` : ""}
-                                          {formatCurrency(amountNumber)}
+                                        <TableCell className={`text-white ${colorClass}`}>
+                                          {formatCurrency(Math.abs(amountNumber))}
                                         </TableCell>
                                       );
                                     })()}

@@ -41,43 +41,54 @@ export default function OrderManagementPage() {
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
   const [convertedImageUrl, setConvertedImageUrl] = useState("");
 
+  const ORDER_STATUS = {
+    UNORDERED: 0,
+    PENDING: 1,
+    PROCESSING: 2,
+    SHIPPING: 3,
+    DELIVERED: 4,
+    RECEIVED: 5,
+    CANCELLED: 6,
+    RETURNED: 7,
+  } as const;
 
-  // ===============================
-  //  STATUS MAP
-  // ===============================
   const mapOrderStatus = (status: number) => {
     switch (status) {
-      case 0: return "Chưa đặt hàng";
-      case 1: return "Chờ xác nhận";
-      case 2: return "Đang xử lý";
-      case 3: return "Đang vận chuyển";
-      case 4: return "Đã giao thành công";
-      case 5: return "Đã hủy";
-      case 6: return "Đã trả hàng";
+      case ORDER_STATUS.UNORDERED: return "Chưa đặt hàng";
+      case ORDER_STATUS.PENDING: return "Chờ xác nhận";
+      case ORDER_STATUS.PROCESSING: return "Đang xử lý";
+      case ORDER_STATUS.SHIPPING: return "Đang vận chuyển";
+      case ORDER_STATUS.DELIVERED: return "Đã giao (chờ xác nhận)";
+      case ORDER_STATUS.RECEIVED: return "Đã nhận hàng";
+      case ORDER_STATUS.CANCELLED: return "Đã hủy";
+      case ORDER_STATUS.RETURNED: return "Đã trả hàng";
       default: return "Không xác định";
     }
   };
 
   const getStatusColor = (status: number) => {
     switch (status) {
-      case 0: return "bg-gray-100 text-gray-600";
-      case 1: return "bg-yellow-100 text-yellow-600";
-      case 2: return "bg-blue-100 text-blue-600";
-      case 3: return "bg-indigo-100 text-indigo-600";
-      case 4: return "bg-green-100 text-green-600";
-      case 5: return "bg-red-100 text-red-600";
-      case 6: return "bg-purple-100 text-purple-600";
+      case ORDER_STATUS.UNORDERED: return "bg-gray-100 text-gray-600";
+      case ORDER_STATUS.PENDING: return "bg-yellow-100 text-yellow-600";
+      case ORDER_STATUS.PROCESSING: return "bg-blue-100 text-blue-600";
+      case ORDER_STATUS.SHIPPING: return "bg-indigo-100 text-indigo-600";
+      case ORDER_STATUS.DELIVERED: return "bg-emerald-100 text-emerald-600";
+      case ORDER_STATUS.RECEIVED: return "bg-green-100 text-green-600";
+      case ORDER_STATUS.CANCELLED: return "bg-red-100 text-red-600";
+      case ORDER_STATUS.RETURNED: return "bg-purple-100 text-purple-600";
       default: return "bg-gray-100 text-gray-500";
     }
   };
 
   const getAllowedStatuses = (current: number) => {
-    if (current === 1) return [2, 3, 4];
-    if (current === 2) return [3, 4];
-    if (current === 3) return [4];
-    return []; // 0,4,5,6 không cho đổi nữa
+    switch (current) {
+      case ORDER_STATUS.PENDING: return [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.PROCESSING: return [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.SHIPPING: return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.DELIVERED: return [ORDER_STATUS.RECEIVED]; // thường user xác nhận, nhưng admin vẫn có thể set nếu cần
+      default: return []; // 0,5,6,7 không cho đổi
+    }
   };
-
 
   // ===============================
   //  FETCH ALL ORDERS
@@ -182,16 +193,15 @@ export default function OrderManagementPage() {
       });
 
       // 5️⃣ Đổi order status → 5 (Đã hoàn tiền)
-      await OrderService.updateOrder(refundOrder.orderId, { status: 5 });
+      // Sau khi hoàn tiền xong -> CANCELLED (6)
+      await OrderService.updateOrder(refundOrder.orderId, { status: ORDER_STATUS.CANCELLED });
 
-      // 6️⃣ Update UI local ngay lập tức
       setOrders((prev) =>
         prev.map((o) =>
-          o.orderId === refundOrder.orderId
-            ? { ...o, status: 5 }
-            : o
+          o.orderId === refundOrder.orderId ? { ...o, status: ORDER_STATUS.CANCELLED } : o
         )
       );
+
 
       toast.success("Duyệt hoàn tiền thành công!");
 
@@ -303,7 +313,7 @@ export default function OrderManagementPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              {[0, 1, 2, 3, 4, 5, 6].map((s) => (
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((s) => (
                 <SelectItem key={s} value={String(s)}>
                   {mapOrderStatus(s)}
                 </SelectItem>
@@ -385,7 +395,7 @@ export default function OrderManagementPage() {
                             </TableCell>
 
                             <TableCell className="text-right flex gap-2 justify-end">
-                              {Number(order.status) === 6 && (
+                              {Number(order.status) === ORDER_STATUS.RETURNED && (
                                 <Button
                                   size="sm"
                                   className="bg-purple-600 text-white"

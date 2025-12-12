@@ -21,9 +21,6 @@ import { TransactionService, type TransactionRequest } from "@/services/Transact
 import { UploadService } from "@/services/FirebaseService";
 import { resolveFirebaseUrl } from "@/firebase";
 
-
-
-
 export default function TransactionPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
@@ -47,34 +44,30 @@ export default function TransactionPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewReturnImageUrl, setPreviewReturnImageUrl] = useState("");
 
+  const ORDER_STATUS = {
+    UNORDERED: 0,
+    PENDING: 1,
+    PROCESSING: 2,
+    SHIPPING: 3,
+    DELIVERED: 4,
+    RECEIVED: 5,
+    CANCELLED: 6,
+    RETURNED: 7,
+  } as const;
 
-
-
-
-
-  // 🔹 Map status enum (BE trả byte)
   const mapOrderStatus = (status: number) => {
     switch (status) {
-      case 0:
-        return "Chưa đặt hàng";
-      case 1:
-        return "Chờ xác nhận";
-      case 2:
-        return "Đang xử lý";
-      case 3:
-        return "Đang vận chuyển";
-      case 4:
-        return "Đã giao thành công";
-      case 5:
-        return "Đã hủy";
-      case 6:
-        return "Đã trả hàng";
-      default:
-        return "Không xác định";
+      case ORDER_STATUS.UNORDERED: return "Chưa đặt hàng";
+      case ORDER_STATUS.PENDING: return "Chờ xác nhận";
+      case ORDER_STATUS.PROCESSING: return "Đang xử lý";
+      case ORDER_STATUS.SHIPPING: return "Đang vận chuyển";
+      case ORDER_STATUS.DELIVERED: return "Đã giao (chờ xác nhận)";
+      case ORDER_STATUS.RECEIVED: return "Đã nhận hàng";
+      case ORDER_STATUS.CANCELLED: return "Đã hủy";
+      case ORDER_STATUS.RETURNED: return "Đã trả hàng";
+      default: return "Không xác định";
     }
   };
-
-
 
   // 🧩 Fetch danh sách order theo cartId
   useEffect(() => {
@@ -196,10 +189,18 @@ export default function TransactionPage() {
 
       // 1️⃣ Update Order → RETURN (6) + gửi thêm reason + imageUrl
       await OrderService.updateOrder(order.orderId, {
-        status: 6,
+        status: ORDER_STATUS.RETURNED,
         reason,
         imageUrl
       });
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId
+            ? { ...o, status: ORDER_STATUS.RETURNED, reason, imageUrl }
+            : o
+        )
+      );
 
       // 2️⃣ Lấy transaction PAYMENT cũ
       const paymentTrans = await getPaymentTransaction(order.orderId);
@@ -245,26 +246,21 @@ export default function TransactionPage() {
     }
   }
 
-
-
-
   async function handleConfirmReceived(order: OrderResponse, onSuccess?: () => void) {
     try {
       toast.loading("Đang xác nhận...");
 
-      // Cập nhật đơn → 4 (Đã giao thành công)
-      await OrderService.updateOrder(order.orderId, { status: 4 });
+      // DELIVERED (4) -> RECEIVED (5)
+      await OrderService.updateOrder(order.orderId, { status: ORDER_STATUS.RECEIVED });
 
-      // Cập nhật UI
       setOrders((prev) =>
         prev.map((o) =>
-          o.orderId === order.orderId ? { ...o, status: 4 } : o
+          o.orderId === order.orderId ? { ...o, status: ORDER_STATUS.RECEIVED } : o
         )
       );
 
-      toast.success("Cảm ơn bạn! Đơn hàng đã được xác nhận.");
-      if (onSuccess) onSuccess();
-
+      toast.success("Cảm ơn bạn! Đã xác nhận nhận hàng.");
+      onSuccess?.();
     } catch (err) {
       console.error("❌ Lỗi xác nhận đơn:", err);
       toast.error("Không thể xác nhận đơn hàng.");
@@ -272,9 +268,6 @@ export default function TransactionPage() {
       toast.dismiss();
     }
   }
-
-
-
 
   // 🧾 Xem chi tiết
   const handleOpenDetail = async (payment: any) => {
@@ -450,7 +443,7 @@ export default function TransactionPage() {
                           {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã giao thành công) */}
                           {selected?.status === 4 && !userFeedbackMap[item.bookId] && (
                             <Button
-                              className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
+                              className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
                               onClick={async () => {
                                 setSelectedBook(item);
                                 setOpenFeedback(true);
@@ -483,19 +476,17 @@ export default function TransactionPage() {
               <div className="flex justify-between mt-6 items-center">
 
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
-                {Number(selected?.status) === 3 && (
+                {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
                   <Button
                     className="bg-green-600 text-white hover:bg-green-700"
-                    onClick={() =>
-                      handleConfirmReceived(selected as OrderResponse, () => setSelected(null))
-                    }
+                    onClick={() => handleConfirmReceived(selected as OrderResponse, () => setSelected(null))}
                   >
                     Đã nhận hàng
                   </Button>
                 )}
 
                 {/* 🟥 Nút “Trả hàng” khi status = 4 (Đã giao) */}
-                {Number(selected?.status) === 4 && (
+                {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
                   <Button
                     variant="destructive"
                     onClick={() => {
@@ -503,8 +494,7 @@ export default function TransactionPage() {
                       setReturnReason("");
                       setReturnImageUrl("");
                       setOpenReturnDialog(true);
-                    }
-                    }
+                    }}
                   >
                     Trả hàng
                   </Button>
@@ -589,7 +579,7 @@ export default function TransactionPage() {
             {/* ✅ Nếu chưa có feedback → gửi mới */}
             {!existingFeedback ? (
               <Button
-                className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
                 onClick={async () => {
                   if (!user?.email || !selectedBook) return;
                   try {
@@ -631,7 +621,7 @@ export default function TransactionPage() {
               /* ✏️ Nếu đã có feedback → xem hoặc chỉnh sửa */
               <Button
                 className={`${isEditing
-                  ? "bg-gradient-to-l from-[#764BA2] to-[#667EEA]"
+                  ? "bg-linear-to-l from-[#764BA2] to-[#667EEA]"
                   : "bg-[#3B2A66]"
                   } text-white hover:opacity-90`}
                 onClick={async () => {

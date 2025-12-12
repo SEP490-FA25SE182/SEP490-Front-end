@@ -95,6 +95,59 @@ export default function TransactionPage() {
     }
   };
 
+  const TRANS_STATUS = {
+    NOT_PAID: 0,
+    PROCESSING: 1,
+    CANCELED: 2,
+    PAID: 3,
+  } as const;
+
+  const mapTransactionStatus = (status: number) => {
+    switch (status) {
+      case TRANS_STATUS.NOT_PAID:
+        return "Chưa thanh toán";
+      case TRANS_STATUS.PROCESSING:
+        return "Đang xử lý";
+      case TRANS_STATUS.CANCELED:
+        return "Đã huỷ";
+      case TRANS_STATUS.PAID:
+        return "Đã thanh toán";
+      default:
+        return "Không xác định";
+    }
+  };
+
+  function getRefundStep(status: number) {
+    // 0 NOT_PAID -> step 1 (mới gửi)
+    // 1 PROCESSING -> step 2 (đang hoàn)
+    // 2 CANCELED -> step 3 (kết thúc - huỷ)
+    // 3 PAID -> step 3 (kết thúc - đã hoàn)
+    if (status === TRANS_STATUS.NOT_PAID) return 1;
+    if (status === TRANS_STATUS.PROCESSING) return 2;
+    if (status === TRANS_STATUS.CANCELED) return 3;
+    if (status === TRANS_STATUS.PAID) return 3;
+    return 1;
+  }
+
+  function getRefundEndLabel(status: number) {
+    return status === TRANS_STATUS.CANCELED ? "Đã huỷ" : "Đã hoàn tiền";
+  }
+
+  function getRefundMessage(status: number) {
+    if (status === TRANS_STATUS.NOT_PAID) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã được ghi nhận và đang chờ xử lý.";
+    }
+    if (status === TRANS_STATUS.PROCESSING) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đang được Rookies xử lý. Với đơn hàng hoàn tiền sẽ cần thời gian xử lý từ 3 - 14 ngày để ngân hàng cập nhật tiền hoàn. Bạn có thể liên hệ ngân hàng để kiểm tra ngày cập nhật cụ thể nhé.";
+    }
+    if (status === TRANS_STATUS.CANCELED) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã bị huỷ hoặc không thể xử lý.";
+    }
+    // PAID
+    return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã được xử lý. Tiền hoàn sẽ được cập nhật vào ví theo giao dịch hoàn tiền.";
+  }
+
+
   // 🧩 Fetch danh sách order theo cartId
   useEffect(() => {
     async function fetchOrders() {
@@ -371,6 +424,74 @@ export default function TransactionPage() {
     }
   };
 
+  function RefundTimeline({
+    step,
+    endLabel,
+  }: {
+    step: number; // 1..3
+    endLabel: string;
+  }) {
+    const activeText = "text-gray-800";
+    const inactiveText = "text-gray-400";
+
+    const dotActive = "bg-purple-600 border-purple-600";
+    const dotInactive = "bg-white border-gray-300";
+
+    const lineActive = "bg-purple-600";
+    const lineInactive = "bg-gray-200";
+
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-between">
+          {/* Dot 1 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 1 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 1 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 1 ? activeText : inactiveText}`}>
+              Gửi yêu cầu
+            </p>
+          </div>
+
+          {/* Line 1 */}
+          <div className={`h-1 flex-1 mx-3 rounded ${step >= 2 ? lineActive : lineInactive}`} />
+
+          {/* Dot 2 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 2 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 2 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 2 ? activeText : inactiveText}`}>
+              Đang hoàn tiền
+            </p>
+          </div>
+
+          {/* Line 2 */}
+          <div className={`h-1 flex-1 mx-3 rounded ${step >= 3 ? lineActive : lineInactive}`} />
+
+          {/* Dot 3 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 3 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 3 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 3 ? activeText : inactiveText}`}>
+              {endLabel}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       {/* 🆕 Bộ lọc */}
@@ -577,47 +698,72 @@ export default function TransactionPage() {
               Không tìm thấy giao dịch hoàn tiền (REFUND).
             </p>
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl border p-3 bg-gray-50">
-                <p className="text-sm text-gray-500">Tổng tiền hoàn</p>
-                <p className="text-lg font-bold">{formatVND(refundTrans.totalPrice)}</p>
-              </div>
+            (() => {
+              const tStatus = Number(refundTrans.status);
+              const step = getRefundStep(tStatus);
+              const endLabel = getRefundEndLabel(tStatus);
+              const message = getRefundMessage(tStatus);
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500">Hoàn tiền vào</p>
-                  <p className="font-semibold">Ví tiền Rookies</p>
+              return (
+                <div className="space-y-5">
+                  {/* ✅ Timeline giống ảnh */}
+                  <RefundTimeline step={step} endLabel={endLabel} />
+
+                  {/* ✅ Text mô tả dưới timeline */}
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {message}
+                  </p>
+
+                  {/* Thông tin hoàn tiền */}
+                  <div className="rounded-xl border p-4 bg-gray-50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Tổng tiền hoàn</span>
+                      <span className="font-bold">{formatVND(refundTrans.totalPrice)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Hoàn tiền vào</span>
+                      <span className="font-semibold">Ví tiền Rookies</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Yêu cầu bởi</span>
+                      <span className="font-semibold">Người mua</span>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <span className="text-sm text-gray-500">Lý do</span>
+                      <p className="font-medium whitespace-pre-wrap mt-1">
+                        {selected?.reason || "Không có"}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Thời gian</span>
+                      <span className="font-medium">
+                        {refundTrans.updatedAt
+                          ? new Date(refundTrans.updatedAt).toLocaleString("vi-VN")
+                          : refundTrans.createdAt
+                            ? new Date(refundTrans.createdAt).toLocaleString("vi-VN")
+                            : "-"}
+                      </span>
+                    </div>
+
+                    {/* optional: show raw transaction status */}
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Trạng thái giao dịch</span>
+                      <span className="font-semibold">{mapTransactionStatus(tStatus)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setOpenRefundDetail(false)}>
+                      Đóng
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500">Yêu cầu bởi</p>
-                  <p className="font-semibold">Người mua</p>
-                </div>
-              </div>
-
-              <div className="rounded-xl border p-3">
-                <p className="text-gray-500 text-sm">Lý do</p>
-                <p className="whitespace-pre-wrap font-medium">
-                  {selected?.reason || "Không có"}
-                </p>
-              </div>
-
-              <div className="rounded-xl border p-3">
-                <p className="text-gray-500 text-sm">Thời gian hoàn tiền</p>
-                <p className="font-medium">
-                  {refundTrans.updatedAt
-                    ? new Date(refundTrans.updatedAt).toLocaleString("vi-VN")
-                    : refundTrans.createdAt
-                      ? new Date(refundTrans.createdAt).toLocaleString("vi-VN")
-                      : "-"}
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setOpenRefundDetail(false)}>
-                  Đóng
-                </Button>
-              </div>
-            </div>
+              );
+            })()
           )}
         </DialogContent>
       </Dialog>

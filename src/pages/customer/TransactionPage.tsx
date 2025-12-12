@@ -43,6 +43,9 @@ export default function TransactionPage() {
   const [isReturnSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewReturnImageUrl, setPreviewReturnImageUrl] = useState("");
+  const [openRefundDetail, setOpenRefundDetail] = useState(false);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundTrans, setRefundTrans] = useState<any | null>(null);
 
   const ORDER_STATUS = {
     UNORDERED: 0,
@@ -66,6 +69,29 @@ export default function TransactionPage() {
       case ORDER_STATUS.CANCELLED: return "Đã hủy";
       case ORDER_STATUS.RETURNED: return "Đã trả hàng";
       default: return "Không xác định";
+    }
+  };
+
+  const getStatusBadgeClass = (status: number) => {
+    switch (status) {
+      case ORDER_STATUS.UNORDERED:
+        return "bg-gray-100 text-gray-600";
+      case ORDER_STATUS.PENDING:
+        return "bg-yellow-100 text-yellow-600";
+      case ORDER_STATUS.PROCESSING:
+        return "bg-blue-100 text-blue-600";
+      case ORDER_STATUS.SHIPPING:
+        return "bg-indigo-100 text-indigo-600";
+      case ORDER_STATUS.DELIVERED:
+        return "bg-emerald-100 text-emerald-700";
+      case ORDER_STATUS.RECEIVED:
+        return "bg-green-100 text-green-700";
+      case ORDER_STATUS.CANCELLED:
+        return "bg-red-100 text-red-700";
+      case ORDER_STATUS.RETURNED:
+        return "bg-purple-100 text-purple-700";
+      default:
+        return "bg-gray-100 text-gray-600";
     }
   };
 
@@ -112,7 +138,7 @@ export default function TransactionPage() {
             return true;
           });
 
-          setOrders(filtered);
+          setOrders(filtered.map((o) => ({ ...o, status: Number(o.status) })));
         } else {
           toast("Không tìm thấy đơn hàng nào.");
         }
@@ -159,8 +185,6 @@ export default function TransactionPage() {
     }
   };
 
-
-
   async function getPaymentTransaction(orderId: string) {
     const res = await TransactionService.search({ orderId });
 
@@ -176,6 +200,29 @@ export default function TransactionPage() {
     );
   }
 
+  async function fetchRefundTransaction(orderId: string) {
+    setRefundLoading(true);
+    try {
+      const res = await TransactionService.searchTransactions({
+        orderId,
+        transType: "REFUND",
+        page: 0,
+        size: 10,
+      });
+
+      const list = Array.isArray(res?.content) ? res.content : [];
+      const found = list.find((t: any) => t.transType === "REFUND") || null;
+
+      setRefundTrans(found);
+      setOpenRefundDetail(true);
+    } catch (e) {
+      console.error(e);
+      toast.error("Không thể tải chi tiết hoàn tiền.");
+    } finally {
+      setRefundLoading(false);
+    }
+  }
+
   async function handleReturn(
     order: OrderResponse,
     reason: string,
@@ -187,13 +234,14 @@ export default function TransactionPage() {
 
       toast.loading("Đang xử lý trả hàng...");
 
-      // 1️⃣ Update Order → RETURN (6) + gửi thêm reason + imageUrl
+      // 1) Update order lần 1: set RETURNED + reason + image
       await OrderService.updateOrder(order.orderId, {
         status: ORDER_STATUS.RETURNED,
         reason,
-        imageUrl
+        imageUrl,
       });
 
+      // update UI luôn cho user thấy đã gửi yêu cầu
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === order.orderId
@@ -202,15 +250,14 @@ export default function TransactionPage() {
         )
       );
 
-      // 2️⃣ Lấy transaction PAYMENT cũ
+      // 2) Lấy transaction PAYMENT cũ
       const paymentTrans = await getPaymentTransaction(order.orderId);
-
       if (!paymentTrans) {
         toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
         return;
       }
 
-      // 3️⃣ Tạo REFUND transaction dựa theo PAYMENT cũ
+      // 3) Tạo REFUND transaction
       const payload: TransactionRequest = {
         totalPrice: order.totalPrice,
         status: 1,
@@ -221,23 +268,24 @@ export default function TransactionPage() {
         isActived: "ACTIVE",
       };
 
-      console.log("📦 REFUND PAYLOAD:", payload);
-
       await TransactionService.create(payload);
 
-      // 4️⃣ Cập nhật UI
+      // 4) ✅ Gọi THÊM updateOrder lần 2 để đảm bảo status vẫn là RETURNED (7)
+      await OrderService.updateOrder(order.orderId, {
+        status: ORDER_STATUS.RETURNED,
+      });
+
+      // 5) Update UI (KHÔNG set về 6 nữa)
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === order.orderId
-            ? { ...o, status: 6, reason, imageUrl }
+            ? { ...o, status: ORDER_STATUS.RETURNED, reason, imageUrl }
             : o
         )
       );
 
       toast.success("Yêu cầu trả hàng đã được tạo thành công!");
-
-      if (onSuccess) onSuccess();
-
+      onSuccess?.();
     } catch (err) {
       console.error("❌ Lỗi refund:", err);
       toast.error("Không thể xử lý yêu cầu trả hàng.");
@@ -245,6 +293,7 @@ export default function TransactionPage() {
       toast.dismiss();
     }
   }
+
 
   async function handleConfirmReceived(order: OrderResponse, onSuccess?: () => void) {
     try {
@@ -361,14 +410,9 @@ export default function TransactionPage() {
             </div>
             <div className="text-right">
               <span
-                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${order.status === 4
-                  ? "bg-green-100 text-green-600"
-                  : order.status === 1
-                    ? "bg-yellow-100 text-yellow-600"
-                    : order.status === 5
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
+                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeClass(
+                  Number(order.status)
+                )}`}
               >
                 {mapOrderStatus(Number(order.status))}
               </span>
@@ -500,6 +544,15 @@ export default function TransactionPage() {
                   </Button>
                 )}
 
+                {Number(selected?.status) === ORDER_STATUS.RETURNED && (
+                  <Button
+                    className="bg-purple-600 text-white hover:bg-purple-700"
+                    onClick={() => fetchRefundTransaction(selected.orderId)}
+                  >
+                    Chi tiết hoàn tiền
+                  </Button>
+                )}
+
                 <Button variant="outline" onClick={() => setSelected(null)}>
                   Đóng
                 </Button>
@@ -511,7 +564,63 @@ export default function TransactionPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={openRefundDetail} onOpenChange={setOpenRefundDetail}>
+        <DialogContent className="max-w-md bg-white text-gray-800">
+          <DialogHeader>
+            <DialogTitle>Chi tiết hoàn tiền</DialogTitle>
+          </DialogHeader>
 
+          {refundLoading ? (
+            <p className="text-center text-gray-500 py-6">Đang tải...</p>
+          ) : !refundTrans ? (
+            <p className="text-center text-gray-500 py-6">
+              Không tìm thấy giao dịch hoàn tiền (REFUND).
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border p-3 bg-gray-50">
+                <p className="text-sm text-gray-500">Tổng tiền hoàn</p>
+                <p className="text-lg font-bold">{formatVND(refundTrans.totalPrice)}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Hoàn tiền vào</p>
+                  <p className="font-semibold">Ví tiền Rookies</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Yêu cầu bởi</p>
+                  <p className="font-semibold">Người mua</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <p className="text-gray-500 text-sm">Lý do</p>
+                <p className="whitespace-pre-wrap font-medium">
+                  {selected?.reason || "Không có"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <p className="text-gray-500 text-sm">Thời gian hoàn tiền</p>
+                <p className="font-medium">
+                  {refundTrans.updatedAt
+                    ? new Date(refundTrans.updatedAt).toLocaleString("vi-VN")
+                    : refundTrans.createdAt
+                      ? new Date(refundTrans.createdAt).toLocaleString("vi-VN")
+                      : "-"}
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setOpenRefundDetail(false)}>
+                  Đóng
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* 🔹 DIALOG FEEDBACK HOÀN CHỈNH */}
       <Dialog open={openFeedback} onOpenChange={setOpenFeedback}>

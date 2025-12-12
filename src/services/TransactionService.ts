@@ -149,23 +149,26 @@ export const TransactionService = {
 
   async searchTransactions(params?: {
     walletId?: string;
+    orderId?: string;              // ✅ add
+    transType?: TransactionType;   // ✅ add
     page?: number;
     size?: number;
     sort?: string[];
   }) {
-    // build query params
     const qp = new URLSearchParams();
+
     if (params?.walletId) qp.set("walletId", String(params.walletId));
+    if (params?.orderId) qp.set("orderId", String(params.orderId));           // ✅ add
+    if (params?.transType) qp.set("transType", String(params.transType));     // ✅ add
+
     if (params?.page !== undefined) qp.set("page", String(params.page));
     if (params?.size !== undefined) qp.set("size", String(params.size));
     if (params?.sort) params.sort.forEach((s) => qp.append("sort", s));
 
-    const res = await axios.get(
-      `${API_RK}/transactions/search?${qp.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      }
-    );
-    return res.data; // BE trả về { content: [...], pageable: {...} }
+    const res = await axios.get(`${API_RK}/transactions/search?${qp.toString()}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    });
+
+    return res.data; // { content: [...], pageable... }
   },
 };

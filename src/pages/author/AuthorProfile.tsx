@@ -14,6 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { getWalletByUserId, type Wallet } from "@/services/WalletService";
 import { getUserById, updateUser, type User } from "@/services/UserService";
 import { UploadService } from "@/services/FirebaseService";
@@ -436,23 +443,23 @@ export default function AuthorProfile() {
                         </div>
                       )}
 
-                      <label className="text-white/70 text-xs">
-                        Giới tính
-                      </label>
+                      <label className="text-white/70 text-xs">Giới tính</label>
                       {isEditing ? (
-                        <select
+                        <Select
                           value={edited?.gender ?? ""}
-                          onChange={(e) => onChangeField("gender", e.target.value)}
-                          className="bg-transparent text-white border border-white/20 p-2 rounded"
+                          onValueChange={(v) => onChangeField("gender", v)}
                         >
-                          <option value="">-- Chọn giới tính --</option>
-                          <option value="male">Nam</option>
-                          <option value="female">Nữ</option>
-                        </select>
+                          <SelectTrigger className="w-full bg-transparent text-white border border-white/20">
+                            <SelectValue placeholder="-- Chọn giới tính --" />
+                          </SelectTrigger>
+
+                          <SelectContent className="bg-[#111827] text-white border border-white/10">
+                            <SelectItem value="male">Nam</SelectItem>
+                            <SelectItem value="female">Nữ</SelectItem>
+                          </SelectContent>
+                        </Select>
                       ) : (
-                        <div className="text-white">
-                          {renderGender(user?.gender)}
-                        </div>
+                        <div className="text-white">{renderGender(user?.gender)}</div>
                       )}
 
                       <label className="text-white/70 text-xs">
@@ -471,6 +478,7 @@ export default function AuthorProfile() {
                               ? String(edited.royalty)
                               : ""
                           }
+                          disabled
                           onChange={(e) =>
                             onChangeField(
                               "royalty",

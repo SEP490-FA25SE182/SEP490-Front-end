@@ -49,7 +49,13 @@ export default function ImagePageCreate() {
   const userId = user.userId;
 
   // fetch only illustrations created by this author
-  const { data: illustrations = [] } = useSearchIllustrations({ userId });
+  const { data: illustrations = [] } = useSearchIllustrations({
+    userId,
+    page: 0,
+    size: 9999,               // ✅ lấy hết
+    sort: ["updatedAt,desc"], // ✅ gần đây nhất trước (nếu BE support)
+  });
+
 
   // when pageData loaded, fill pageNumber + content + chapterId
   useEffect(() => {
@@ -62,21 +68,21 @@ export default function ImagePageCreate() {
 
   // Memoize illustrationsList with userId filtering
   const illustrationsList = useMemo(() => {
-    if (!Array.isArray(illustrations) || illustrations.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(illustrations) || illustrations.length === 0) return [];
+
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
 
     return illustrations
-      .filter((it: any) =>
-        it.isActived === "ACTIVE" &&
-        !!it.illustrationId
-      )
+      .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,
         url: it.imageUrl,
+        updatedAt: it.updatedAt, // optional, để debug
       }));
   }, [illustrations]);
+
 
   // when user selects an illustration -> set selected id and replace content with image url
   const handleSelectIllustration = (id: string) => {
@@ -186,8 +192,8 @@ export default function ImagePageCreate() {
                     type="button"
                     onClick={() => handleSelectIllustration(it.id)}
                     className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id
-                        ? "border-purple-500 ring-2 ring-purple-200"
-                        : "border-white/10 hover:border-gray-300"
+                      ? "border-purple-500 ring-2 ring-purple-200"
+                      : "border-white/10 hover:border-gray-300"
                       }`}
                   >
                     <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">

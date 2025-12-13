@@ -53,7 +53,11 @@ export default function TextPageEdit() {
   const { data: audiosData } = useSearchAudios({
     userId: user.userId,
     isActived: "ACTIVE",
+    page: 0,
+    size: 9999,                 // ✅ lấy hết
+    sort: ["updatedAt,desc"],   // ✅ mới nhất trước (nếu BE support)
   });
+
 
   // === Lấy liên kết page-audio hiện có ===
   const { data: pageAudiosData } = useSearchPageAudios({
@@ -85,17 +89,21 @@ export default function TextPageEdit() {
   useEffect(() => {
     const audioItems = audiosData ?? [];
 
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
+      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
-        // convert gs:// -> https so browser can fetch it
         url: gsToHttp(a.audioUrl),
+        updatedAt: a.updatedAt, // optional để debug
       }));
 
     setAudioList(activeList);
   }, [audiosData]);
+
 
   // === Tự động điền audio đã liên kết ===
   useEffect(() => {
@@ -292,8 +300,8 @@ export default function TextPageEdit() {
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {updatePage.isPending ||
-                updatePageAudio.isPending ||
-                createPageAudio.isPending
+                  updatePageAudio.isPending ||
+                  createPageAudio.isPending
                   ? "Đang lưu..."
                   : "Lưu thay đổi"}
               </Button>

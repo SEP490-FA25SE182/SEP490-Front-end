@@ -17,7 +17,7 @@ import { getAllBooks, type Book } from "@/services/BookService";
 const BookCard: React.FC<{ book: Book }> = ({ book }) => (
   <Link to={`/book/${book.bookId}`}>
     <div className="cursor-pointer group">
-      <div className="aspect-[3/4] overflow-hidden rounded-xl mb-3 shadow-xl">
+      <div className="aspect-3/4 overflow-hidden rounded-xl mb-3 shadow-xl">
         <img
           src={book.coverUrl}
           alt={book.bookName}
@@ -80,18 +80,20 @@ export default function Homepage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
-
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
       try {
-        const data = await getAllBooks(genreId ? { genreId } : undefined);
+        // ✅ gửi luôn isActived lên BE để lọc từ server
+        const data = await getAllBooks({
+          ...(genreId ? { genreId } : {}),
+          isActived: "INACTIVE",
+        });
 
-        const publishedBooks = data.filter(
-          (book: Book) => book.publicationStatus === 1
-        );
+        // ✅ fallback lọc client (phòng khi BE chưa lọc)
+        const inactiveBooks = data.filter((book: Book) => book.isActived === "INACTIVE");
 
-        setBooks(publishedBooks);
+        setBooks(inactiveBooks);
       } catch (error) {
         console.error("❌ Lỗi khi fetch sách:", error);
         setBooks([]);
@@ -102,7 +104,6 @@ export default function Homepage() {
 
     fetchBooks();
   }, [genreId]);
-
 
 
   // 🧠 Xử lý phân loại sách
@@ -122,7 +123,7 @@ export default function Homepage() {
     .slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
@@ -134,7 +135,7 @@ export default function Homepage() {
             <section className="mb-12 max-w-5xl mx-auto">
               <div className="flex justify-center mb-12">
                 <Link to="/blog">
-                  <button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 cursor-pointer">
+                  <button className="bg-linear-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 cursor-pointer">
                     ✨ Cộng đồng chia sẻ & Review
                   </button>
                 </Link>
@@ -145,7 +146,7 @@ export default function Homepage() {
                   {advertisementImages.map((image, index) => (
                     <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">
                       <div className="overflow-hidden rounded-lg">
-                        <div className="aspect-[16/9] relative">
+                        <div className="aspect-video relative">
                           <img
                             src={image}
                             alt={`Advertisement ${index + 1}`}

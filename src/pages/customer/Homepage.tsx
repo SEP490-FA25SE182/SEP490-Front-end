@@ -84,16 +84,18 @@ export default function Homepage() {
     const fetchBooks = async () => {
       setLoading(true);
       try {
-        // ✅ gửi luôn isActived lên BE để lọc từ server
+        // ✅ lọc ACTIVE từ server
         const data = await getAllBooks({
           ...(genreId ? { genreId } : {}),
-          isActived: "INACTIVE",
+          isActived: "ACTIVE",
         });
 
         // ✅ fallback lọc client (phòng khi BE chưa lọc)
-        const inactiveBooks = data.filter((book: Book) => book.isActived === "INACTIVE");
+        const activeBooks = (Array.isArray(data) ? data : []).filter(
+          (book: Book) => book.isActived === "ACTIVE"
+        );
 
-        setBooks(inactiveBooks);
+        setBooks(activeBooks);
       } catch (error) {
         console.error("❌ Lỗi khi fetch sách:", error);
         setBooks([]);
@@ -106,6 +108,7 @@ export default function Homepage() {
   }, [genreId]);
 
 
+
   // 🧠 Xử lý phân loại sách
   const newestBooks = [...books]
     .sort(
@@ -115,8 +118,9 @@ export default function Homepage() {
     .slice(0, 4);
 
   const recommendedBooks = [...books]
-    .filter((b) => b.publicationStatus === 1 || b.isActived === "ACTIVE")
+    .filter((b) => b.publicationStatus === 1) // hoặc logic bạn muốn
     .slice(0, 4);
+
 
   const categoryBooks = [...books]
     .filter((b) => b.progressStatus === 0)

@@ -84,7 +84,7 @@ export default function ImagePageEdit() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     size: 9999,
-    sort: ["updatedAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["updatedAt,asc"], // ✅ sort từ server (nếu hỗ trợ)
   });
 
   // === Lấy liên kết page-illustration hiện có ===

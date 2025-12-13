@@ -26,7 +26,7 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
   const { data: markersResp } = useSearchMarkers({
     page: 0,
     size: 9999,                 // ✅ lấy tất cả
-    sort: ["updatedAt,desc"],   // ✅ gần đây nhất trước
+    sort: ["updatedAt,asc"],   // ✅ gần đây nhất trước
     // isActived: "ACTIVE",      // nếu BE hỗ trợ filter thì bật lên
   });
   const markers = markersResp?.content ?? [];

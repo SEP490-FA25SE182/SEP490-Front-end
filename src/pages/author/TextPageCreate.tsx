@@ -54,7 +54,7 @@ export default function TextPageCreate() {
     isActived: "ACTIVE",
     page: 0,
     size: 9999,                 // ✅ lấy hết (hoặc đủ lớn)
-    sort: ["updatedAt,desc"],   // ✅ mới nhất trước (nếu BE support)
+    sort: ["updatedAt,asc"],   // ✅ mới nhất trước (nếu BE support)
   });
 
 

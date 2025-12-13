@@ -40,7 +40,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,asc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["updatedAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
   });
 
   // reset state khi đóng dialog

@@ -89,21 +89,21 @@ export default function TextPageEdit() {
   useEffect(() => {
     const audioItems = audiosData ?? [];
 
+    // để audio KHÔNG có updatedAt nằm đầu (hoặc bạn đổi Infinity nếu muốn nó nằm cuối)
     const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
 
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
-      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
+      .sort((a, b) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ ASC: cũ -> mới (mới nhất ở cuối)
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
         url: gsToHttp(a.audioUrl),
-        updatedAt: a.updatedAt, // optional để debug
+        updatedAt: a.updatedAt,
       }));
 
     setAudioList(activeList);
   }, [audiosData]);
-
 
   // === Tự động điền audio đã liên kết ===
   useEffect(() => {

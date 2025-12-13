@@ -13,7 +13,6 @@ import {
 } from "@/services/AIService";
 
 import {
-  useGetAllMarkers,
   useAttachMarkerToPage,
   useSearchMarkers,
 } from "@/services/ARService";
@@ -57,12 +56,21 @@ export default function ImagePageEdit() {
   const updatePageIllustration = useUpdatePageIllustration();
 
   // ================= MARKER HOOKS =================
-  const { data: allMarkers = [] } = useGetAllMarkers();
+  const { data: allMarkersResp } = useSearchMarkers({
+    page: 0,
+    size: 9999,
+    sort: ["updatedAt,desc"], // mới nhất trước (nếu BE hỗ trợ)
+  });
+  const allMarkers = allMarkersResp?.content ?? [];
+
   const attachMarkerMutation = useAttachMarkerToPage();
   // marker đang gắn với page (nếu có)
   const { data: pageMarkersResp } = useSearchMarkers(
-    pageId ? { pageId } : undefined
+    pageId
+      ? { pageId, page: 0, size: 1, sort: ["updatedAt,desc"] }
+      : undefined
   );
+
 
   // local form state
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -160,15 +168,21 @@ export default function ImagePageEdit() {
   // =============== MARKER LIST + PAGE MARKER ===============
   const markerList = useMemo(() => {
     if (!Array.isArray(allMarkers)) return [];
-    return allMarkers
+
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+
+    return [...allMarkers]
       .filter((m: any) => m.isActived === "ACTIVE")
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ mới nhất trước
       .map((m: any) => ({
         id: m.markerId ?? m.id,
         code: m.markerCode,
         type: m.markerType,
         imageUrl: m.imageUrl,
+        updatedAt: m.updatedAt,
       }));
   }, [allMarkers]);
+
 
   // auto select marker đang gắn với page (nếu có)
   useEffect(() => {

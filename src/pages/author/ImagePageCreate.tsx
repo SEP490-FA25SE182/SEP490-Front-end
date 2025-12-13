@@ -53,7 +53,7 @@ export default function ImagePageCreate() {
     userId,
     page: 0,
     size: 9999,               // ✅ lấy hết
-    sort: ["updatedAt,desc"], // ✅ gần đây nhất trước (nếu BE support)
+    sort: ["updatedAt,asc"], // ✅ gần đây nhất trước (nếu BE support)
   });
 
 
@@ -74,7 +74,7 @@ export default function ImagePageCreate() {
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ asc
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,

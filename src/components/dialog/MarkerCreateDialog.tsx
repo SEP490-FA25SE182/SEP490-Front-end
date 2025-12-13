@@ -77,11 +77,13 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const illustrationList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
 
-    const toTime = (d?: string) => (d ? new Date(d).getTime() : Number.POSITIVE_INFINITY);
+    // thiếu updatedAt => đẩy xuống cuối
+    const toTime = (d?: string) =>
+      d ? new Date(d).getTime() : Number.POSITIVE_INFINITY;
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!(it.illustrationId ?? it.id))
-      .sort((a: any, b: any) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ sớm nhất trước
+      .sort((a: any, b: any) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ ASC: cũ -> mới
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,
@@ -89,6 +91,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
         updatedAt: it.updatedAt,
       }));
   }, [illustrations]);
+
 
 
   const selectedIllustration = illustrationList.find(

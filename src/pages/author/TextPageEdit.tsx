@@ -55,7 +55,7 @@ export default function TextPageEdit() {
     isActived: "ACTIVE",
     page: 0,
     size: 9999,                 // ✅ lấy hết
-    sort: ["updatedAt,desc"],   // ✅ mới nhất trước (nếu BE support)
+    sort: ["updatedAt,asc"],   // ✅ mới nhất trước (nếu BE support)
   });
 
 

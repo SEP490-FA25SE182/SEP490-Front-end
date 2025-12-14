@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { getAllBooks, type Book } from "@/services/BookService";
 import { getAllGenres, type Genre } from "@/services/GenreService";
+import { motion, type Variants, useReducedMotion } from "framer-motion";
 
 /* -------------------------
  🖼 Danh sách ảnh quảng cáo
@@ -21,6 +22,44 @@ const advertisementImages = [
   "https://cdn.vectorstock.com/i/500p/03/70/book-club-poster-community-reading-vector-47710370.jpg",
   "https://img.freepik.com/free-vector/horizontal-sale-banner-template-world-book-day-celebration_23-2150184563.jpg?semt=ais_hybrid&w=740&q=80",
 ];
+
+/* -------------------------
+ 🎞 Motion helpers
+-------------------------- */
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0 },
+};
+
+const stagger: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+  },
+};
+
+const SectionReveal: React.FC<
+  React.PropsWithChildren<{ className?: string }>
+> = ({ children, className }) => {
+  const reduceMotion = useReducedMotion();
+
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <motion.section
+      className={className}
+      variants={fadeUp}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+    >
+      {children}
+    </motion.section>
+  );
+};
 
 /* -------------------------
  🧩 BookCard
@@ -51,69 +90,105 @@ const BookCard: React.FC<{ book: Book }> = ({ book }) => (
 );
 
 /* -------------------------
- 🧩 Section: Grid sách
+ 🧩 Section: Grid sách (có stagger)
 -------------------------- */
 const BookGridSection: React.FC<{
   title: string;
   books: Book[];
   emptyText?: string;
-}> = ({ title, books, emptyText = "Không có sách nào để hiển thị." }) => (
-  <section className="mb-12">
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-2xl font-bold text-white uppercase tracking-wide">
-        {title}
-      </h2>
-    </div>
+}> = ({ title, books, emptyText = "Không có sách nào để hiển thị." }) => {
+  const reduceMotion = useReducedMotion();
 
-    {books.length > 0 ? (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {books.map((book) => (
-          <BookCard key={book.bookId} book={book} />
-        ))}
+  return (
+    <SectionReveal className="mb-12">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white uppercase tracking-wide">
+          {title}
+        </h2>
       </div>
-    ) : (
-      <p className="text-center text-white/60">{emptyText}</p>
-    )}
-  </section>
-);
+
+      {books.length > 0 ? (
+        <motion.div
+          variants={reduceMotion ? undefined : stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"
+        >
+          {books.map((book) => (
+            <motion.div
+              key={book.bookId}
+              variants={reduceMotion ? undefined : fadeUp}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+            >
+              <BookCard book={book} />
+            </motion.div>
+          ))}
+        </motion.div>
+      ) : (
+        <p className="text-center text-white/60">{emptyText}</p>
+      )}
+    </SectionReveal>
+  );
+};
 
 /* -------------------------
- 🎠 Section: 
+ 🎠 Section: Carousel sách (có stagger nhẹ)
 -------------------------- */
 const BookCarouselSection: React.FC<{
   title: string;
   books: Book[];
-}> = ({ title, books }) => (
-  <section className="mb-12">
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-2xl font-bold text-white uppercase tracking-wide">
-        {title}
-      </h2>
-    </div>
+}> = ({ title, books }) => {
+  const reduceMotion = useReducedMotion();
 
-    {books.length > 0 ? (
-      <Carousel opts={{ align: "start", loop: true }} className="w-full">
-        <CarouselContent className="-ml-3 md:-ml-4">
-          {books.map((book) => (
-            <CarouselItem
-              key={book.bookId}
-              className="pl-3 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
-            >
-              <BookCard book={book} />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious />
-        <CarouselNext />
-      </Carousel>
-    ) : (
-      <p className="text-center text-white/60">Không có sách nào để hiển thị.</p>
-    )}
-  </section>
-);
+  return (
+    <SectionReveal className="mb-12">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white uppercase tracking-wide">
+          {title}
+        </h2>
+      </div>
+
+      {books.length > 0 ? (
+        <motion.div
+          variants={reduceMotion ? undefined : fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+        >
+          <Carousel opts={{ align: "start", loop: true }} className="w-full">
+            <CarouselContent className="-ml-3 md:-ml-4">
+              {books.map((book) => (
+                <CarouselItem
+                  key={book.bookId}
+                  className="pl-3 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
+                >
+                  <motion.div
+                    variants={reduceMotion ? undefined : fadeUp}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                  >
+                    <BookCard book={book} />
+                  </motion.div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </motion.div>
+      ) : (
+        <p className="text-center text-white/60">Không có sách nào để hiển thị.</p>
+      )}
+    </SectionReveal>
+  );
+};
 
 /* -------------------------
- 📚 Genres Row (kéo ngang)
+ 📚 Genres Row (kéo ngang + click vẫn chạy)
 -------------------------- */
 function useDragScroll() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -128,7 +203,7 @@ function useDragScroll() {
     hasCapture: false,
   });
 
-  const THRESHOLD = 6; // kéo > 6px mới tính là drag
+  const THRESHOLD = 6;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = ref.current;
@@ -149,21 +224,15 @@ function useDragScroll() {
     if (!el || !state.current.isDown) return;
 
     const dx = e.clientX - state.current.startX;
-
-    // chưa vượt ngưỡng thì coi như click, không scroll
     if (!state.current.moved && Math.abs(dx) < THRESHOLD) return;
 
-    // bắt đầu drag
     if (!state.current.moved) {
       state.current.moved = true;
-      state.current.blockClick = true; // sẽ chặn click sau khi drag
-      // capture sau khi đã drag thật sự
+      state.current.blockClick = true;
       try {
         el.setPointerCapture(state.current.pointerId);
         state.current.hasCapture = true;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     el.scrollLeft = state.current.scrollLeft - dx;
@@ -178,12 +247,9 @@ function useDragScroll() {
     if (state.current.hasCapture) {
       try {
         el.releasePointerCapture(state.current.pointerId);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
-    // click sẽ xảy ra sau pointerup, nên giữ blockClick 1 tick
     if (state.current.blockClick) {
       window.setTimeout(() => {
         state.current.blockClick = false;
@@ -192,7 +258,6 @@ function useDragScroll() {
     }
   };
 
-  // chặn click nếu vừa drag
   const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
     if (state.current.blockClick) {
       e.preventDefault();
@@ -202,7 +267,6 @@ function useDragScroll() {
 
   return { ref, onPointerDown, onPointerMove, onPointerUp, onClickCapture };
 }
-
 
 /* -------------------------
  🌟 Homepage
@@ -218,7 +282,7 @@ export default function Homepage() {
 
   const drag = useDragScroll();
 
-  // ✅ Fetch books (lọc theo genreId giống header: /genre/:genreId)
+  // Fetch books
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
@@ -323,14 +387,13 @@ export default function Homepage() {
     <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
-      {/* ===== MAIN (khớp độ rộng header: max-w-7xl) ===== */}
       <main className="max-w-7xl mx-auto px-6 py-10">
         {loading ? (
           <p className="text-center text-white">Đang tải dữ liệu sách...</p>
         ) : !genreId ? (
           <>
-            {/* ===== Banner carousel (HẸP lại = width header) ===== */}
-            <section className="mb-10">
+            {/* Banner */}
+            <SectionReveal className="mb-10">
               <Carousel opts={{ align: "start", loop: true }} className="w-full">
                 <CarouselContent>
                   {advertisementImages.map((image, index) => (
@@ -348,18 +411,19 @@ export default function Homepage() {
                 <CarouselPrevious />
                 <CarouselNext />
               </Carousel>
-            </section>
+            </SectionReveal>
 
-            <div className="flex justify-center mb-8">
+            {/* Button blog */}
+            <SectionReveal className="flex justify-center mb-8">
               <Link to="/blog">
                 <button className="bg-linear-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 cursor-pointer">
                   ✨ Cộng đồng chia sẻ & Review
                 </button>
               </Link>
-            </div>
+            </SectionReveal>
 
-            {/* ===== Genres (kéo ngang) ===== */}
-            <section className="mb-12">
+            {/* Genres */}
+            <SectionReveal className="mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white uppercase tracking-wide">
                   Thể loại
@@ -377,63 +441,62 @@ export default function Homepage() {
               ) : genres.length === 0 ? (
                 <p className="text-white/60">Không có thể loại nào.</p>
               ) : (
-                <div
+                <motion.div
+                  variants={stagger}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, amount: 0.2 }}
                   ref={drag.ref}
                   onPointerDown={drag.onPointerDown}
                   onPointerMove={drag.onPointerMove}
                   onPointerUp={drag.onPointerUp}
                   onClickCapture={drag.onClickCapture}
                   className="
-    flex gap-4 overflow-x-auto select-none
-    cursor-grab active:cursor-grabbing
-    py-2 pr-2
-    [scrollbar-width:none] [-ms-overflow-style:none]
-    [&::-webkit-scrollbar]:hidden
-  "
+                    flex gap-4 overflow-x-auto select-none
+                    cursor-grab active:cursor-grabbing
+                    py-2 pr-2
+                    [scrollbar-width:none] [-ms-overflow-style:none]
+                    [&::-webkit-scrollbar]:hidden
+                  "
                 >
                   {genres.map((g) => (
-                    <Link
-                      key={g.genreId}
-                      to={`/genre/${g.genreId}`}
-                      className="
-        min-w-[180px] sm:min-w-[220px]
-        rounded-2xl border border-[#2a3857]
-        bg-white/5 hover:bg-white/10
-        transition-all duration-200
-        px-4 py-4
-        shadow-lg
-      "
-                    >
-                      <div className="flex flex-col gap-1">
-                        <p className="text-white font-semibold line-clamp-1">
-                          {g.genreName}
-                        </p>
-                        <p className="text-white/50 text-sm">
-                          Khám phá ngay →
-                        </p>
-                      </div>
-                    </Link>
+                    <motion.div key={g.genreId} variants={fadeUp}>
+                      <Link
+                        to={`/genre/${g.genreId}`}
+                        className="
+                          block
+                          min-w-[180px] sm:min-w-[220px]
+                          rounded-2xl border border-[#2a3857]
+                          bg-white/5 hover:bg-white/10
+                          transition-all duration-200
+                          px-4 py-4
+                          shadow-lg
+                        "
+                      >
+                        <div className="flex flex-col gap-1">
+                          <p className="text-white font-semibold line-clamp-1">
+                            {g.genreName}
+                          </p>
+                          <p className="text-white/50 text-sm">
+                            Khám phá ngay →
+                          </p>
+                        </div>
+                      </Link>
+                    </motion.div>
                   ))}
-                </div>
-
+                </motion.div>
               )}
-            </section>
+            </SectionReveal>
 
-            {/* ===== Books sections ===== */}
+            {/* Books sections */}
             <BookGridSection title="Sách mới nhất" books={newestBooks} />
-            <BookCarouselSection
-              title="Khám phá"
-              books={carouselBooks1}
-            />
+            <BookCarouselSection title="Khám phá" books={carouselBooks1} />
             <BookGridSection title="Trending" books={trendingBooks} />
             <BookGridSection title="Featured" books={featuredBooks} />
-            <BookCarouselSection
-              title="Dành cho bạn"
-              books={carouselBooks2}
-            />
+            <BookCarouselSection title="Dành cho bạn" books={carouselBooks2} />
           </>
         ) : books.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-white">
+          <SectionReveal className="flex flex-col items-center justify-center h-[50vh] text-white">
             <p className="text-xl font-medium text-white/70 mb-4">
               Không có sách nào thuộc thể loại này
             </p>
@@ -443,7 +506,7 @@ export default function Homepage() {
             >
               Quay lại trang chủ
             </Link>
-          </div>
+          </SectionReveal>
         ) : (
           <BookGridSection title="Thể loại" books={books} />
         )}

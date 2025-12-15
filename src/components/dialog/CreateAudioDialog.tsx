@@ -372,8 +372,8 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
               Hoặc tạo audio bằng AI
             </div>
             <Button
-              size="sm"
               variant={mode === "ai" ? "default" : "outline"}
+              className="bg-linear-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 hover:text-white"
               onClick={() => setMode("ai")}
             >
               Tạo audio bằng AI

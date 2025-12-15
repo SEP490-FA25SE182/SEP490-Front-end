@@ -133,7 +133,7 @@ export default function AssetToolPanel({
                         onClick={() => onAddExistingModel(a, assetUrl)}
                         className="rounded border p-1 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500"
                       >
-                        <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
+                        <div className="w-full aspect-4/3 bg-gray-100 flex items-center justify-center overflow-hidden">
                           {assetUrl && isGlb ? (
                             <div className="w-full h-full">
                               <GLBThumbnail url={assetUrl} />
@@ -170,7 +170,7 @@ export default function AssetToolPanel({
                 onClick={() => setQuizDialogOpen(true)}
                 className="rounded border p-2 overflow-hidden focus:outline-none bg-[#081323] hover:border-purple-500 text-left"
               >
-                <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden rounded">
+                <div className="w-full aspect-4/3 bg-gray-100 flex items-center justify-center overflow-hidden rounded">
                   <img
                     src={quizThumbnailUrl}
                     alt="Trò chơi mở cửa"
@@ -194,7 +194,7 @@ export default function AssetToolPanel({
               <div className="text-sm text-gray-400">Đang tải marker...</div>
             ) : displayImageUrl ? (
               <div className="w-full bg-[#020617] rounded border border-white/10 p-2">
-                <div className="w-full aspect-[4/3] overflow-hidden rounded bg-black/40 flex items-center justify-center">
+                <div className="w-full aspect-4/3 overflow-hidden rounded bg-black/40 flex items-center justify-center">
                   <img
                     src={displayImageUrl}
                     alt="Marker image"
@@ -216,14 +216,14 @@ export default function AssetToolPanel({
         {panelType === "model" && (
           <>
             <Button
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              className="flex-1 bg-white text-black hover:bg-gray-200"
               onClick={onUploadClick}
             >
               Upload Model
             </Button>
 
             <Button
-              className="flex-1 bg-pink-500 hover:bg-pink-600 text-white"
+              className="flex-1 bg-linear-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 hover:text-white"
               onClick={onOpenCreateAIDialog}
             >
               Tạo với AI

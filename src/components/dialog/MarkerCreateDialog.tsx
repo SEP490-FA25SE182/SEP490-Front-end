@@ -36,7 +36,12 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const {
     data: illustrations = [],
     isLoading: loadingIllustrations,
-  } = useSearchIllustrations({ userId });
+  } = useSearchIllustrations({
+    userId,
+    page: 0,
+    size: 9999,
+    sort: ["updatedAt,asc"], // ✅ sort từ server (nếu hỗ trợ)
+  });
 
   // reset state khi đóng dialog
   useEffect(() => {
@@ -69,19 +74,25 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       .toLowerCase();
 
   // map illustration data cho UI
-  const illustrationList = useMemo(
-    () =>
-      Array.isArray(illustrations)
-        ? illustrations
-          .filter((it: any) => it.isActived === "ACTIVE")
-          .map((it: any) => ({
-            id: it.illustrationId ?? it.id,
-            title: it.title,
-            url: it.imageUrl,
-          }))
-        : [],
-    [illustrations]
-  );
+  const illustrationList = useMemo(() => {
+    if (!Array.isArray(illustrations)) return [];
+
+    // thiếu updatedAt => đẩy xuống cuối
+    const toTime = (d?: string) =>
+      d ? new Date(d).getTime() : Number.POSITIVE_INFINITY;
+
+    return illustrations
+      .filter((it: any) => it.isActived === "ACTIVE" && !!(it.illustrationId ?? it.id))
+      .sort((a: any, b: any) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ ASC: cũ -> mới
+      .map((it: any) => ({
+        id: it.illustrationId ?? it.id,
+        title: it.title,
+        url: it.imageUrl,
+        updatedAt: it.updatedAt,
+      }));
+  }, [illustrations]);
+
+
 
   const selectedIllustration = illustrationList.find(
     (i) => i.id === selectedIllustrationId
@@ -235,8 +246,8 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
                     type="button"
                     onClick={() => setSelectedIllustrationId(it.id)}
                     className={`rounded border p-0 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id
-                        ? "ring-2 ring-purple-300 border-purple-500"
-                        : "border-white/10 hover:border-gray-300"
+                      ? "ring-2 ring-purple-300 border-purple-500"
+                      : "border-white/10 hover:border-gray-300"
                       }`}
                   >
                     <div className="w-20 h-20 bg-gray-100 flex items-center justify-center overflow-hidden">

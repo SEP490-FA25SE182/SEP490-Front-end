@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { useGetAllMarkers, useAttachMarkerToPage } from "@/services/ARService";
+import {
+  useAttachMarkerToPage,
+  useSearchMarkers,
+} from "@/services/ARService";
 
 interface Props {
   isOpen: boolean;
@@ -20,7 +23,13 @@ interface Props {
 
 export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
   const { toast } = useToast();
-  const { data: markers = [] } = useGetAllMarkers();
+  const { data: markersResp } = useSearchMarkers({
+    page: 0,
+    size: 9999,                 // ✅ lấy tất cả
+    sort: ["updatedAt,asc"],   // ✅ gần đây nhất trước
+    // isActived: "ACTIVE",      // nếu BE hỗ trợ filter thì bật lên
+  });
+  const markers = markersResp?.content ?? [];
   const attachMarkerMutation = useAttachMarkerToPage();
   const [selectedMarkerId, setSelectedMarkerId] = useState<string>("");
 
@@ -30,13 +39,18 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
 
   const markerList = useMemo(() => {
     if (!Array.isArray(markers)) return [];
+
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+
     return markers
       .filter((m: any) => m.isActived === "ACTIVE")
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
       .map((m: any) => ({
-        id: m.markerId ?? m.id,
+        id: (m.markerId ?? m.id) as string,
         code: m.markerCode,
         type: m.markerType,
         imageUrl: m.imageUrl,
+        updatedAt: m.updatedAt,
       }));
   }, [markers]);
 

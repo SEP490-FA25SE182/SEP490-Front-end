@@ -9,7 +9,9 @@ export type TransactionType =
   | "REFUND"
   | "SETTLEMENT"
   | "DEPOSIT"
-  | "WITHDRAW";
+  | "WITHDRAW"
+  | "AI_IMAGE"
+  | "AI_MODEL";
 
 /* ------------------------------------------
  🧩 RESPONSE khi BE trả về Transaction
@@ -17,7 +19,7 @@ export type TransactionType =
 export interface TransactionResponse {
   transactionId: string;
   totalPrice: number;
-  status: number; 
+  status: number;
   orderCode: number;
   orderId: string;
   paymentMethodId: string;
@@ -34,18 +36,30 @@ export interface TransactionSearchResponse {
   totalElements: number;
 }
 
-
 /* ------------------------------------------
  🧩 REQUEST BODY chuẩn khi tạo transaction
 ------------------------------------------ */
 export interface TransactionRequest {
   totalPrice: number;
-  status: number; 
-  orderId?: string | null; 
+  status: number;
+  orderId?: string | null;
   paymentMethodId: string;
   walletId: string;
   transType: TransactionType; // PAYMENT / REFUND / ...
   isActived: "ACTIVE" | "INACTIVE";
+}
+
+/* ⭐ NEW: Request riêng cho API /transactions/wallet/pay */
+export interface WalletPayRequest {
+  totalPrice: number;
+  status: number;
+  userId: string;
+  transType: TransactionType; // "AI_IMAGE", "AI_MODEL", ...
+  isActived: "ACTIVE" | "INACTIVE";
+
+  // các field dưới đây là OPTIONAL, muốn thì gửi, không thì bỏ
+  paymentMethodId?: string | null;
+  walletId?: string | null;
 }
 
 /* ------------------------------------------
@@ -70,6 +84,21 @@ export const TransactionService = {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     });
+    return res.data;
+  },
+
+  // ⭐ NEW: Thanh toán bằng ví /api/rookie/transactions/wallet/pay
+  async walletPay(data: WalletPayRequest): Promise<TransactionResponse> {
+    const res = await axios.post(
+      `${API_RK}/transactions/wallet/pay`,
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
     return res.data;
   },
 
@@ -98,8 +127,8 @@ export const TransactionService = {
 
   // 🔹 Tìm kiếm transaction theo: orderId, paymentMethodId, transType, ...
   async search(
-  params?: Record<string, string | number | undefined>
-): Promise<TransactionSearchResponse> {
+    params?: Record<string, string | number | undefined>
+  ): Promise<TransactionSearchResponse> {
     const query = new URLSearchParams(
       Object.entries(params || {}).reduce((acc, [k, v]) => {
         if (v !== undefined && v !== null && v !== "") {
@@ -118,17 +147,28 @@ export const TransactionService = {
     return res.data; // { content: [...], totalPages, totalElements }
   },
 
-  async searchTransactions(params?: { walletId?: string; page?: number; size?: number; sort?: string[] }) {
-    // build query params
+  async searchTransactions(params?: {
+    walletId?: string;
+    orderId?: string;              // ✅ add
+    transType?: TransactionType;   // ✅ add
+    page?: number;
+    size?: number;
+    sort?: string[];
+  }) {
     const qp = new URLSearchParams();
+
     if (params?.walletId) qp.set("walletId", String(params.walletId));
+    if (params?.orderId) qp.set("orderId", String(params.orderId));           // ✅ add
+    if (params?.transType) qp.set("transType", String(params.transType));     // ✅ add
+
     if (params?.page !== undefined) qp.set("page", String(params.page));
     if (params?.size !== undefined) qp.set("size", String(params.size));
-    if (params?.sort) params.sort.forEach(s => qp.append("sort", s));
+    if (params?.sort) params.sort.forEach((s) => qp.append("sort", s));
 
     const res = await axios.get(`${API_RK}/transactions/search?${qp.toString()}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     });
-    return res.data; // BE trả về { content: [...], pageable: {...} }
-  }
+
+    return res.data; // { content: [...], pageable... }
+  },
 };

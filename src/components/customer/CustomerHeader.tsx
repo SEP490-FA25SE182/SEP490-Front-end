@@ -154,7 +154,7 @@ const CustomerHeader = () => {
         </div>
 
         {/* Divider */}
-        <div className="h-[1px] bg-[#2a3857]"></div>
+        <div className="h-px bg-[#2a3857]"></div>
 
         {/* Navigation */}
         {isHomePage && (

@@ -18,6 +18,16 @@ import {
 } from "@/services/AIService";
 import SpinningCubeLoader from "@/components/loading/SpinningCubeLoader";
 
+/* 🔹 ADD: dùng toast */
+import { useToast } from "@/components/ui/use-toast";
+/* 🔹 ADD: gọi API trừ tiền */
+import {
+  TransactionService,
+  type WalletPayRequest,
+} from "@/services/TransactionService";
+/* 🔹 ADD: lấy userId giống BookCreationWizard */
+import { getCurrentUserId } from "@/utils/authStorage";
+
 interface AIPromptPanelProps {
   onGenerated?: (payload: { imageUrl: string; aiGeneration?: any }) => void;
 }
@@ -77,8 +87,18 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
   const createAIGeneration = useCreateAIGeneration();
   const createAIGenerationTarget = useCreateAIGenerationTarget();
   const generateWithImage = useGenerateIllustrationWithImage();
+  const { toast } = useToast(); // 🔹 ADD
 
   const getUserId = (): string => {
+    // 🔹 ADD: ưu tiên lấy theo helper giống BookCreationWizard
+    try {
+      const uidFromStorage = getCurrentUserId();
+      if (uidFromStorage) return uidFromStorage;
+    } catch (e) {
+      console.warn("getCurrentUserId error:", e);
+    }
+
+    // phần cũ giữ nguyên
     try {
       const token = localStorage.getItem("token");
       if (token) {
@@ -117,6 +137,27 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
     };
 
     try {
+      // 🔹 ADD: gọi API trừ tiền trước khi tạo ảnh
+      const walletPayload: WalletPayRequest = {
+        totalPrice: 1000,
+        status: 3,
+        userId,
+        transType: "AI_IMAGE",
+        isActived: "ACTIVE",
+        paymentMethodId: "",
+        walletId: ""
+      };
+
+      console.log("[walletPay] payload:", walletPayload);
+      const walletRes = await TransactionService.walletPay(walletPayload);
+      console.log("[walletPay] response:", walletRes);
+
+      toast({
+        title: "Thanh toán thành công",
+        description: "Đã trừ 1.000đ từ ví của bạn.",
+      });
+
+      // 🔹 phần generate ảnh AI giữ nguyên
       const [genRes, aiGenRes] = await Promise.all([
         generateWithImage.mutateAsync({ userId, meta }),
         createAIGeneration.mutateAsync([
@@ -159,6 +200,12 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
       onGenerated?.({ imageUrl: imageUrl || "", aiGeneration: aiGenObj });
     } catch (error) {
       console.error("Error generating AI image:", error);
+      // 🔹 ADD: toast báo lỗi chung (thanh toán hoặc generate lỗi)
+      toast({
+        title: "Lỗi",
+        description: "Thanh toán hoặc tạo ảnh thất bại. Vui lòng thử lại.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -249,13 +296,17 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
           <SelectTrigger className="bg-[#1a2332] border-white/20 text-white">
             <SelectValue placeholder="Tỷ lệ khung hình" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1:1">1:1 (Square)</SelectItem>
-            <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-            <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-            <SelectItem value="2:3">2:3 (Portrait)</SelectItem>   {/* ✅ mới */}
-            <SelectItem value="5:7">5:7 (A5 gần đúng)</SelectItem> {/* ✅ mới */}
-          </SelectContent>
+            <SelectContent>
+              <SelectItem value="21:9">21:9 (Siêu Rộng)</SelectItem>
+              <SelectItem value="16:9">16:9 (Ngang)</SelectItem>
+              <SelectItem value="3:2">3:2</SelectItem>
+              <SelectItem value="5:4">5:4</SelectItem>
+              <SelectItem value="1:1">1:1 (Vuông)</SelectItem>
+              <SelectItem value="4:5">4:5</SelectItem>
+              <SelectItem value="2:3">2:3 (Dọc)</SelectItem>
+              <SelectItem value="9:16">9:16 (Dọc Cao)</SelectItem>
+              <SelectItem value="9:21">9:21 (Dọc Dài)</SelectItem>
+            </SelectContent>
         </Select>
       </div>
 
@@ -320,6 +371,10 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
           </SelectContent>
         </Select>
       </div>
+
+      <p className="text-sm font-light">
+        * Lưu ý, mỗi lần tạo ảnh bằng AI thì sẽ tiêu mất 1.000đ từ ví Rookies. Xin hãy kiểm tra số dư trong ví trước khi tạo ảnh.
+      </p>
 
       {generateWithImage.isPending && <SpinningCubeLoader />}
 

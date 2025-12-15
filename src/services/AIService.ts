@@ -43,6 +43,8 @@ export interface Illustration {
   title: string;
   isActived?: string;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface GenerateIllustrationMeta {
@@ -73,6 +75,8 @@ export interface Audio {
   title: string;
   isActived: string; // "ACTIVE" hoặc "INACTIVE"
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PageAudio {

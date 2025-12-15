@@ -172,9 +172,8 @@ export default function ImageCreate() {
               </div>
             ) : (
               <Button
-                size="sm"
                 onClick={() => setAiPanelOpen(true)}
-                className="ml-2 bg-purple-600 hover:bg-purple-700"
+                className="bg-linear-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 hover:text-white"
               >
                 Mở AI Panel
               </Button>

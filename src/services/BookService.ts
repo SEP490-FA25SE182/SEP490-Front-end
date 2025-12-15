@@ -20,6 +20,7 @@ export interface Book {
   createdAt: string;
   updatedAt: string;
   publishedDate: string | null;
+  review: string | null;
   genreId?: string;
   bookshelfId?: string;
   [key: string]: any;
@@ -99,7 +100,7 @@ export class BookService {
         ? Number(book.progressStatus)
         : book.progressStatus;
 
-    
+
     const price =
       typeof book.price === "string" ? Number(book.price) : book.price;
 
@@ -179,10 +180,29 @@ export class BookService {
   /* =======================================================
      ✏️ CẬP NHẬT SÁCH
   ======================================================== */
-  async updateBook(id: string, book: Partial<Book>): Promise<Book> {
-    const normalized = this.normalizeBookPayload(book);
-    const res = await api.put(`/users/books/${id}`, normalized);
-    return res.data;
+  async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
+    // 1. Lấy dữ liệu hiện tại của sách từ BE
+    const currentRes = await api.get<Book>(`/users/books/${id}`);
+    const current = currentRes.data;
+
+    // 2. Gộp book hiện tại với dữ liệu cần cập nhật (patch)
+    const merged: Partial<Book> = {
+      ...current,
+      ...patch,
+      bookId: current.bookId, // đảm bảo không mất bookId
+    };
+
+    // 3. Chuẩn hóa lại payload (ép kiểu number, default, v.v.)
+    const normalized = this.normalizeBookPayload(merged);
+
+    // 4. Gửi PUT lên BE
+    const res = await api.put<Book>(`/users/books/${id}`, normalized);
+    const updated = res.data;
+
+    // 5. Resolve lại coverUrl cho đồng bộ với getBookById / getBooks
+    updated.coverUrl = await resolveFirebaseUrl(updated.coverUrl);
+
+    return updated;
   }
 
   /* =======================================================

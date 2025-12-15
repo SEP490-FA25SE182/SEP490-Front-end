@@ -21,9 +21,6 @@ import { TransactionService, type TransactionRequest } from "@/services/Transact
 import { UploadService } from "@/services/FirebaseService";
 import { resolveFirebaseUrl } from "@/firebase";
 
-
-
-
 export default function TransactionPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
@@ -46,34 +43,109 @@ export default function TransactionPage() {
   const [isReturnSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewReturnImageUrl, setPreviewReturnImageUrl] = useState("");
+  const [openRefundDetail, setOpenRefundDetail] = useState(false);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundTrans, setRefundTrans] = useState<any | null>(null);
 
+  const ORDER_STATUS = {
+    UNORDERED: 0,
+    PENDING: 1,
+    PROCESSING: 2,
+    SHIPPING: 3,
+    DELIVERED: 4,
+    RECEIVED: 5,
+    CANCELLED: 6,
+    RETURNED: 7,
+  } as const;
 
-
-
-
-
-  // 🔹 Map status enum (BE trả byte)
   const mapOrderStatus = (status: number) => {
     switch (status) {
-      case 0:
-        return "Chưa đặt hàng";
-      case 1:
-        return "Chờ xác nhận";
-      case 2:
+      case ORDER_STATUS.UNORDERED: return "Chưa đặt hàng";
+      case ORDER_STATUS.PENDING: return "Chờ xác nhận";
+      case ORDER_STATUS.PROCESSING: return "Đang xử lý";
+      case ORDER_STATUS.SHIPPING: return "Đang vận chuyển";
+      case ORDER_STATUS.DELIVERED: return "Đã giao (chờ xác nhận)";
+      case ORDER_STATUS.RECEIVED: return "Đã nhận hàng";
+      case ORDER_STATUS.CANCELLED: return "Đã hủy";
+      case ORDER_STATUS.RETURNED: return "Đã trả hàng";
+      default: return "Không xác định";
+    }
+  };
+
+  const getStatusBadgeClass = (status: number) => {
+    switch (status) {
+      case ORDER_STATUS.UNORDERED:
+        return "bg-gray-100 text-gray-600";
+      case ORDER_STATUS.PENDING:
+        return "bg-yellow-100 text-yellow-600";
+      case ORDER_STATUS.PROCESSING:
+        return "bg-blue-100 text-blue-600";
+      case ORDER_STATUS.SHIPPING:
+        return "bg-indigo-100 text-indigo-600";
+      case ORDER_STATUS.DELIVERED:
+        return "bg-emerald-100 text-emerald-700";
+      case ORDER_STATUS.RECEIVED:
+        return "bg-green-100 text-green-700";
+      case ORDER_STATUS.CANCELLED:
+        return "bg-red-100 text-red-700";
+      case ORDER_STATUS.RETURNED:
+        return "bg-purple-100 text-purple-700";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  const TRANS_STATUS = {
+    NOT_PAID: 0,
+    PROCESSING: 1,
+    CANCELED: 2,
+    PAID: 3,
+  } as const;
+
+  const mapTransactionStatus = (status: number) => {
+    switch (status) {
+      case TRANS_STATUS.NOT_PAID:
+        return "Chưa thanh toán";
+      case TRANS_STATUS.PROCESSING:
         return "Đang xử lý";
-      case 3:
-        return "Đang vận chuyển";
-      case 4:
-        return "Đã giao thành công";
-      case 5:
-        return "Đã hủy";
-      case 6:
-        return "Đã trả hàng";
+      case TRANS_STATUS.CANCELED:
+        return "Đã huỷ";
+      case TRANS_STATUS.PAID:
+        return "Đã thanh toán";
       default:
         return "Không xác định";
     }
   };
 
+  function getRefundStep(status: number) {
+    // 0 NOT_PAID -> step 1 (mới gửi)
+    // 1 PROCESSING -> step 2 (đang hoàn)
+    // 2 CANCELED -> step 3 (kết thúc - huỷ)
+    // 3 PAID -> step 3 (kết thúc - đã hoàn)
+    if (status === TRANS_STATUS.NOT_PAID) return 1;
+    if (status === TRANS_STATUS.PROCESSING) return 2;
+    if (status === TRANS_STATUS.CANCELED) return 3;
+    if (status === TRANS_STATUS.PAID) return 3;
+    return 1;
+  }
+
+  function getRefundEndLabel(status: number) {
+    return status === TRANS_STATUS.CANCELED ? "Đã huỷ" : "Đã hoàn tiền";
+  }
+
+  function getRefundMessage(status: number) {
+    if (status === TRANS_STATUS.NOT_PAID) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã được ghi nhận và đang chờ xử lý.";
+    }
+    if (status === TRANS_STATUS.PROCESSING) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đang được Rookies xử lý. Với đơn hàng hoàn tiền sẽ cần thời gian xử lý từ 3 - 14 ngày để ngân hàng cập nhật tiền hoàn. Bạn có thể liên hệ ngân hàng để kiểm tra ngày cập nhật cụ thể nhé.";
+    }
+    if (status === TRANS_STATUS.CANCELED) {
+      return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã bị huỷ hoặc không thể xử lý.";
+    }
+    // PAID
+    return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã được xử lý. Tiền hoàn sẽ được cập nhật vào ví theo giao dịch hoàn tiền.";
+  }
 
 
   // 🧩 Fetch danh sách order theo cartId
@@ -119,7 +191,7 @@ export default function TransactionPage() {
             return true;
           });
 
-          setOrders(filtered);
+          setOrders(filtered.map((o) => ({ ...o, status: Number(o.status) })));
         } else {
           toast("Không tìm thấy đơn hàng nào.");
         }
@@ -166,8 +238,6 @@ export default function TransactionPage() {
     }
   };
 
-
-
   async function getPaymentTransaction(orderId: string) {
     const res = await TransactionService.search({ orderId });
 
@@ -183,6 +253,29 @@ export default function TransactionPage() {
     );
   }
 
+  async function fetchRefundTransaction(orderId: string) {
+    setRefundLoading(true);
+    try {
+      const res = await TransactionService.searchTransactions({
+        orderId,
+        transType: "REFUND",
+        page: 0,
+        size: 10,
+      });
+
+      const list = Array.isArray(res?.content) ? res.content : [];
+      const found = list.find((t: any) => t.transType === "REFUND") || null;
+
+      setRefundTrans(found);
+      setOpenRefundDetail(true);
+    } catch (e) {
+      console.error(e);
+      toast.error("Không thể tải chi tiết hoàn tiền.");
+    } finally {
+      setRefundLoading(false);
+    }
+  }
+
   async function handleReturn(
     order: OrderResponse,
     reason: string,
@@ -194,22 +287,30 @@ export default function TransactionPage() {
 
       toast.loading("Đang xử lý trả hàng...");
 
-      // 1️⃣ Update Order → RETURN (6) + gửi thêm reason + imageUrl
+      // 1) Update order lần 1: set RETURNED + reason + image
       await OrderService.updateOrder(order.orderId, {
-        status: 6,
+        status: ORDER_STATUS.RETURNED,
         reason,
-        imageUrl
+        imageUrl,
       });
 
-      // 2️⃣ Lấy transaction PAYMENT cũ
-      const paymentTrans = await getPaymentTransaction(order.orderId);
+      // update UI luôn cho user thấy đã gửi yêu cầu
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId
+            ? { ...o, status: ORDER_STATUS.RETURNED, reason, imageUrl }
+            : o
+        )
+      );
 
+      // 2) Lấy transaction PAYMENT cũ
+      const paymentTrans = await getPaymentTransaction(order.orderId);
       if (!paymentTrans) {
         toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
         return;
       }
 
-      // 3️⃣ Tạo REFUND transaction dựa theo PAYMENT cũ
+      // 3) Tạo REFUND transaction
       const payload: TransactionRequest = {
         totalPrice: order.totalPrice,
         status: 1,
@@ -220,23 +321,24 @@ export default function TransactionPage() {
         isActived: "ACTIVE",
       };
 
-      console.log("📦 REFUND PAYLOAD:", payload);
-
       await TransactionService.create(payload);
 
-      // 4️⃣ Cập nhật UI
+      // 4) ✅ Gọi THÊM updateOrder lần 2 để đảm bảo status vẫn là RETURNED (7)
+      await OrderService.updateOrder(order.orderId, {
+        status: ORDER_STATUS.RETURNED,
+      });
+
+      // 5) Update UI (KHÔNG set về 6 nữa)
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === order.orderId
-            ? { ...o, status: 6, reason, imageUrl }
+            ? { ...o, status: ORDER_STATUS.RETURNED, reason, imageUrl }
             : o
         )
       );
 
       toast.success("Yêu cầu trả hàng đã được tạo thành công!");
-
-      if (onSuccess) onSuccess();
-
+      onSuccess?.();
     } catch (err) {
       console.error("❌ Lỗi refund:", err);
       toast.error("Không thể xử lý yêu cầu trả hàng.");
@@ -246,25 +348,21 @@ export default function TransactionPage() {
   }
 
 
-
-
   async function handleConfirmReceived(order: OrderResponse, onSuccess?: () => void) {
     try {
       toast.loading("Đang xác nhận...");
 
-      // Cập nhật đơn → 4 (Đã giao thành công)
-      await OrderService.updateOrder(order.orderId, { status: 4 });
+      // DELIVERED (4) -> RECEIVED (5)
+      await OrderService.updateOrder(order.orderId, { status: ORDER_STATUS.RECEIVED });
 
-      // Cập nhật UI
       setOrders((prev) =>
         prev.map((o) =>
-          o.orderId === order.orderId ? { ...o, status: 4 } : o
+          o.orderId === order.orderId ? { ...o, status: ORDER_STATUS.RECEIVED } : o
         )
       );
 
-      toast.success("Cảm ơn bạn! Đơn hàng đã được xác nhận.");
-      if (onSuccess) onSuccess();
-
+      toast.success("Cảm ơn bạn! Đã xác nhận nhận hàng.");
+      onSuccess?.();
     } catch (err) {
       console.error("❌ Lỗi xác nhận đơn:", err);
       toast.error("Không thể xác nhận đơn hàng.");
@@ -272,9 +370,6 @@ export default function TransactionPage() {
       toast.dismiss();
     }
   }
-
-
-
 
   // 🧾 Xem chi tiết
   const handleOpenDetail = async (payment: any) => {
@@ -329,6 +424,74 @@ export default function TransactionPage() {
     }
   };
 
+  function RefundTimeline({
+    step,
+    endLabel,
+  }: {
+    step: number; // 1..3
+    endLabel: string;
+  }) {
+    const activeText = "text-gray-800";
+    const inactiveText = "text-gray-400";
+
+    const dotActive = "bg-purple-600 border-purple-600";
+    const dotInactive = "bg-white border-gray-300";
+
+    const lineActive = "bg-purple-600";
+    const lineInactive = "bg-gray-200";
+
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-between">
+          {/* Dot 1 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 1 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 1 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 1 ? activeText : inactiveText}`}>
+              Gửi yêu cầu
+            </p>
+          </div>
+
+          {/* Line 1 */}
+          <div className={`h-1 flex-1 mx-3 rounded ${step >= 2 ? lineActive : lineInactive}`} />
+
+          {/* Dot 2 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 2 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 2 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 2 ? activeText : inactiveText}`}>
+              Đang hoàn tiền
+            </p>
+          </div>
+
+          {/* Line 2 */}
+          <div className={`h-1 flex-1 mx-3 rounded ${step >= 3 ? lineActive : lineInactive}`} />
+
+          {/* Dot 3 */}
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 3 ? dotActive : dotInactive
+                }`}
+            >
+              <span className="text-white font-bold">{step >= 3 ? "✓" : ""}</span>
+            </div>
+            <p className={`mt-2 text-sm ${step >= 3 ? activeText : inactiveText}`}>
+              {endLabel}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       {/* 🆕 Bộ lọc */}
@@ -368,14 +531,9 @@ export default function TransactionPage() {
             </div>
             <div className="text-right">
               <span
-                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${order.status === 4
-                  ? "bg-green-100 text-green-600"
-                  : order.status === 1
-                    ? "bg-yellow-100 text-yellow-600"
-                    : order.status === 5
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
+                className={`text-xs font-semibold px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeClass(
+                  Number(order.status)
+                )}`}
               >
                 {mapOrderStatus(Number(order.status))}
               </span>
@@ -450,7 +608,7 @@ export default function TransactionPage() {
                           {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã giao thành công) */}
                           {selected?.status === 4 && !userFeedbackMap[item.bookId] && (
                             <Button
-                              className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
+                              className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
                               onClick={async () => {
                                 setSelectedBook(item);
                                 setOpenFeedback(true);
@@ -483,19 +641,17 @@ export default function TransactionPage() {
               <div className="flex justify-between mt-6 items-center">
 
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
-                {Number(selected?.status) === 3 && (
+                {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
                   <Button
                     className="bg-green-600 text-white hover:bg-green-700"
-                    onClick={() =>
-                      handleConfirmReceived(selected as OrderResponse, () => setSelected(null))
-                    }
+                    onClick={() => handleConfirmReceived(selected as OrderResponse, () => setSelected(null))}
                   >
                     Đã nhận hàng
                   </Button>
                 )}
 
                 {/* 🟥 Nút “Trả hàng” khi status = 4 (Đã giao) */}
-                {Number(selected?.status) === 4 && (
+                {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
                   <Button
                     variant="destructive"
                     onClick={() => {
@@ -503,10 +659,18 @@ export default function TransactionPage() {
                       setReturnReason("");
                       setReturnImageUrl("");
                       setOpenReturnDialog(true);
-                    }
-                    }
+                    }}
                   >
                     Trả hàng
+                  </Button>
+                )}
+
+                {Number(selected?.status) === ORDER_STATUS.RETURNED && (
+                  <Button
+                    className="bg-purple-600 text-white hover:bg-purple-700"
+                    onClick={() => fetchRefundTransaction(selected.orderId)}
+                  >
+                    Chi tiết hoàn tiền
                   </Button>
                 )}
 
@@ -521,7 +685,88 @@ export default function TransactionPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={openRefundDetail} onOpenChange={setOpenRefundDetail}>
+        <DialogContent className="max-w-md bg-white text-gray-800">
+          <DialogHeader>
+            <DialogTitle>Chi tiết hoàn tiền</DialogTitle>
+          </DialogHeader>
 
+          {refundLoading ? (
+            <p className="text-center text-gray-500 py-6">Đang tải...</p>
+          ) : !refundTrans ? (
+            <p className="text-center text-gray-500 py-6">
+              Không tìm thấy giao dịch hoàn tiền (REFUND).
+            </p>
+          ) : (
+            (() => {
+              const tStatus = Number(refundTrans.status);
+              const step = getRefundStep(tStatus);
+              const endLabel = getRefundEndLabel(tStatus);
+              const message = getRefundMessage(tStatus);
+
+              return (
+                <div className="space-y-5">
+                  {/* ✅ Timeline giống ảnh */}
+                  <RefundTimeline step={step} endLabel={endLabel} />
+
+                  {/* ✅ Text mô tả dưới timeline */}
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {message}
+                  </p>
+
+                  {/* Thông tin hoàn tiền */}
+                  <div className="rounded-xl border p-4 bg-gray-50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Tổng tiền hoàn</span>
+                      <span className="font-bold">{formatVND(refundTrans.totalPrice)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Hoàn tiền vào</span>
+                      <span className="font-semibold">Ví tiền Rookies</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Yêu cầu bởi</span>
+                      <span className="font-semibold">Người mua</span>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <span className="text-sm text-gray-500">Lý do</span>
+                      <p className="font-medium whitespace-pre-wrap mt-1">
+                        {selected?.reason || "Không có"}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Thời gian</span>
+                      <span className="font-medium">
+                        {refundTrans.updatedAt
+                          ? new Date(refundTrans.updatedAt).toLocaleString("vi-VN")
+                          : refundTrans.createdAt
+                            ? new Date(refundTrans.createdAt).toLocaleString("vi-VN")
+                            : "-"}
+                      </span>
+                    </div>
+
+                    {/* optional: show raw transaction status */}
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Trạng thái giao dịch</span>
+                      <span className="font-semibold">{mapTransactionStatus(tStatus)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setOpenRefundDetail(false)}>
+                      Đóng
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* 🔹 DIALOG FEEDBACK HOÀN CHỈNH */}
       <Dialog open={openFeedback} onOpenChange={setOpenFeedback}>
@@ -589,7 +834,7 @@ export default function TransactionPage() {
             {/* ✅ Nếu chưa có feedback → gửi mới */}
             {!existingFeedback ? (
               <Button
-                className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
                 onClick={async () => {
                   if (!user?.email || !selectedBook) return;
                   try {
@@ -631,7 +876,7 @@ export default function TransactionPage() {
               /* ✏️ Nếu đã có feedback → xem hoặc chỉnh sửa */
               <Button
                 className={`${isEditing
-                  ? "bg-gradient-to-l from-[#764BA2] to-[#667EEA]"
+                  ? "bg-linear-to-l from-[#764BA2] to-[#667EEA]"
                   : "bg-[#3B2A66]"
                   } text-white hover:opacity-90`}
                 onClick={async () => {

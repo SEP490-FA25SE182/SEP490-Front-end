@@ -232,7 +232,7 @@ function useDragScroll() {
       try {
         el.setPointerCapture(state.current.pointerId);
         state.current.hasCapture = true;
-      } catch {}
+      } catch { }
     }
 
     el.scrollLeft = state.current.scrollLeft - dx;
@@ -247,7 +247,7 @@ function useDragScroll() {
     if (state.current.hasCapture) {
       try {
         el.releasePointerCapture(state.current.pointerId);
-      } catch {}
+      } catch { }
     }
 
     if (state.current.blockClick) {
@@ -490,9 +490,42 @@ export default function Homepage() {
 
             {/* Books sections */}
             <BookGridSection title="Sách mới nhất" books={newestBooks} />
+
+            <Carousel opts={{ align: "start", loop: true }} className="w-full">
+              <CarouselContent className="-ml-2 md:-ml-4">
+                {advertisementImages.map((image, index) => (
+                  <CarouselItem key={index} className="pl-2 md:pl-4 basis-1/2">
+                    <div className="overflow-hidden rounded-lg">
+                      <div className="aspect-video relative">
+                        <img
+                          src={image}
+                          alt={`Advertisement ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+
             <BookCarouselSection title="Khám phá" books={carouselBooks1} />
             <BookGridSection title="Trending" books={trendingBooks} />
             <BookGridSection title="Featured" books={featuredBooks} />
+
+            <SectionReveal className="mb-12">
+              <div className="rounded-2xl shadow-2xl overflow-hidden">
+                <img
+                  src={advertisementImages[0]} // đổi index nếu muốn ảnh khác
+                  alt="Mid Advertisement"
+                  className="w-full h-[400px] object-cover" // height nhỏ hơn banner trên
+                  loading="lazy"
+                />
+              </div>
+            </SectionReveal>
+
             <BookCarouselSection title="Dành cho bạn" books={carouselBooks2} />
           </>
         ) : books.length === 0 ? (

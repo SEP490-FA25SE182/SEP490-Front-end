@@ -462,6 +462,7 @@ export default function BookManagementPage() {
                         <div className="flex justify-end gap-2">
                             <Button
                                 variant="outline"
+                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
                                 onClick={() => setOpenModal(false)}
                                 disabled={saving}
                             >

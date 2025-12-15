@@ -10,6 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { formatVND } from "@/lib/money";
 import { toast } from "sonner";
@@ -46,6 +57,8 @@ export default function TransactionPage() {
   const [openRefundDetail, setOpenRefundDetail] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundTrans, setRefundTrans] = useState<any | null>(null);
+  const [openReturnConfirm, setOpenReturnConfirm] = useState(false);
+
 
   const ORDER_STATUS = {
     UNORDERED: 0,
@@ -283,8 +296,6 @@ export default function TransactionPage() {
     onSuccess?: () => void
   ) {
     try {
-      if (!window.confirm("Bạn có chắc muốn trả hàng và hoàn tiền?")) return;
-
       toast.loading("Đang xử lý trả hàng...");
 
       // 1) Update order lần 1: set RETURNED + reason + image
@@ -321,7 +332,8 @@ export default function TransactionPage() {
         isActived: "ACTIVE",
       };
 
-      await TransactionService.create(payload);
+      const res = await TransactionService.create(payload);
+      console.log("REFUND CREATE RESPONSE:", res);
 
       // 4) ✅ Gọi THÊM updateOrder lần 2 để đảm bảo status vẫn là RETURNED (7)
       await OrderService.updateOrder(order.orderId, {
@@ -931,6 +943,12 @@ export default function TransactionPage() {
                 value={returnReason}
                 onChange={(e) => setReturnReason(e.target.value)}
               />
+              {!returnReason.trim() && (
+                <p className="text-xs text-red-500 mt-1">
+                  Vui lòng nhập lý do trả hàng
+                </p>
+              )}
+
             </div>
 
             {/* Hình ảnh */}
@@ -966,19 +984,58 @@ export default function TransactionPage() {
               Huỷ
             </Button>
 
-            <Button
-              className="bg-red-600 text-white hover:bg-red-700"
-              disabled={isReturnSubmitting}
-              onClick={() => handleReturn(
-                selectedReturnOrder!,
-                returnReason,
-                returnImageUrl,
-                () => setSelected(null)
-              )}
+            <AlertDialog open={openReturnConfirm} onOpenChange={setOpenReturnConfirm}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  disabled={
+                    isReturnSubmitting ||
+                    !returnReason.trim() ||
+                    isUploadingImage
+                  }
+                >
+                  {isReturnSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+                </Button>
+              </AlertDialogTrigger>
 
-            >
-              {isReturnSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
-            </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Xác nhận trả hàng & hoàn tiền
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc chắn muốn trả hàng và yêu cầu hoàn tiền cho đơn hàng này?
+                    <br />
+                    <span className="text-red-600 font-medium">
+                      Hành động này không thể hoàn tác.
+                    </span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Huỷ</AlertDialogCancel>
+
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={async () => {
+                      await handleReturn(
+                        selectedReturnOrder!,
+                        returnReason,
+                        returnImageUrl,
+                        () => {
+                          setSelected(null);
+                          setOpenReturnDialog(false);
+                        }
+                      );
+                      setOpenReturnConfirm(false);
+                    }}
+                  >
+                    Xác nhận
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
           </div>
         </DialogContent>
       </Dialog>

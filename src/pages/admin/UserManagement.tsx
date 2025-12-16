@@ -23,7 +23,6 @@ import {
   createUser,
   updateUser,
   deleteUser,
-  searchUsers,
   getRoleById,
   type User,
 } from "@/services/UserService";
@@ -37,7 +36,8 @@ export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [ ,setUsers] = useState<User[]>([]);
   const [roleNames, setRoleNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentRoleName, setCurrentRoleName] = useState("");
@@ -56,6 +56,17 @@ export default function UserManagementPage() {
     gender: "",
     birthDate: "",
   });
+
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    password?: string;
+    phoneNumber?: string;
+    gender?: string;
+    birthDate?: string;
+    roleId?: string;
+  }>({});
+
 
   const [creating, setCreating] = useState(false);
 
@@ -95,7 +106,8 @@ export default function UserManagementPage() {
       setLoading(true);
       try {
         const res = await getAllUsers();
-        setUsers(res);
+        setAllUsers(res);   // ✅ thêm
+        setUsers(res);      // ✅ thêm (list đang hiển thị)
       } catch (err) {
         console.error("❌ Lỗi khi tải user:", err);
         toast.error("Không thể tải danh sách người dùng");
@@ -106,12 +118,13 @@ export default function UserManagementPage() {
     fetchUsers();
   }, []);
 
+
   // 🔹 Lấy tên role tương ứng cho từng user
   useEffect(() => {
     async function fetchRoleNames() {
       const map: Record<string, string> = {};
       await Promise.all(
-        users.map(async (u) => {
+        allUsers.map(async (u) => {
           if (u.roleId && !map[u.roleId]) {
             try {
               const role = await getRoleById(u.roleId);
@@ -124,9 +137,9 @@ export default function UserManagementPage() {
       );
       setRoleNames(map);
     }
-    if (users.length > 0) fetchRoleNames();
-  }, [users]);
-
+    if (allUsers.length > 0) fetchRoleNames();
+  }, [allUsers]);
+  ;
 
 
   //hepler
@@ -143,24 +156,6 @@ export default function UserManagementPage() {
 
   const isCurrentUserAdmin = currentRoleName === "admin";
 
-
-  // 🔍 Tìm kiếm user theo tên/email
-  const handleSearch = async () => {
-    try {
-      if (!searchQuery.trim()) {
-        const res = await getAllUsers();
-        setUsers(res);
-      } else {
-        const res = await searchUsers(searchQuery);
-        setUsers(res);
-      }
-    } catch (err) {
-      toast.error("Không thể tìm kiếm người dùng");
-    }
-  };
-
-
-
   // 🗑️ Xóa user
   const handleDelete = async (userId: string) => {
     if (!confirm("Bạn có chắc muốn xóa người dùng này?")) return;
@@ -168,20 +163,32 @@ export default function UserManagementPage() {
       await deleteUser(userId);
       toast.success("Đã xóa người dùng thành công");
       setUsers((prev) => prev.filter((u) => u.userId !== userId));
+      setAllUsers((prev) => prev.filter((u) => u.userId !== userId)); // ✅ thêm
     } catch (err) {
       toast.error("Không thể xóa người dùng");
     }
   };
 
   // 🔎 Lọc theo role / status
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = allUsers.filter((u) => {
+    const q = searchQuery.trim().toLowerCase();
+
+    const matchSearch =
+      !q ||
+      u.fullName.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q);
+
+    const roleName = roleNames[u.roleId] || "";
     const matchRole =
       filterRole === "all" ||
-      roleNames[u.roleId]?.toLowerCase().includes(filterRole.toLowerCase());
+      roleName.toLowerCase().includes(filterRole.toLowerCase());
+
     const matchStatus =
       filterStatus === "all" || u.isActived === filterStatus;
-    return matchRole && matchStatus;
+
+    return matchSearch && matchRole && matchStatus;
   });
+
 
   const handleRoyaltyUpdate = (user: User) => {
     setSelectedUser(user);
@@ -225,15 +232,53 @@ export default function UserManagementPage() {
     }
   };
 
-  const handleCreateUser = async () => {
-    if (!newUser.fullName.trim() || !newUser.email.trim() || !newUser.password.trim()) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
+  const validateNewUser = () => {
+    const newErrors: typeof errors = {};
+
+    if (!newUser.fullName.trim()) {
+      newErrors.fullName = "Họ tên không được để trống";
     }
+
+    if (!newUser.email.trim()) {
+      newErrors.email = "Email không được để trống";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
+      newErrors.email = "Email không hợp lệ";
+    }
+
+    if (!newUser.password.trim()) {
+      newErrors.password = "Mật khẩu không được để trống";
+    } else if (newUser.password.length < 8) {
+      newErrors.password = "Mật khẩu phải có ít nhất 8 ký tự";
+    }
+
+    if (
+      newUser.phoneNumber &&
+      !/^(0|\+84)[0-9]{9}$/.test(newUser.phoneNumber)
+    ) {
+      newErrors.phoneNumber = "Số điện thoại không hợp lệ";
+    }
+
+    if (
+      newUser.birthDate &&
+      new Date(newUser.birthDate) > new Date()
+    ) {
+      newErrors.birthDate = "Ngày sinh không hợp lệ";
+    }
+
     if (!newUser.roleId) {
-      toast.error("Vui lòng chọn vai trò");
-      return;
+      newErrors.roleId = "Vui lòng chọn vai trò";
     }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+
+
+  const handleCreateUser = async () => {
+    const isValid = validateNewUser();
+    if (!isValid) return;
 
     try {
       setCreating(true);
@@ -250,6 +295,7 @@ export default function UserManagementPage() {
 
       // refresh list
       const resUsers = await getAllUsers();
+      setAllUsers(resUsers);
       setUsers(resUsers);
 
       // đóng modal
@@ -298,19 +344,23 @@ export default function UserManagementPage() {
         {/* Filters */}
         <div className="bg-[#1a2332] px-6 py-4 border-b border-white/10 flex items-center gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Tìm kiếm theo tên hoặc email..."
+              placeholder="Tìm theo tên hoặc email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-transparent border-white/20 text-white placeholder:text-gray-400"
+              className="
+        pl-10 
+        bg-transparent 
+        border-white/20 
+        text-white 
+        placeholder:text-gray-400
+        focus:border-purple-500
+        focus:ring-purple-500
+      "
             />
           </div>
-
-          <Button onClick={handleSearch} className="bg-purple-600 hover:bg-purple-700">
-            Tìm kiếm
-          </Button>
 
           {isCurrentUserAdmin && (
             <Button
@@ -499,11 +549,18 @@ export default function UserManagementPage() {
               <label className="text-sm text-gray-600">Họ tên</label>
               <Input
                 value={newUser.fullName}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, fullName: e.target.value })
-                }
-                className="mt-1"
+                onChange={(e) => {
+                  setNewUser({ ...newUser, fullName: e.target.value });
+                  setErrors((prev) => ({ ...prev, fullName: undefined }));
+                }}
+                className={`mt-1 ${errors.fullName ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
+              {errors.fullName && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.fullName}
+                </p>
+              )}
             </div>
 
             {/* Email */}
@@ -511,11 +568,18 @@ export default function UserManagementPage() {
               <label className="text-sm text-gray-600">Email</label>
               <Input
                 value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, email: e.target.value })
-                }
-                className="mt-1"
+                onChange={(e) => {
+                  setNewUser({ ...newUser, email: e.target.value });
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                className={`mt-1 ${errors.email ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
+              {errors.email && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.email}
+                </p>
+              )}
             </div>
 
             {/* Password */}
@@ -524,11 +588,18 @@ export default function UserManagementPage() {
               <Input
                 type="password"
                 value={newUser.password}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, password: e.target.value })
-                }
-                className="mt-1"
+                onChange={(e) => {
+                  setNewUser({ ...newUser, password: e.target.value });
+                  setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+                className={`mt-1 ${errors.password ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
+              {errors.password && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.password}
+                </p>
+              )}
             </div>
 
             {/* Phone */}
@@ -536,12 +607,21 @@ export default function UserManagementPage() {
               <label className="text-sm text-gray-600">Số điện thoại</label>
               <Input
                 value={newUser.phoneNumber}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, phoneNumber: e.target.value })
-                }
-                className="mt-1"
+                onChange={(e) => {
+                  setNewUser({ ...newUser, phoneNumber: e.target.value });
+                  setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
+                }}
+                className={`mt-1 ${errors.phoneNumber ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
-            </div>
+
+              {errors.phoneNumber && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.phoneNumber}
+                </p>
+              )}
+            </div>  
+
             {/* Gender */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Giới tính</label>
@@ -579,9 +659,15 @@ export default function UserManagementPage() {
               <label className="text-sm text-gray-600">Vai trò</label>
               <Select
                 value={newUser.roleId}
-                onValueChange={(v) => setNewUser({ ...newUser, roleId: v })}
+                onValueChange={(v) => {
+                  setNewUser({ ...newUser, roleId: v });
+                  setErrors((prev) => ({ ...prev, roleId: undefined }));
+                }}
               >
-                <SelectTrigger className="w-full mt-1">
+                <SelectTrigger
+                  className={`w-full mt-1 ${errors.roleId ? "border-red-500" : ""
+                    }`}
+                >
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
@@ -592,6 +678,11 @@ export default function UserManagementPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.roleId && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.roleId}
+                </p>
+              )}
             </div>
 
             {/* Buttons */}

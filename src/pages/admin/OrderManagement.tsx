@@ -26,7 +26,17 @@ import { getBookById } from "@/services/BookService";
 import { TransactionService } from "@/services/TransactionService";
 import { getWalletById, updateWallet } from "@/services/WalletService";
 import { resolveFirebaseUrl } from "@/firebase";
-
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { formatVND } from "@/lib/money";
 import { toast } from "sonner";
 
@@ -40,6 +50,11 @@ export default function OrderManagementPage() {
   const [refundOrder, setRefundOrder] = useState<OrderResponse | null>(null);
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
   const [convertedImageUrl, setConvertedImageUrl] = useState("");
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+  const [selectedDeleteOrderId, setSelectedDeleteOrderId] = useState<string | null>(null);
+  const [openApproveConfirm, setOpenApproveConfirm] = useState(false);
+
+
 
   const ORDER_STATUS = {
     UNORDERED: 0,
@@ -264,7 +279,6 @@ export default function OrderManagementPage() {
   //  DELETE ORDER
   // ===============================
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc muốn xóa đơn hàng này?")) return;
     try {
       await OrderService.deleteOrder(id);
       setOrders((prev) => prev.filter((o) => o.orderId !== id));
@@ -401,18 +415,61 @@ export default function OrderManagementPage() {
                                   className="bg-purple-600 text-white"
                                   onClick={() => openRefundDialog(order)}
                                 >
-                                  Duyệt hoàn tiền
+                                  Chi tiết
                                 </Button>
                               )}
 
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                disabled={statusNum === 4 || statusNum === 5}
-                                onClick={() => handleDelete(order.orderId)}
+                              <AlertDialog
+                                open={openDeleteConfirm && selectedDeleteOrderId === order.orderId}
+                                onOpenChange={(open) => {
+                                  setOpenDeleteConfirm(open);
+                                  if (!open) setSelectedDeleteOrderId(null);
+                                }}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    disabled={statusNum === 4 || statusNum === 5}
+                                    onClick={() => {
+                                      setSelectedDeleteOrderId(order.orderId);
+                                      setOpenDeleteConfirm(true);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Xác nhận xoá đơn hàng</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Bạn có chắc chắn muốn xoá đơn hàng{" "}
+                                      <b>{order.orderId}</b>?
+                                      <br />
+                                      <span className="text-red-600 font-medium">
+                                        Hành động này không thể hoàn tác.
+                                      </span>
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Huỷ</AlertDialogCancel>
+
+                                    <AlertDialogAction
+                                      className="bg-red-600 hover:bg-red-700 text-white"
+                                      onClick={async () => {
+                                        if (!selectedDeleteOrderId) return;
+                                        await handleDelete(selectedDeleteOrderId);
+                                        setOpenDeleteConfirm(false);
+                                        setSelectedDeleteOrderId(null);
+                                      }}
+                                    >
+                                      Xoá
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </TableCell>
                           </TableRow>
                         );
@@ -477,9 +534,44 @@ export default function OrderManagementPage() {
                 <Button variant="outline" onClick={() => setRefundOpen(false)}>
                   Đóng
                 </Button>
-                <Button className="bg-purple-600 text-white" onClick={approveRefund}>
-                  Chấp nhận hoàn tiền
-                </Button>
+                <AlertDialog
+                  open={openApproveConfirm}
+                  onOpenChange={setOpenApproveConfirm}
+                >
+                  <AlertDialogTrigger asChild>
+                    <Button className="bg-purple-600 text-white">
+                      Chấp nhận hoàn tiền
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xác nhận duyệt hoàn tiền</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc chắn muốn duyệt hoàn tiền cho đơn hàng{" "}
+                        <b>{refundOrder?.orderId}</b>?
+                        <br />
+                        <span className="text-red-600 font-medium">
+                          Thao tác này sẽ cộng tiền vào ví người dùng và không thể hoàn tác.
+                        </span>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Huỷ</AlertDialogCancel>
+
+                      <AlertDialogAction
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={async () => {
+                          await approveRefund();
+                          setOpenApproveConfirm(false);
+                        }}
+                      >
+                        Xác nhận
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           )}

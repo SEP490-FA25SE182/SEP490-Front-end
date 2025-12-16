@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +6,9 @@ import { Plus, Edit2, Save, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import {
-  getUserByEmail, updateUser, type User,
+  getUserByEmail,
+  updateUser,
+  type User,
   getAddressesByUserId,
   createAddress,
   updateAddress,
@@ -29,6 +31,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+/** ✅ helper: convert gs://... -> https firebase download url */
+function gsToHttp(url?: string | null) {
+  if (!url) return "";
+  if (!url.startsWith("gs://")) return url;
+
+  const parts = url.split("/");
+  const bucket = parts[2];
+  const path = parts.slice(3).join("/");
+
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+    path
+  )}?alt=media`;
+}
+
 /* --------------------------------------------------
  🧩 ProfilePage Component
 -------------------------------------------------- */
@@ -38,6 +54,9 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const DEFAULT_AVATAR =
+    "https://avatar.iran.liara.run/public/boy?username=default";
 
   /* ---------------------------------------------
    🟢 Fetch User Info
@@ -105,10 +124,14 @@ export default function ProfilePage() {
     }
   };
 
-  
+  // ✅ avatar src đã được convert gs:// -> https, có fallback
+  const avatarSrc = useMemo(() => {
+    const u = gsToHttp(user?.avatarUrl);
+    const a = gsToHttp(authUser?.avatarUrl);
+    return u || a || DEFAULT_AVATAR;
+  }, [user?.avatarUrl, authUser?.avatarUrl]);
 
-  if (isLoading || !user)
-    return <p className="text-gray-500">Đang tải thông tin...</p>;
+  if (isLoading || !user) return <p className="text-gray-500">Đang tải thông tin...</p>;
 
   /* ---------------------------------------------
    🧾 Render
@@ -142,9 +165,12 @@ export default function ProfilePage() {
         {/* Avatar */}
         <div className="flex flex-col items-center space-y-4">
           <img
-            src={user.avatarUrl || authUser?.avatarUrl}
+            src={avatarSrc}
             alt="Avatar"
             className="w-28 h-28 rounded-full object-cover border-2 border-gray-300 shadow"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+            }}
           />
           <p className="text-gray-600 text-sm">{user.email}</p>
         </div>
@@ -187,8 +213,8 @@ export default function ProfilePage() {
                 {user.gender === "Male"
                   ? "Nam"
                   : user.gender === "Female"
-                    ? "Nữ"
-                    : "Khác"}
+                  ? "Nữ"
+                  : "Khác"}
               </p>
             )}
           </div>
@@ -240,8 +266,9 @@ export default function ProfilePage() {
               {addresses.map((addr) => (
                 <div
                   key={addr.userAddressId}
-                  className={`p-4 rounded-xl border ${addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
-                    } flex justify-between items-start`}
+                  className={`p-4 rounded-xl border ${
+                    addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+                  } flex justify-between items-start`}
                 >
                   <div className="flex flex-col gap-1">
                     <p className="text-gray-800">{addr.addressInfor}</p>
@@ -262,18 +289,12 @@ export default function ProfilePage() {
                       </span>
                     )}
                   </div>
-
-
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
-
-
-
-
     </div>
   );
 }
@@ -324,11 +345,17 @@ function AddOrEditAddressForm({
   const [loading, setLoading] = useState(false);
 
   // 🧩 Dữ liệu
-  const [fullName, setFullName] = useState(defaultAddress?.fullName || userDefaultInfo?.fullName || "");
-  const [phoneNumber, setPhoneNumber] = useState(defaultAddress?.phoneNumber || userDefaultInfo?.phoneNumber || "");
+  const [fullName, setFullName] = useState(
+    defaultAddress?.fullName || userDefaultInfo?.fullName || ""
+  );
+  const [phoneNumber, setPhoneNumber] = useState(
+    defaultAddress?.phoneNumber || userDefaultInfo?.phoneNumber || ""
+  );
   const [type, setType] = useState(defaultAddress?.type || "");
   const [isDefault] = useState(defaultAddress?.default || false);
-  const [addressDetail, setAddressDetail] = useState(defaultAddress?.addressInfor || "");
+  const [addressDetail, setAddressDetail] = useState(
+    defaultAddress?.addressInfor || ""
+  );
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [ward, setWard] = useState("");
@@ -370,9 +397,12 @@ function AddOrEditAddressForm({
     try {
       setLoading(true);
 
-      const provinceName = provinces.find((p) => p.code === Number(province))?.name || "";
-      const districtName = districts.find((d) => d.code === Number(district))?.name || "";
-      const wardName = wards.find((w) => w.code === Number(ward))?.name || "";
+      const provinceName =
+        provinces.find((p) => p.code === Number(province))?.name || "";
+      const districtName =
+        districts.find((d) => d.code === Number(district))?.name || "";
+      const wardName =
+        wards.find((w) => w.code === Number(ward))?.name || "";
       const fullAddress = [addressDetail, wardName, districtName, provinceName]
         .filter(Boolean)
         .join(", ");
@@ -386,7 +416,6 @@ function AddOrEditAddressForm({
         type,
         default: isDefault,
       };
-
 
       if (defaultAddress) {
         await updateAddress(defaultAddress.userAddressId, payload);
@@ -521,9 +550,3 @@ function AddOrEditAddressForm({
     </div>
   );
 }
-
-
-
-
-
-

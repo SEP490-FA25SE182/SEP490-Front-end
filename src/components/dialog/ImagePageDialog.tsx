@@ -34,7 +34,13 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
   // load illustrations (only user's)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?.userId;
-  const { data: illustrations = [] } = useSearchIllustrations({ userId });
+  const { data: illustrations = [] } = useSearchIllustrations({
+    userId,
+    page: 0,
+    size: 9999,
+    sort: ["updatedAt,desc"], // ✅ mới nhất trước
+  });
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -44,12 +50,18 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
 
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
+
+    const toTime = (d?: string) =>
+      d ? new Date(d).getTime() : 0; // thiếu updatedAt thì đẩy xuống cuối (vì desc)
+
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && (it.illustrationId || it.id))
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc: mới nhất trước
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,
         url: it.imageUrl,
+        updatedAt: it.updatedAt, // (optional) để debug
       }));
   }, [illustrations]);
 
@@ -187,7 +199,7 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
                     onClick={() => setSelectedIllustrationId(it.id)}
                     className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id ? "border-purple-500 ring-2 ring-purple-200" : "border-white/10 hover:border-gray-300"}`}
                   >
-                    <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
                       <img src={gsToHttp(it.url)} alt={it.title} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).innerHTML = `<div class="p-2 text-xs text-center text-gray-600">${it.title}</div>`; }} />
                     </div>
                     <div className="text-xs mt-2 text-left text-gray-700 truncate">{it.title}</div>

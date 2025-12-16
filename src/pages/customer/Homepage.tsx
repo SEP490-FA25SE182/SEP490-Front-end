@@ -290,13 +290,21 @@ export default function Homepage() {
         const data = await getAllBooks({
           ...(genreId ? { genreId } : {}),
           isActived: "ACTIVE",
+          publicationStatus: 1, // ✅ chỉ lấy sách đã xuất bản
         });
 
-        const activeBooks = (Array.isArray(data) ? data : []).filter(
-          (book: Book) => book.isActived === "ACTIVE"
-        );
+        const publishedActiveBooks = (Array.isArray(data) ? data : []).filter((b: any) => {
+          const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
+          const pubRaw = b.publicationStatus ?? b.publication_status;
+          const pub = typeof pubRaw === "string" ? pubRaw.toUpperCase() : Number(pubRaw);
 
-        setBooks(activeBooks);
+          const isActive = act === "ACTIVE";
+          const isPublished = pub === 1 || pub === "PUBLISHED";
+
+          return isActive && isPublished;
+        });
+
+        setBooks(publishedActiveBooks);
       } catch (error) {
         console.error("❌ Lỗi khi fetch sách:", error);
         setBooks([]);
@@ -307,6 +315,7 @@ export default function Homepage() {
 
     fetchBooks();
   }, [genreId]);
+
 
   // Fetch genres
   useEffect(() => {

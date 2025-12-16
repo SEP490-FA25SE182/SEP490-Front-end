@@ -54,7 +54,12 @@ export default function OrderManagementPage() {
   const [selectedDeleteOrderId, setSelectedDeleteOrderId] = useState<string | null>(null);
   const [openApproveConfirm, setOpenApproveConfirm] = useState(false);
 
-
+  const TRANS_STATUS = {
+    NOT_PAID: 0,
+    PROCESSING: 1,
+    CANCELED: 2,
+    PAID: 3,
+  } as const;
 
   const ORDER_STATUS = {
     UNORDERED: 0,
@@ -193,8 +198,7 @@ export default function OrderManagementPage() {
 
       // 2️⃣ Cập nhật REFUND → SETTLEMENT + PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
-        transType: "SETTLEMENT",
-        status: 3, // PAID
+        status: TRANS_STATUS.PAID, // ✅ PAID = 3
       });
 
       // 3️⃣ Lấy ví user
@@ -207,16 +211,15 @@ export default function OrderManagementPage() {
         balance: wallet.balance + refundOrder.totalPrice,
       });
 
-      // 5️⃣ Đổi order status → 5 (Đã hoàn tiền)
-      // Sau khi hoàn tiền xong -> CANCELLED (6)
-      await OrderService.updateOrder(refundOrder.orderId, { status: ORDER_STATUS.CANCELLED });
+      await OrderService.updateOrder(refundOrder.orderId, { status: ORDER_STATUS.RETURNED });
 
       setOrders((prev) =>
         prev.map((o) =>
-          o.orderId === refundOrder.orderId ? { ...o, status: ORDER_STATUS.CANCELLED } : o
+          o.orderId === refundOrder.orderId
+            ? { ...o, status: ORDER_STATUS.RETURNED }
+            : o
         )
       );
-
 
       toast.success("Duyệt hoàn tiền thành công!");
 

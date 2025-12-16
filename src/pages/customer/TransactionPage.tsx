@@ -617,8 +617,8 @@ export default function TransactionPage() {
                             SL: {item.quantity} × {formatVND(item.price)}
                           </p>
 
-                          {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã giao thành công) */}
-                          {selected?.status === 4 && !userFeedbackMap[item.bookId] && (
+                          {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã nhận) */}
+                          {selected?.status === 5 && !userFeedbackMap[item.bookId] && (
                             <Button
                               className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
                               onClick={async () => {

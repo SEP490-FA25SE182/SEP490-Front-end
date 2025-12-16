@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 
 
 export default function CartPage() {
-  const { state, setQty, remove, clearUI } = useCart();
+  const { state, setQty, remove, clear } = useCart();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [coin, setCoin] = useState<number>(0);
@@ -128,7 +128,6 @@ export default function CartPage() {
         throw new Error("Không nhận được orderId từ backend.");
       }
 
-      clearUI();
 
       console.log("✅ Order tạo thành công:", order);
       toast.success("Đơn hàng đã được tạo thành công!");
@@ -362,7 +361,7 @@ export default function CartPage() {
 
               <button
                 className="w-full mt-2 rounded-lg border border-white/20 text-white py-2 hover:bg-white/10 transition"
-                onClick={clearUI}
+                onClick={clear}
               >
                 Xoá giỏ hàng
               </button>

@@ -342,8 +342,10 @@ export default function CheckoutPage() {
     const detail = parts.slice(0, len - 3).join(", ");
 
     // 🔹 set lại cho chắc (phòng trim khác nhau)
-    form.setValue("address", detail);
-    setAddressInput(detail);
+    if (detail !== addressInput) {
+      form.setValue("address", detail);
+      setAddressInput(detail);
+    }
     form.setValue("fullName", matched.fullName || "");
     form.setValue("phone", matched.phoneNumber || "");
 
@@ -659,13 +661,20 @@ export default function CheckoutPage() {
                         value={addressInput}
                         onChange={(e) => {
                           const value = e.target.value;
-                          setAddressInput(value);            // ✅ BẮT BUỘC
-                          form.setValue("address", value);   // sync RHF
-                          handleAddressInputChange(value);
+                          setAddressInput(value);
+                          form.setValue("address", value);
+                        }}
+                        onBlur={(e) => {
+                          handleAddressInputChange(e.target.value);
+                        }}
+                        onFocus={() => {
+                          setAddressInput("");
+                          setSelectedAddressId(null);
                         }}
                         className="w-full p-3 rounded-lg bg-white text-gray-900 border border-gray-300"
                         placeholder="Chọn hoặc nhập địa chỉ"
                       />
+
 
                       <datalist id="saved-addresses">
                         {addresses.map((a) => (

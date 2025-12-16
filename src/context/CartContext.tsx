@@ -6,6 +6,7 @@ import { CartItemService, type CartItem } from "@/services/CartItemService";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 
+
 export type CartLine = {
   book: Book;
   qty: number;
@@ -13,14 +14,40 @@ export type CartLine = {
   cartItemId?: string;
 };
 
+async function syncCartLinesWithLatestBook(
+  lines: CartLine[]
+): Promise<CartLine[]> {
+  return Promise.all(
+    lines.map(async (line) => {
+      try {
+        const latestBook = await getBookById(line.book.bookId);
+
+        return {
+          ...line,
+          book: {
+            ...line.book,
+            ...latestBook, // 🔥 update toàn bộ field từ DB
+          },
+          price: latestBook.price, // 🔥 giá luôn mới
+        };
+      } catch (err) {
+        console.error("❌ Không sync được book:", line.book.bookId, err);
+        return line; // fallback an toàn
+      }
+    })
+  );
+}
+
+
 export type CartState = { cartId: string | null; lines: CartLine[]; };
 
 type Action =
   | { type: "INIT"; cartId: string | null; lines: CartLine[] }
   | { type: "ADD"; line: CartLine }
-  | { type: "SET_QTY"; bookId: string; qty: number }
+  | { type: "SET_QTY"; bookId: string; qty: number; price?: number; book?: Book }
   | { type: "REMOVE"; bookId: string }
   | { type: "CLEAR" };
+
 
 const initialState: CartState = { cartId: null, lines: [] };
 
@@ -37,7 +64,19 @@ function reducer(state: CartState, action: Action): CartState {
         : { ...state, lines: [...state.lines, action.line] };
     }
     case "SET_QTY":
-      return { ...state, lines: state.lines.map((l) => l.book.bookId === action.bookId ? { ...l, qty: action.qty } : l) };
+      return {
+        ...state,
+        lines: state.lines.map((l) =>
+          l.book.bookId === action.bookId
+            ? {
+              ...l,
+              qty: action.qty,
+              ...(action.price !== undefined ? { price: action.price } : {}),
+              ...(action.book ? { book: action.book } : {}),
+            }
+            : l
+        ),
+      };
     case "REMOVE": return { ...state, lines: state.lines.filter((l) => l.book.bookId !== action.bookId) };
     case "CLEAR": return { cartId: state.cartId, lines: [] };
     default: return state;
@@ -48,11 +87,13 @@ type CartContextValue = {
   state: CartState;
   addToCart: (book: Book, qty?: number) => Promise<void>;
   remove: (bookId: string) => Promise<void>;
-  setQty: (bookId: string, qty: number, price: number) => Promise<void>;
+  setQty: (bookId: string, qty: number, price?: number) => Promise<void>;
   clear: () => Promise<void>;
+  clearUI: () => void; // ✅ thêm
   subtotal: number;
   count: number;
 };
+
 
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -85,7 +126,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const items = await CartItemService.getItemsByCartId(cart.cartId);
 
-        const lines = await Promise.all(
+        const rawLines: CartLine[] = await Promise.all(
           items.map(async (i: CartItem) => {
             const book =
               (await getBookById(i.bookId).catch(() => null)) ||
@@ -94,18 +135,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return {
               book,
               qty: i.quantity,
-              price: i.price,
+              price: i.price, // để tạm, lát sync sẽ thay
               cartItemId: i.cartItemId,
             };
           })
         );
 
-        dispatch({ type: "INIT", cartId: cart.cartId, lines });
+        // ✅ SYNC THEO DB: update book + update price
+        const syncedLines = await syncCartLinesWithLatestBook(rawLines);
+
+        dispatch({ type: "INIT", cartId: cart.cartId, lines: syncedLines });
       } catch (err) {
         console.error("❌ Lỗi fetchCart:", err);
-        // ⚠️ Không logout hoặc throw — tránh làm mất Auth
       }
     };
+
 
     fetchCart();
   }, [isInitialized, userId]);
@@ -133,7 +177,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (existing) {
         const newQty = existing.qty + qty;
         await CartItemService.updateCartItem(existing.cartItemId!, newQty);
-        dispatch({ type: "SET_QTY", bookId: book.bookId, qty: newQty });
+        dispatch({
+          type: "SET_QTY",
+          bookId: book.bookId,
+          qty: newQty,
+          price: book.price, 
+          book,              
+        });
         toast.success(`Đã cập nhật số lượng “${book.bookName}” (${newQty})`);
       } else {
         const newItem = await CartItemService.addCartItem(cartId, book.bookId, qty, book.price);
@@ -149,12 +199,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const setQty = async (bookId: string, qty: number) => {
+  const setQty = async (bookId: string, qty: number, price?: number) => {
     const line = state.lines.find((l) => l.book.bookId === bookId);
     if (!line || !line.cartItemId) return;
+
     await CartItemService.updateCartItem(line.cartItemId, qty);
-    dispatch({ type: "SET_QTY", bookId, qty });
+
+    dispatch({ type: "SET_QTY", bookId, qty, price });
   };
+
 
   const remove = async (bookId: string) => {
     const line = state.lines.find((l) => l.book.bookId === bookId);
@@ -168,13 +221,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: "CLEAR" });
   };
 
+  const clearUI = () => {
+    dispatch({ type: "CLEAR" });
+    localStorage.removeItem("cart_state");
+  };
+
+
   const value: CartContextValue = useMemo(
-    () => ({ state, addToCart, remove, setQty, clear, subtotal, count }),
+    () => ({ state, addToCart, remove, setQty, clear, subtotal, count, clearUI }),
     [state, subtotal, count]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
+
+
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {

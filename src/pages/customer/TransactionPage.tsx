@@ -324,7 +324,7 @@ export default function TransactionPage() {
       // 3) Tạo REFUND transaction
       const payload: TransactionRequest = {
         totalPrice: order.totalPrice,
-        status: 1,
+        status: TRANS_STATUS.NOT_PAID, // ✅ NOT_PAID = 0
         orderId: order.orderId,
         paymentMethodId: paymentTrans.paymentMethodId,
         walletId: paymentTrans.walletId,

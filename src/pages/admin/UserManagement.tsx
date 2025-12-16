@@ -37,7 +37,7 @@ export default function UserManagementPage() {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [ ,setUsers] = useState<User[]>([]);
   const [roleNames, setRoleNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentRoleName, setCurrentRoleName] = useState("");

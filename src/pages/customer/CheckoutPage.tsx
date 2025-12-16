@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 
 import { useCart } from "@/context/CartContext";
@@ -25,6 +24,7 @@ import {
 } from "@/services/PaymentService";
 import { OrderService } from "@/services/OrderService";
 import { GhnAddressService } from "@/services/GhnAddressService";
+import { TransactionService } from "@/services/TransactionService";
 
 /* ============================ TYPES ============================ */
 interface Address {
@@ -106,6 +106,8 @@ export default function CheckoutPage() {
   const DEFAULT_ITEM_HEIGHT = 3;
 
   const [shippingFee, setShippingFee] = useState<number>(0);
+  const [addressInput, setAddressInput] = useState("");
+
 
 
 
@@ -135,6 +137,7 @@ export default function CheckoutPage() {
     })();
   }, [user?.email]);
 
+
   /* ======================= CART / ORDER ======================= */
   const usedCoin = location.state?.usedCoin ?? false;
 
@@ -157,9 +160,6 @@ export default function CheckoutPage() {
   }, [subtotalLocal, discount]);
 
 
-
-
-
   const orderId = location.state?.orderId;
 
   useEffect(() => {
@@ -172,6 +172,8 @@ export default function CheckoutPage() {
       });
     }
   }, [orderId, toast]);
+
+
 
   /* ============================ 📌 GHN ADDRESS STATES ============================ */
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -275,6 +277,7 @@ export default function CheckoutPage() {
       form.setValue("phone", addr.phoneNumber || u.phoneNumber || "");
       form.setValue("email", u.email || "");
       form.setValue("address", detail);
+      setAddressInput(detail);
 
       const cleanProvince = provinceName.replace(/^Tỉnh\s+|^Thành phố\s+/i, "").toLowerCase();
       const p = pro.find((x: any) => x.ProvinceName.toLowerCase() === cleanProvince);
@@ -301,6 +304,88 @@ export default function CheckoutPage() {
 
     loadAndAutofill().catch(console.error);
   }, [user, form]);
+
+  function extractDetailAddress(addressInfor: string) {
+    const parts = addressInfor.split(",").map(p => p.trim());
+    return parts.slice(0, parts.length - 3).join(", ");
+  }
+
+  function buildAddressLabel(a: Address) {
+    return extractDetailAddress(a.addressInfor);
+  }
+
+
+
+  async function handleAddressInputChange(value: string) {
+    // 🔹 luôn cập nhật form.address
+    form.setValue("address", value);
+
+    const matched = addresses.find(
+      a => extractDetailAddress(a.addressInfor) === value
+    );
+
+    // ❌ Không match → user đang nhập địa chỉ mới
+    if (!matched) {
+      setSelectedAddressId(null);
+      return;
+    }
+
+    // ✅ Match địa chỉ đã lưu → autofill
+    setSelectedAddressId(matched.userAddressId);
+
+    const parts = matched.addressInfor.split(",").map(p => p.trim());
+    const len = parts.length;
+
+    const provinceName = parts[len - 1];
+    const districtName = parts[len - 2];
+    const wardName = parts[len - 3];
+    const detail = parts.slice(0, len - 3).join(", ");
+
+    // 🔹 set lại cho chắc (phòng trim khác nhau)
+    form.setValue("address", detail);
+    setAddressInput(detail);
+    form.setValue("fullName", matched.fullName || "");
+    form.setValue("phone", matched.phoneNumber || "");
+
+    // --- GHN ---
+    const normalize = (s: string) =>
+      s
+        .replace(
+          /^tỉnh\s+|^thành phố\s+|^quận\s+|^huyện\s+|^xã\s+|^phường\s+/i,
+          ""
+        )
+        .trim()
+        .toLowerCase();
+
+    const p = provinces.find(
+      (x: any) => normalize(x.ProvinceName) === normalize(provinceName)
+    );
+    if (!p) return;
+
+    form.setValue("province", String(p.ProvinceID));
+    const dists = await GhnAddressService.getDistricts(p.ProvinceID);
+    setDistricts(dists);
+
+    const d = dists.find(
+      (x: any) =>
+        normalize(x.DistrictName).includes(normalize(districtName))
+    );
+    if (!d) return;
+
+    form.setValue("district", String(d.DistrictID));
+    const ws = await GhnAddressService.getWards(d.DistrictID);
+    setWards(ws);
+
+    const w = ws.find(
+      (x: any) => normalize(x.WardName).includes(normalize(wardName))
+    );
+    if (!w) return;
+
+    form.setValue("ward", String(w.WardCode));
+  }
+
+
+
 
 
   /* ============================ 💰 PAYOS HANDLER ============================ */
@@ -475,6 +560,17 @@ export default function CheckoutPage() {
 
       await OrderService.updateOrder(orderId, updatePayload);
 
+      //
+      await TransactionService.createCOD({
+        orderId,
+        totalPrice: total,
+        transType: "PAYMENT",
+        paymentMethodId: "COD",
+        status: 0,
+        isActived: "ACTIVE",
+      });
+
+
       toast({
         title: "Đặt hàng thành công!",
         description: "Bạn sẽ thanh toán khi nhận hàng (COD).",
@@ -553,15 +649,38 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Address detail */}
-                  <div className="grid gap-2">
-                    <Label className="text-white">Địa chỉ chi tiết</Label>
-                    <input
-                      {...form.register("address")}
-                      className="w-full p-3 rounded-lg bg-white text-gray-900 border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="Ví dụ: 123 Nguyễn Văn Cừ"
-                    />
-                  </div>
+                  {/* =================== CHỌN / NHẬP ĐỊA CHỈ =================== */}
+                  {addresses.length > 0 && (
+                    <div className="grid gap-2">
+                      <Label className="text-white">Địa chỉ</Label>
+
+                      <input
+                        list="saved-addresses"
+                        value={addressInput}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setAddressInput(value);            // ✅ BẮT BUỘC
+                          form.setValue("address", value);   // sync RHF
+                          handleAddressInputChange(value);
+                        }}
+                        className="w-full p-3 rounded-lg bg-white text-gray-900 border border-gray-300"
+                        placeholder="Chọn hoặc nhập địa chỉ"
+                      />
+
+                      <datalist id="saved-addresses">
+                        {addresses.map((a) => (
+                          <option
+                            key={a.userAddressId}
+                            value={buildAddressLabel(a)}
+                          />
+                        ))}
+                      </datalist>
+                    </div>
+                  )}
+
+
+
+
 
                   {/* Province - District - Ward */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -622,78 +741,6 @@ export default function CheckoutPage() {
 
 
                 <Separator className="bg-white/10" />
-
-                {/* =================== SHIP & PAY =================== */}
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2 text-white">
-                      Vận chuyển
-                    </h3>
-                    <RadioGroup
-                      value={form.watch("shippingMethod")}
-                      onValueChange={(v) =>
-                        form.setValue("shippingMethod", v as any)
-                      }
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="standard" id="ship-standard" />
-                        <Label htmlFor="ship-standard" className="text-white">
-                          Tiết kiệm (2–4 ngày)
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <RadioGroupItem value="express" id="ship-express" />
-                        <Label htmlFor="ship-express" className="text-white">
-                          Nhanh (1–2 ngày)
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2 text-white">
-                      Thanh toán
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          if (!orderId) {
-                            toast({
-                              variant: "destructive",
-                              title: "Không tìm thấy mã đơn hàng",
-                              description:
-                                "Vui lòng quay lại giỏ hàng và thử lại.",
-                            });
-                            return;
-                          }
-                          if (!form.watch("province") || !form.watch("district") || !form.watch("ward")) {
-                            toast({
-                              variant: "destructive",
-                              title: "Thiếu thông tin địa chỉ",
-                              description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
-                              duration: 1500,
-                            });
-                            return;
-                          }
-                          handlePayOS(orderId);
-                        }}
-                        className="bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-2 rounded-lg hover:opacity-90"
-                      >
-                        💳 Thanh toán qua PayOS
-                      </Button>
-
-                      <Button
-                        type="button"
-                        onClick={handleCOD}
-                        className="bg-white text-[#16213E] font-semibold py-2 rounded-lg hover:bg-gray-100"
-                      >
-                        🧾 Thanh toán tiền mặt (COD)
-                      </Button>
-
-                    </div>
-                  </div>
-                </section>
               </form>
             </CardContent>
           </Card>
@@ -763,6 +810,50 @@ export default function CheckoutPage() {
                 </div>
                 <p className="text-xs text-white/60">Đã bao gồm VAT nếu có.</p>
               </div>
+
+              <Separator className="bg-white/10" />
+
+              <div className="space-y-3 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!orderId) {
+                      toast({
+                        variant: "destructive",
+                        title: "Không tìm thấy mã đơn hàng",
+                        description: "Vui lòng quay lại giỏ hàng.",
+                      });
+                      return;
+                    }
+                    if (
+                      !form.watch("province") ||
+                      !form.watch("district") ||
+                      !form.watch("ward")
+                    ) {
+                      toast({
+                        variant: "destructive",
+                        title: "Thiếu thông tin địa chỉ",
+                        description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
+                        duration: 1500,
+                      });
+                      return;
+                    }
+                    handlePayOS(orderId);
+                  }}
+                  className="w-full bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-3 rounded-lg hover:opacity-90"
+                >
+                  Thanh toán qua PayOS
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleCOD}
+                  className="w-full bg-white text-[#16213E] font-semibold py-3 rounded-lg"
+                >
+                  Thanh toán tiền mặt (COD)
+                </Button>
+              </div>
+
             </CardContent>
           </Card>
         </div>

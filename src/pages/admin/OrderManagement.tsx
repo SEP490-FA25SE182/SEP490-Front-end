@@ -168,16 +168,16 @@ export default function OrderManagementPage() {
   async function getRefundTransaction(orderId: string) {
     const res = await TransactionService.search({ orderId });
 
-    const list = Array.isArray((res as any)?.content)
-      ? (res as any).content
-      : res;
+    const list = Array.isArray((res as any)?.content) ? (res as any).content : [];
 
-    return (
-      list.find((t: any) => t.transType === "REFUND") ||
-      list.find((t: any) => t.type === "REFUND") ||
-      null
-    );
+    const normalizeType = (t: any) =>
+      String(t?.transType ?? t?.trans_type ?? t?.type ?? "").toUpperCase();
+
+    const found = list.find((t: any) => normalizeType(t) === "REFUND") || null;
+
+    return found;
   }
+
 
   // ===============================
   //  APPROVE REFUND
@@ -198,8 +198,16 @@ export default function OrderManagementPage() {
 
       // 2️⃣ Cập nhật REFUND → SETTLEMENT + PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
-        status: TRANS_STATUS.PAID, // ✅ PAID = 3
+        totalPrice: refundTrans.totalPrice,
+        status: TRANS_STATUS.PAID,          // 3
+        orderId: refundTrans.orderId,
+        paymentMethodId: refundTrans.paymentMethodId,
+        walletId: refundTrans.walletId,
+        transType: "REFUND",                // ✅ ép giữ REFUND
+        isActived: refundTrans.isActived ?? "ACTIVE",
       });
+
+      console.log("refundTrans:", refundTrans);
 
       // 3️⃣ Lấy ví user
       const walletId = refundOrder.walletId;  // CHUẨN NHẤT

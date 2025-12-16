@@ -675,7 +675,6 @@ export default function CheckoutPage() {
                         placeholder="Chọn hoặc nhập địa chỉ"
                       />
 
-
                       <datalist id="saved-addresses">
                         {addresses.map((a) => (
                           <option

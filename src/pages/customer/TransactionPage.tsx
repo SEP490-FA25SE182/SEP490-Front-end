@@ -296,16 +296,16 @@ export default function TransactionPage() {
     onSuccess?: () => void
   ) {
     try {
-      toast.loading("Đang xử lý trả hàng...");
+      toast.loading("Đang xử lý trả hàng & tạo hoàn tiền...");
 
-      // 1) Update order lần 1: set RETURNED + reason + image
+      // ✅ 1) Update ORDER -> RETURNED (7) + reason + imageUrl
       await OrderService.updateOrder(order.orderId, {
         status: ORDER_STATUS.RETURNED,
         reason,
         imageUrl,
       });
 
-      // update UI luôn cho user thấy đã gửi yêu cầu
+      // Update UI ngay
       setOrders((prev) =>
         prev.map((o) =>
           o.orderId === order.orderId
@@ -314,17 +314,17 @@ export default function TransactionPage() {
         )
       );
 
-      // 2) Lấy transaction PAYMENT cũ
+      // ✅ 2) Lấy PAYMENT transaction để lấy paymentMethodId + walletId
       const paymentTrans = await getPaymentTransaction(order.orderId);
       if (!paymentTrans) {
-        toast.error("Không tìm thấy giao dịch thanh toán của đơn hàng!");
+        toast.error("Không tìm thấy giao dịch thanh toán (PAYMENT) để tạo hoàn tiền!");
         return;
       }
 
-      // 3) Tạo REFUND transaction
+      // ✅ 3) Create REFUND transaction (NOT_PAID)
       const payload: TransactionRequest = {
         totalPrice: order.totalPrice,
-        status: TRANS_STATUS.NOT_PAID, // ✅ NOT_PAID = 0
+        status: TRANS_STATUS.NOT_PAID, // 0
         orderId: order.orderId,
         paymentMethodId: paymentTrans.paymentMethodId,
         walletId: paymentTrans.walletId,
@@ -332,32 +332,18 @@ export default function TransactionPage() {
         isActived: "ACTIVE",
       };
 
-      const res = await TransactionService.create(payload);
-      console.log("REFUND CREATE RESPONSE:", res);
+      await TransactionService.create(payload);
 
-      // 4) ✅ Gọi THÊM updateOrder lần 2 để đảm bảo status vẫn là RETURNED (7)
-      await OrderService.updateOrder(order.orderId, {
-        status: ORDER_STATUS.RETURNED,
-      });
-
-      // 5) Update UI (KHÔNG set về 6 nữa)
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.orderId === order.orderId
-            ? { ...o, status: ORDER_STATUS.RETURNED, reason, imageUrl }
-            : o
-        )
-      );
-
-      toast.success("Yêu cầu trả hàng đã được tạo thành công!");
+      toast.success("Đã gửi yêu cầu trả hàng & tạo giao dịch hoàn tiền!");
       onSuccess?.();
     } catch (err) {
-      console.error("❌ Lỗi refund:", err);
-      toast.error("Không thể xử lý yêu cầu trả hàng.");
+      console.error("❌ Lỗi trả hàng/hoàn tiền:", err);
+      toast.error("Không thể xử lý yêu cầu trả hàng & hoàn tiền.");
     } finally {
       toast.dismiss();
     }
   }
+
 
 
   async function handleConfirmReceived(order: OrderResponse, onSuccess?: () => void) {
@@ -1018,8 +1004,10 @@ export default function TransactionPage() {
                   <AlertDialogAction
                     className="bg-red-600 hover:bg-red-700 text-white"
                     onClick={async () => {
+                      if (!selectedReturnOrder) return;
+
                       await handleReturn(
-                        selectedReturnOrder!,
+                        selectedReturnOrder,
                         returnReason,
                         returnImageUrl,
                         () => {
@@ -1027,11 +1015,13 @@ export default function TransactionPage() {
                           setOpenReturnDialog(false);
                         }
                       );
+
                       setOpenReturnConfirm(false);
                     }}
                   >
                     Xác nhận
                   </AlertDialogAction>
+
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

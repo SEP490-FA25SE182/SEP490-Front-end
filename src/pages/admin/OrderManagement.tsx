@@ -110,6 +110,17 @@ export default function OrderManagementPage() {
     }
   };
 
+  const [refundTrans, setRefundTrans] = useState<any | null>(null);
+  const [loadingRefundTrans, setLoadingRefundTrans] = useState(false);
+
+  const normalizeTransType = (t: any) =>
+    String(t?.transType ?? t?.trans_type ?? t?.type ?? "").toUpperCase();
+
+  const isRefundAlreadyPaid =
+    !!refundTrans &&
+    normalizeTransType(refundTrans) === "REFUND" &&
+    Number(refundTrans.status) === TRANS_STATUS.PAID;
+
   // ===============================
   //  FETCH ALL ORDERS
   // ===============================
@@ -147,20 +158,34 @@ export default function OrderManagementPage() {
   // ===============================
   const openRefundDialog = async (order: OrderResponse) => {
     setRefundOrder(order);
-    setRefundDetails([]); // tránh hiển thị dữ liệu cũ
+    setRefundDetails([]);
     setRefundOpen(true);
 
-    const details = await OrderDetailService.getOrderDetailsByOrderId(order.orderId);
+    // reset trước khi load
+    setRefundTrans(null);
+    setLoadingRefundTrans(true);
 
-    const enriched = await Promise.all(
-      details.map(async (d) => ({
-        ...d,
-        book: await getBookById(d.bookId).catch(() => null),
-      }))
-    );
+    try {
+      const [details, trans] = await Promise.all([
+        OrderDetailService.getOrderDetailsByOrderId(order.orderId),
+        getRefundTransaction(order.orderId).catch(() => null),
+      ]);
 
-    setRefundDetails(enriched);
+      setRefundTrans(trans);
+
+      const enriched = await Promise.all(
+        details.map(async (d) => ({
+          ...d,
+          book: await getBookById(d.bookId).catch(() => null),
+        }))
+      );
+
+      setRefundDetails(enriched);
+    } finally {
+      setLoadingRefundTrans(false);
+    }
   };
+
 
   // ===============================
   //  GET REFUND TRANSACTION
@@ -168,16 +193,16 @@ export default function OrderManagementPage() {
   async function getRefundTransaction(orderId: string) {
     const res = await TransactionService.search({ orderId });
 
-    const list = Array.isArray((res as any)?.content)
-      ? (res as any).content
-      : res;
+    const list = Array.isArray((res as any)?.content) ? (res as any).content : [];
 
-    return (
-      list.find((t: any) => t.transType === "REFUND") ||
-      list.find((t: any) => t.type === "REFUND") ||
-      null
-    );
+    const normalizeType = (t: any) =>
+      String(t?.transType ?? t?.trans_type ?? t?.type ?? "").toUpperCase();
+
+    const found = list.find((t: any) => normalizeType(t) === "REFUND") || null;
+
+    return found;
   }
+
 
   // ===============================
   //  APPROVE REFUND
@@ -198,8 +223,16 @@ export default function OrderManagementPage() {
 
       // 2️⃣ Cập nhật REFUND → SETTLEMENT + PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
-        status: TRANS_STATUS.PAID, // ✅ PAID = 3
+        totalPrice: refundTrans.totalPrice,
+        status: TRANS_STATUS.PAID,          // 3
+        orderId: refundTrans.orderId,
+        paymentMethodId: refundTrans.paymentMethodId,
+        walletId: refundTrans.walletId,
+        transType: "REFUND",                // ✅ ép giữ REFUND
+        isActived: refundTrans.isActived ?? "ACTIVE",
       });
+
+      console.log("refundTrans:", refundTrans);
 
       // 3️⃣ Lấy ví user
       const walletId = refundOrder.walletId;  // CHUẨN NHẤT
@@ -226,6 +259,7 @@ export default function OrderManagementPage() {
       // 7️⃣ Đóng modal
       setRefundOpen(false);
       setRefundOrder(null);
+      setRefundTrans(null);
 
     } catch (error) {
       console.error("❌ Lỗi duyệt hoàn tiền:", error);
@@ -537,45 +571,55 @@ export default function OrderManagementPage() {
                 <Button variant="outline" onClick={() => setRefundOpen(false)}>
                   Đóng
                 </Button>
-                <AlertDialog
-                  open={openApproveConfirm}
-                  onOpenChange={setOpenApproveConfirm}
-                >
-                  <AlertDialogTrigger asChild>
-                    <Button className="bg-purple-600 text-white">
-                      Chấp nhận hoàn tiền
-                    </Button>
-                  </AlertDialogTrigger>
 
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xác nhận duyệt hoàn tiền</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Bạn có chắc chắn muốn duyệt hoàn tiền cho đơn hàng{" "}
-                        <b>{refundOrder?.orderId}</b>?
-                        <br />
-                        <span className="text-red-600 font-medium">
-                          Thao tác này sẽ cộng tiền vào ví người dùng và không thể hoàn tác.
-                        </span>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
+                {/* Nếu đang load transaction thì tạm ẩn/disable nút */}
+                {loadingRefundTrans ? null : (
+                  <>
+                    {/* ✅ Nếu REFUND đã PAID thì ẩn nút Chấp nhận hoàn tiền */}
+                    {!isRefundAlreadyPaid ? (
+                      <AlertDialog open={openApproveConfirm} onOpenChange={setOpenApproveConfirm}>
+                        <AlertDialogTrigger asChild>
+                          <Button className="bg-purple-600 text-white">
+                            Chấp nhận hoàn tiền
+                          </Button>
+                        </AlertDialogTrigger>
 
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Huỷ</AlertDialogCancel>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Xác nhận duyệt hoàn tiền</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bạn có chắc chắn muốn duyệt hoàn tiền cho đơn hàng{" "}
+                              <b>{refundOrder?.orderId}</b>?
+                              <br />
+                              <span className="text-red-600 font-medium">
+                                Thao tác này sẽ cộng tiền vào ví người dùng và không thể hoàn tác.
+                              </span>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
 
-                      <AlertDialogAction
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={async () => {
-                          await approveRefund();
-                          setOpenApproveConfirm(false);
-                        }}
-                      >
-                        Xác nhận
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-purple-600 hover:bg-purple-700 text-white"
+                              onClick={async () => {
+                                await approveRefund();
+                                setOpenApproveConfirm(false);
+                              }}
+                            >
+                              Xác nhận
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <div className="text-sm font-medium text-green-600 flex items-center">
+                        Đơn này đã được duyệt hoàn tiền (REFUND: PAID).
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+
             </div>
           )}
         </DialogContent>

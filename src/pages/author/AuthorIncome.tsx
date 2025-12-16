@@ -75,6 +75,36 @@ export default function AuthorIncome() {
 
     return true;
   };
+
+  const normalizePublicationStatus = (raw: any): number => {
+    if (raw == null) return -1;
+
+    const s = String(raw).trim().toUpperCase();
+
+    // numeric
+    if (/^\d+$/.test(s)) return Number(s);
+
+    // token
+    if (s === "DRAFT") return 0;
+    if (s === "PUBLISHED") return 1;
+    if (s === "ARCHIVED") return 2;
+    if (s === "PENDING") return 3;
+    if (s === "REJECTED") return 4;
+
+    return -1;
+  };
+
+  const pubStatusLabel = (code: number) => {
+    switch (code) {
+      case 0: return "Nháp (đang làm)";
+      case 1: return "Đã xuất bản";
+      case 2: return "Đã được duyệt";
+      case 3: return "Chờ duyệt";
+      case 4: return "Bị từ chối duyệt";
+      default: return "Không xác định";
+    }
+  };
+
   // =====================================================
 
   // dùng cùng tập sách ACTIVE như BookList
@@ -171,8 +201,8 @@ export default function AuthorIncome() {
             typeof booksResp === "object" &&
             "content" in booksResp &&
             Array.isArray((booksResp as any).content)
-          ? (booksResp as any).content
-          : [];
+            ? (booksResp as any).content
+            : [];
         setAllBooks(filtered);
         const myBooks = userId
           ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
@@ -213,8 +243,8 @@ export default function AuthorIncome() {
         const orders = Array.isArray(resp)
           ? resp
           : resp && resp.content
-          ? resp.content
-          : [];
+            ? resp.content
+            : [];
 
         let total = 0;
 
@@ -371,24 +401,38 @@ export default function AuthorIncome() {
     [activeBooks, timeframe]
   );
 
-  const pieDataCounts = useMemo(
-    () => [
-      { name: "Đã xuất bản", value: publishedBooks },
-      { name: "Chờ duyệt", value: pendingBooks },
-    ],
-    [publishedBooks, pendingBooks]
-  );
+  const pubStatusCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    activeBooks.forEach((b) => {
+      const raw = b.publicationStatus ?? b.publication_status;
+      const code = normalizePublicationStatus(raw);
+      counts[code] = (counts[code] ?? 0) + 1;
+    });
+    return counts;
+  }, [activeBooks]);
+
+  const pieDataCounts = useMemo(() => {
+    // chỉ show các status có số lượng > 0
+    return Object.entries(pubStatusCounts)
+      .map(([k, v]) => ({ code: Number(k), name: pubStatusLabel(Number(k)), value: v }))
+      .filter((x) => x.value > 0)
+      // sắp xếp theo code cho đẹp
+      .sort((a, b) => a.code - b.code);
+  }, [pubStatusCounts]);
+
 
   const pieDataDisplayed = useMemo(() => {
-    const total = publishedBooks + pendingBooks;
+    const total = pieDataCounts.reduce((sum, d) => sum + d.value, 0);
     if (!showPercent || total === 0) return pieDataCounts;
     return pieDataCounts.map((d) => ({
-      name: d.name,
+      ...d,
       value: Number(((d.value / total) * 100).toFixed(1)),
     }));
-  }, [pieDataCounts, showPercent, publishedBooks, pendingBooks]);
+  }, [pieDataCounts, showPercent]);
 
-  const COLORS = ["#10b981", "#f59e0b"];
+
+  const COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#a855f7", "#ef4444", "#64748b"];
+
 
   // ===== render =====
   return (
@@ -448,17 +492,16 @@ export default function AuthorIncome() {
                     <button
                       key={tf}
                       onClick={() => setTimeframe(tf)}
-                      className={`px-3 py-1 rounded ${
-                        timeframe === tf ? "bg-indigo-600 text-white" : "bg-gray-100"
-                      }`}
+                      className={`px-3 py-1 rounded ${timeframe === tf ? "bg-indigo-600 text-white" : "bg-gray-100"
+                        }`}
                     >
                       {tf === "week"
                         ? "Tuần"
                         : tf === "month"
-                        ? "Tháng"
-                        : tf === "quarter"
-                        ? "Quý"
-                        : "Năm"}
+                          ? "Tháng"
+                          : tf === "quarter"
+                            ? "Quý"
+                            : "Năm"}
                     </button>
                   ))}
                 </div>
@@ -508,8 +551,7 @@ export default function AuthorIncome() {
                         cy="50%"
                         outerRadius={80}
                         label={({ name, value }) =>
-                          `${name}: ${
-                            showPercent ? String(value) + "%" : String(value)
+                          `${name}: ${showPercent ? String(value) + "%" : String(value)
                           }`
                         }
                       >

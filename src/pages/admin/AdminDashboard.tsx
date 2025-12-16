@@ -566,7 +566,7 @@ export default function AdminDashboardPage() {
                         {/* Pie */}
                         <Card className="bg-[#1a2332] border border-white/10">
                             <CardHeader>
-                                <CardTitle className="text-white">Tỷ lệ trạng thái xuất bản</CardTitle>
+                                <CardTitle className="text-white">Tổng số Sách</CardTitle>
                             </CardHeader>
 
                             <CardContent className="h-80">

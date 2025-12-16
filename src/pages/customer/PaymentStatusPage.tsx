@@ -16,7 +16,7 @@ export default function PaymentStatusPage() {
   const success = query.get("success"); // ?success=true / false
   const [status, setStatus] = useState<"pending" | "success" | "failed">("pending");
   const [, setOrder] = useState<any>(null);
-  const { clear } = useCart();
+  const { clearUI } = useCart();
 
 
   const fetchOrder = async (orderId: string) => {
@@ -59,7 +59,7 @@ export default function PaymentStatusPage() {
 
   useEffect(() => {
 
-    clear();
+    clearUI();
     localStorage.removeItem("lastOrder");
     console.log("🧹 Giỏ hàng đã được xoá sau thanh toán thành công");
 

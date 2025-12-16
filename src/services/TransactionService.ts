@@ -44,7 +44,7 @@ export interface TransactionRequest {
   status: number;
   orderId?: string | null;
   paymentMethodId: string;
-  walletId: string;
+  walletId?: string;
   transType: TransactionType; // PAYMENT / REFUND / ...
   isActived: "ACTIVE" | "INACTIVE";
 }
@@ -79,6 +79,17 @@ export const TransactionService = {
   // 🔹 Tạo transaction mới (PAYMENT, REFUND, ...)
   async create(data: TransactionRequest): Promise<TransactionResponse> {
     const res = await axios.post(`${API_RK}/transactions`, data, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    return res.data;
+  },
+
+  // Tạo transaction cho COD
+  async createCOD(data: TransactionRequest): Promise<TransactionResponse> {
+    const res = await axios.post(`${API_RK}/transactions/cod`, data, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,

@@ -43,7 +43,7 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
 const BookCard: React.FC<{ book: Book }> = ({ book }) => (
   <Link to={`/book/${book.bookId}`}>
     <div className="cursor-pointer group">
-      <div className="aspect-[3/4] overflow-hidden rounded-xl mb-3 shadow-xl">
+      <div className="aspect-3/4 overflow-hidden rounded-xl mb-3 shadow-xl">
         <img
           src={book.coverUrl}
           alt={book.bookName}
@@ -205,14 +205,14 @@ export const BookDetail = () => {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Left side - Book Cover */}
           <div className="w-full md:w-[35%] lg:w-[30%]">
-            <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-xl">
+            <div className="aspect-3/4 overflow-hidden rounded-xl shadow-xl">
               <img
                 src={book.coverUrl}
                 alt={book.bookName}
@@ -272,7 +272,7 @@ export const BookDetail = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full cursor-pointer"
+                    className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full cursor-pointer"
                     onClick={handleAddToCart}
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" />

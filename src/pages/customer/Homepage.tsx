@@ -782,7 +782,7 @@ export default function Homepage() {
   }, [books, carouselBooks1, newestBooks]);
 
   return (
-    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e] overflow-x-hidden">
       <CustomerHeader />
 
       <main className="max-w-7xl mx-auto px-6">

@@ -471,6 +471,7 @@ export default function OrderManagementPage() {
                                     onClick={() => {
                                       setSelectedDeleteOrderId(order.orderId);
                                       setOpenDeleteConfirm(true);
+                                      window.location.reload();
                                     }}
                                   >
                                     <Trash2 className="w-4 h-4" />

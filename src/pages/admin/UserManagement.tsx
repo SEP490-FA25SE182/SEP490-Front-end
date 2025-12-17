@@ -30,6 +30,8 @@ import { useGetAllRoles } from "@/services/RoleService";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
+import { resolveFirebaseUrl } from "@/firebase";
+
 
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -37,7 +39,7 @@ export default function UserManagementPage() {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [ ,setUsers] = useState<User[]>([]);
+  const [, setUsers] = useState<User[]>([]);
   const [roleNames, setRoleNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [currentRoleName, setCurrentRoleName] = useState("");
@@ -47,6 +49,8 @@ export default function UserManagementPage() {
   const [savingRoyalty, setSavingRoyalty] = useState(false);
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
+
   const [newUser, setNewUser] = useState({
     fullName: "",
     email: "",
@@ -117,6 +121,31 @@ export default function UserManagementPage() {
     };
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    async function resolveAvatars() {
+      const map: Record<string, string> = {};
+
+      await Promise.all(
+        allUsers.map(async (u) => {
+          if (!u.avatarUrl) return;
+
+          try {
+            map[u.userId] = await resolveFirebaseUrl(u.avatarUrl);
+          } catch {
+            map[u.userId] = "";
+          }
+        })
+      );
+
+      setAvatarMap(map);
+    }
+
+    if (allUsers.length > 0) {
+      resolveAvatars();
+    }
+  }, [allUsers]);
+
 
 
   // 🔹 Lấy tên role tương ứng cho từng user
@@ -431,9 +460,12 @@ export default function UserManagementPage() {
                     <TableRow key={u.userId} className="hover:bg-gray-50">
                       <TableCell>
                         <img
-                          src={u.avatarUrl || "https://avatar.iran.liara.run/public/boy"}
+                          src={avatarMap[u.userId] || "https://avatar.iran.liara.run/public/boy"}
                           alt={u.fullName}
                           className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "https://avatar.iran.liara.run/public/boy";
+                          }}
                         />
                       </TableCell>
                       <TableCell className="text-gray-900 font-medium">{u.fullName}</TableCell>
@@ -620,7 +652,7 @@ export default function UserManagementPage() {
                   {errors.phoneNumber}
                 </p>
               )}
-            </div>  
+            </div>
 
             {/* Gender */}
             <div className="mb-3">

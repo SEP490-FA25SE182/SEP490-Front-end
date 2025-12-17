@@ -12,6 +12,7 @@ import {
   getAddressesByUserId,
   createAddress,
   updateAddress,
+  deleteAddress,
   type Address,
 } from "@/services/UserService";
 
@@ -30,6 +31,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 
 /** ✅ helper: convert gs://... -> https firebase download url */
 function gsToHttp(url?: string | null) {
@@ -54,6 +58,9 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+
 
   const DEFAULT_AVATAR =
     "https://avatar.iran.liara.run/public/boy?username=default";
@@ -98,6 +105,21 @@ export default function ProfilePage() {
     fetchAddresses();
   }, [user?.userId]);
 
+  const handleDeleteAddress = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn xóa địa chỉ này?")) return;
+
+    try {
+      await deleteAddress(id);
+      toast.success("Đã xóa địa chỉ!");
+
+      const updated = await getAddressesByUserId(user!.userId);
+      setAddresses(updated);
+    } catch {
+      toast.error("Không thể xóa địa chỉ!");
+    }
+  };
+
+
   /* ---------------------------------------------
    ✏️ Update User Info
   --------------------------------------------- */
@@ -133,6 +155,43 @@ export default function ProfilePage() {
 
   if (isLoading || !user) return <p className="text-gray-500">Đang tải thông tin...</p>;
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.userId) return;
+
+    try {
+      setIsLoading(true);
+
+      const storage = getStorage();
+      const avatarRef = ref(
+        storage,
+        `avatars/${user.userId}-${Date.now()}-${file.name}`
+      );
+
+      await uploadBytes(avatarRef, file);
+      const downloadUrl = await getDownloadURL(avatarRef);
+
+      // 👉 Cập nhật DB
+      await updateUser(user.userId, {
+        ...user,
+        avatarUrl: downloadUrl,
+      });
+
+      // 👉 Update UI ngay
+      setUser((prev) =>
+        prev ? { ...prev, avatarUrl: downloadUrl } : prev
+      );
+
+      toast.success("Cập nhật avatar thành công!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể cập nhật avatar!");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   /* ---------------------------------------------
    🧾 Render
   --------------------------------------------- */
@@ -146,7 +205,7 @@ export default function ProfilePage() {
         <Button
           variant="outline"
           onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 cursor-pointer"
         >
           {isEditing ? (
             <>
@@ -172,6 +231,24 @@ export default function ProfilePage() {
               (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
             }}
           />
+
+          <input
+            id="avatar-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer"
+            onClick={() => document.getElementById("avatar-upload")?.click()}
+          >
+            Thay đổi avatar
+          </Button>
+
           <p className="text-gray-600 text-sm">{user.email}</p>
         </div>
 
@@ -213,8 +290,8 @@ export default function ProfilePage() {
                 {user.gender === "Male"
                   ? "Nam"
                   : user.gender === "Female"
-                  ? "Nữ"
-                  : "Khác"}
+                    ? "Nữ"
+                    : "Khác"}
               </p>
             )}
           </div>
@@ -236,9 +313,12 @@ export default function ProfilePage() {
           </h2>
 
           {/* ➕ Nút Thêm địa chỉ */}
-          <Dialog>
+          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-2 cursor-pointer" onClick={() => {
+                setEditingAddress(null); // ADD mode
+                setOpenAddDialog(true);
+              }} >
                 <Plus className="w-4 h-4" /> Thêm địa chỉ
               </Button>
             </DialogTrigger>
@@ -252,6 +332,8 @@ export default function ProfilePage() {
                   const updated = await getAddressesByUserId(user.userId);
                   setAddresses(updated);
                 }}
+                onClose={() => setOpenAddDialog(false)}
+
               />
             </DialogContent>
           </Dialog>
@@ -266,9 +348,8 @@ export default function ProfilePage() {
               {addresses.map((addr) => (
                 <div
                   key={addr.userAddressId}
-                  className={`p-4 rounded-xl border ${
-                    addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
-                  } flex justify-between items-start`}
+                  className={`p-4 rounded-xl border ${addr.default ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+                    } flex justify-between items-start`}
                 >
                   <div className="flex flex-col gap-1">
                     <p className="text-gray-800">{addr.addressInfor}</p>
@@ -288,6 +369,47 @@ export default function ProfilePage() {
                         Mặc định
                       </span>
                     )}
+                  </div>
+
+                  {/* 🔧 Action */}
+                  <div className="flex gap-2">
+                    {/* ✏️ Sửa */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setEditingAddress(addr); // EDIT mode
+                          setOpenAddDialog(true);
+                        }}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+
+                      <DialogContent className="sm:max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Cập nhật địa chỉ</DialogTitle>
+                        </DialogHeader>
+
+                        <AddOrEditAddressForm
+                          userId={user.userId}
+                          defaultAddress={addr}
+                          userDefaultInfo={user}
+                          onSuccess={async () => {
+                            const updated = await getAddressesByUserId(user.userId);
+                            setAddresses(updated);
+                          }}
+                          onClose={() => setOpenAddDialog(false)}
+                        />
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* 🗑️ Xóa */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteAddress(addr.userAddressId)}
+                    >
+                      🗑️
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -336,11 +458,13 @@ function AddOrEditAddressForm({
   userDefaultInfo,
   defaultAddress,
   onSuccess,
+  onClose,
 }: {
   userId: string;
   userDefaultInfo?: User;
   defaultAddress?: Address;
   onSuccess: () => void;
+  onClose: () => void;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -424,9 +548,8 @@ function AddOrEditAddressForm({
         await createAddress(payload);
         toast.success("Thêm địa chỉ thành công!");
       }
-
       onSuccess();
-      document.querySelector<HTMLElement>("[data-radix-dialog-close]")?.click();
+      onClose();
     } catch (err) {
       console.error(err);
       toast.error("Không thể lưu địa chỉ!");
@@ -444,7 +567,6 @@ function AddOrEditAddressForm({
         <Input
           placeholder="VD: Nguyễn Văn A"
           value={fullName}
-          readOnly={!!userDefaultInfo}
           onChange={(e) => setFullName(e.target.value)}
           className={userDefaultInfo ? "bg-gray-100" : ""}
         />
@@ -456,7 +578,6 @@ function AddOrEditAddressForm({
         <Input
           placeholder="VD: 0909123456"
           value={phoneNumber}
-          readOnly={!!userDefaultInfo}
           onChange={(e) => setPhoneNumber(e.target.value)}
           className={userDefaultInfo ? "bg-gray-100" : ""}
         />
@@ -543,7 +664,7 @@ function AddOrEditAddressForm({
       </div>
 
       <DialogFooter>
-        <Button onClick={handleSubmit} disabled={loading}>
+        <Button onClick={handleSubmit} disabled={loading} >
           {loading ? "Đang lưu..." : defaultAddress ? "Lưu thay đổi" : "Thêm địa chỉ"}
         </Button>
       </DialogFooter>

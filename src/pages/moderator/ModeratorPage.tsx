@@ -5,6 +5,22 @@ import ModeratorLayout from "./ModeratorLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getAllUsers } from "@/services/UserService";
 
+/** ✅ helper: convert gs://... -> https firebase download url (giống CustomerHeader) */
+function gsToHttp(url?: string | null) {
+  if (!url) return "";
+  if (!url.startsWith("gs://")) return url;
+
+  const parts = url.split("/");
+  const bucket = parts[2];
+  const path = parts.slice(3).join("/");
+
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+    path
+  )}?alt=media`;
+}
+
+const DEFAULT_AVATAR = "https://avatar.iran.liara.run/public/boy?username=default";
+
 export default function ModeratorPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
@@ -26,11 +42,7 @@ export default function ModeratorPage() {
 
         // 🔹 Chỉ giữ sách PENDING (3 hoặc "PENDING")
         const pendingBooks = (books ?? []).filter((b: any) => {
-          const rawPub =
-            b.publicationStatus ??
-            b.publication_status ??
-            b.status;
-
+          const rawPub = b.publicationStatus ?? b.publication_status ?? b.status;
           if (rawPub == null) return false;
 
           const rawStr = String(rawPub).trim();
@@ -98,8 +110,11 @@ export default function ModeratorPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 <img
-                  src={u.avatarUrl || "https://avatar.iran.liara.run/public/boy"}
+                  src={gsToHttp(u.avatarUrl) || DEFAULT_AVATAR}
                   className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+                  }}
                 />
                 <div className="flex flex-col text-white">
                   <span>{u.fullName}</span>
@@ -109,7 +124,7 @@ export default function ModeratorPage() {
             </CardHeader>
 
             <CardContent className="text-sm text-gray-300">
-              👤 {u.fullName} có sách cần duyệt
+              {u.fullName} có sách cần duyệt
             </CardContent>
           </Card>
         ))}

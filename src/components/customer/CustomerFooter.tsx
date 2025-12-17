@@ -40,9 +40,9 @@ const CustomerFooter = () => {
             <p className="text-sm leading-relaxed opacity-90">
               Address: FPT University, District 9, HCMC
             </p>
-            <p className="text-sm opacity-90">Email: duongtbs@182174@fpt.edu.vn</p>
-            <p className="text-sm opacity-90">Phone: (+84) 917917669</p>
-            <p className="text-sm opacity-90">© Copyright 2024</p>
+            <p className="text-sm opacity-90">Email: tuyenctnse182129@fpt.edu.vn</p>
+            <p className="text-sm opacity-90">Phone: (+84) 334301854</p>
+            <p className="text-sm opacity-90">© Copyright 2025</p>
 
             <div className="flex items-center gap-4 pt-4">
               <a href="#" className="hover:opacity-80 transition-opacity">

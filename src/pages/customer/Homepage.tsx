@@ -393,10 +393,20 @@ const HeroFullBleed: React.FC<{
             );
           })}
         </div>
+
+        {/* ✅ Gradient blend 4 mép (match homepage: from #0F3460 -> #16213E -> #1a1a2e) */}
+        <div className="pointer-events-none absolute inset-0 z-30">
+          {/* Vignette (tối dần 4 phía) */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_55%,rgba(0,0,0,0.55)_100%)]" />
+          {/* Tăng độ “mềm” ở mép */}
+          <div className="absolute inset-0 shadow-[inset_0_0_120px_rgba(0,0,0,0.55)]" />
+        </div>
+
       </div>
     </div>
   );
 };
+
 
 /* -------------------------
  🧩 Section: Grid sách (có stagger)
@@ -791,15 +801,6 @@ export default function Homepage() {
             {/* Banner */}
             <SectionReveal className="mb-10">
               <HeroFullBleed books={heroBooks} genresMap={heroGenresMap} />
-            </SectionReveal>
-
-            {/* Button blog */}
-            <SectionReveal className="flex justify-center mb-8">
-              <Link to="/blog">
-                <button className="bg-linear-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-300 cursor-pointer">
-                  ✨ Cộng đồng chia sẻ & Review
-                </button>
-              </Link>
             </SectionReveal>
 
             {/* ✅ Genres (card UI + +N chủ đề, bỏ kéo ngang) */}

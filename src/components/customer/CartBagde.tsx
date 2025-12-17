@@ -1,5 +1,6 @@
 import { useCart } from "@/context/CartContext";
 import { Link } from "react-router-dom";
+import { ShoppingCart } from 'lucide-react';
 
 export default function CartBadge() {
   const { count } = useCart();
@@ -16,6 +17,7 @@ export default function CartBadge() {
         justify-center
       "
     >
+      <ShoppingCart className="w-5 h-5 mr-2" />
       <span className="text-sm leading-none">Giỏ hàng</span>
 
       {count > 0 && (

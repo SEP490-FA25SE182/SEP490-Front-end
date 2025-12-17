@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, Newspaper, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -178,13 +178,19 @@ export default function CustomerHeader() {
           </div>
 
           {/* Right: Genre + Cart + User */}
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center shrink-0 gap-2">
             {/* Genre Dropdown cạnh cart */}
             <div className="relative" ref={genreRef}>
               <button
                 onClick={() => setIsGenreOpen((v) => !v)}
-                className="flex items-center gap-2 hover:text-purple-400 transition-colors"
+                className="relative inline-flex items-center
+        px-3 py-2 rounded-lg
+        hover:bg-white/10 transition
+        whitespace-nowrap
+        min-w-2.5
+        justify-center"
               >
+                <Menu className="w-5 h-5 mr-2" />
                 <span className="text-sm">Thể loại</span>
               </button>
 
@@ -215,6 +221,19 @@ export default function CustomerHeader() {
                 </div>
               )}
             </div>
+              
+            <Link
+              to="/blog"
+              className="relative inline-flex items-center
+        px-3 py-2 rounded-lg
+        hover:bg-white/10 transition
+        whitespace-nowrap
+        min-w-2.5
+        justify-center"
+            >
+              <Newspaper className="w-5 h-5 mr-2" />
+              Blog
+            </Link>
 
             {/* Cart */}
             {isLoggedIn && <CartBadge />}
@@ -237,7 +256,7 @@ export default function CustomerHeader() {
                 />
 
                 {isUserMenuOpen && (
-                  <div className="absolute top-full right-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-xl shadow-2xl z-50 mt-3 overflow-hidden">
+                  <div className="absolute top-full right-0 w-64 bg-[#1a1a2e] border border-[#2a3857] rounded-xl shadow-2xl z-50 overflow-hidden">
                     {/* Top: avatar + name */}
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2a3857]">
                       <img

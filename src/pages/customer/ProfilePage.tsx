@@ -59,7 +59,7 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [, setEditingAddress] = useState<Address | null>(null);
 
 
   const DEFAULT_AVATAR =

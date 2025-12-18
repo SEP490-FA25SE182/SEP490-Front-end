@@ -221,7 +221,7 @@ export default function AdminDashboardPage() {
 
                 /* ========= LOAD ORDERS ========= */
                 const orderRes = await OrderService.getAllOrders();
-                const successOrders = orderRes.filter(o => Number(o.status) === 4);
+                const successOrders = orderRes.filter(o => Number(o.status) === 5);
 
                 setOrders(successOrders);
                 setTotalOrders(successOrders.length);
@@ -327,10 +327,21 @@ export default function AdminDashboardPage() {
 
                 /* ========= FEEDBACK ========= */
                 const feedbacks = await FeedbackService.getAll();
+
                 for (const fb of feedbacks) {
-                    const st = stats.get(fb.bookId);
-                    if (st) st.feedbackCount += 1;
+                    if (!stats.has(fb.bookId)) {
+                        stats.set(fb.bookId, {
+                            bookId: fb.bookId,
+                            totalQty: 0,
+                            totalRevenue: 0,
+                            feedbackCount: 0,
+                            book: bookMap.get(fb.bookId),
+                        });
+                    }
+
+                    stats.get(fb.bookId)!.feedbackCount += 1;
                 }
+
 
                 setBookStatsMap(stats);
 
@@ -436,8 +447,8 @@ export default function AdminDashboardPage() {
 
     const mostFeedbackBooks = useMemo(
         () => [...allStats]
-        .filter(s => s.feedbackCount > 0)
-        .sort((a, b) => b.feedbackCount - a.feedbackCount).slice(0, 5),
+            .filter(s => s.feedbackCount > 0)
+            .sort((a, b) => b.feedbackCount - a.feedbackCount).slice(0, 5),
         [allStats]
     );
 
@@ -769,8 +780,7 @@ export default function AdminDashboardPage() {
                                                 #{i + 1} {s.book?.bookName}
                                             </span>
                                             <span className="text-xs text-white/60">
-                                                Feedback: {s.feedbackCount} – Doanh thu:{" "}
-                                                {formatCurrency(s.totalRevenue)}
+                                                Đánh giá: {s.feedbackCount}
                                             </span>
                                         </div>
                                     </div>

@@ -34,6 +34,7 @@ import { UploadService } from "@/services/FirebaseService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { getUserById, type User } from "@/services/UserService";
+import { resolveFirebaseUrl } from "@/firebase";
 
 /* =======================================================
    🗨️ CommentDialog Component
@@ -46,6 +47,10 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
   const [users, setUsers] = useState<Record<string, User>>({});
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [commentAvatars, setCommentAvatars] =
+    useState<Record<string, string>>({});
+
+
 
   const loadComments = async () => {
     try {
@@ -65,6 +70,29 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
   useEffect(() => {
     loadComments();
   }, [blogId]);
+
+  useEffect(() => {
+    async function resolveAvatars() {
+      const entries = Object.values(users);
+
+      const resolved = await Promise.all(
+        entries.map(async (u) => ({
+          userId: u.userId,
+          url: await resolveFirebaseUrl(u.avatarUrl),
+        }))
+      );
+
+      const map: Record<string, string> = {};
+      resolved.forEach(r => (map[r.userId] = r.url));
+
+      setCommentAvatars(map);
+    }
+
+    if (Object.keys(users).length > 0) {
+      resolveAvatars();
+    }
+  }, [users]);
+
 
   const handleAdd = async () => {
     if (!newContent.trim()) return toast.warning("Vui lòng nhập bình luận!");
@@ -136,9 +164,8 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
               <div key={c.commentId} className="bg-white/5 p-3 rounded-xl">
                 <div className="flex items-start gap-3">
                   <img
-                    src={user?.avatarUrl || `https://i.pravatar.cc/100?u=${c.userId}`}
-                    alt="avatar"
-                    className="w-8 h-8 rounded-full border border-white/20"
+                    src={commentAvatars[c.userId] || `https://i.pravatar.cc/100?u=${c.userId}`}
+                    className="w-8 h-8 rounded-full border border-white/20 object-cover"
                   />
                   <div className="flex-1">
                     <p className="font-semibold text-white text-sm">
@@ -227,6 +254,7 @@ const BlogCard: React.FC<{
   const [author, setAuthor] = useState<User | null>(null);
   const [commentCount, setCommentCount] = useState(0);
   const isMine = post.authorId === currentUserId;
+  const [avatar, setAvatar] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -236,6 +264,16 @@ const BlogCard: React.FC<{
       setCommentCount(comments.length);
     })();
   }, [post.blogId, post.authorId]);
+
+  useEffect(() => {
+    async function loadAvatar() {
+      if (!author?.avatarUrl) return;
+      const url = await resolveFirebaseUrl(author.avatarUrl);
+      setAvatar(url);
+    }
+    loadAvatar();
+  }, [author?.avatarUrl]);
+
 
   // 🔹 Chuyển #TênSách -> Link
   const renderHashtags = (text: string) =>
@@ -262,9 +300,12 @@ const BlogCard: React.FC<{
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-3">
           <img
-            src={author?.avatarUrl || `https://i.pravatar.cc/100?u=${post.authorId}`}
+            src={avatar || `https://i.pravatar.cc/100?u=${post.authorId}`}
             alt={author?.fullName || "User"}
-            className="w-10 h-10 rounded-full border border-white/20"
+            className="w-10 h-10 rounded-full border border-white/20 object-cover"
+            onError={(e) => {
+              e.currentTarget.src = "/default-avatar.png";
+            }}
           />
           <div>
             <p className="text-white font-semibold">{author?.fullName || "Đang tải..."}</p>
@@ -506,93 +547,95 @@ export default function BlogPage() {
       <CustomerHeader />
 
       <main className="container mx-auto px-6 py-12 text-white">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold uppercase tracking-wide">
-            Cộng đồng chia sẻ & đánh giá
+        <div className="relative flex items-center mb-8">
+
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-3xl font-bold uppercase tracking-wide">
+            Chia sẻ & đánh giá
           </h1>
 
+
           {isAuthenticated && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button
-                className={`text-white ${isAuthenticated
-                    ? "bg-purple-600 hover:bg-purple-700"
-                    : "bg-purple-600 hover:bg-purple-700 opacity-100 cursor-pointer"
-                  }`}
-                onClick={(e) => {
-                  if (!isAuthenticated) {
-                    e.preventDefault(); // 🚫 CHẶN mở Dialog
-                    toast.warning("Bạn cần đăng nhập để tạo bài viết!"); // 🔔 Hiện toast
-                  }
-                }}
-              >
-                <PlusCircle className="mr-2 w-5 h-5" /> Tạo bài viết
-              </Button>
-            </DialogTrigger>
-
-
-
-            <DialogContent className="max-w-lg bg-[#1e1e2e] text-white border border-white/10">
-              <DialogHeader>
-                <DialogTitle>📝 Tạo bài viết mới</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4 relative">
-                <Label>Tiêu đề</Label>
-                <Input
-                  value={newPost.title}
-                  onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  className="bg-white/10 border-white/20 text-white"
-                />
-
-                <Label>Nội dung</Label>
-                <Textarea
-                  value={newPost.content}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white"
-                />
-
-                {tagSuggestions.length > 0 && (
-                  <div className="absolute bg-[#2a2a3e] border border-white/10 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto z-20 w-full">
-                    {tagSuggestions.map((t) => (
-                      <div
-                        key={t.tagId}
-                        onClick={() => {
-                          setNewPost((prev) => ({
-                            ...prev,
-                            content: prev.content.replace(
-                              /#([A-Za-z0-9_À-ỹ]*)$/,
-                              `#${t.name} `
-                            ),
-                          }));
-                          setTagSuggestions([]);
-                        }}
-                        className="px-3 py-1 hover:bg-white/10 cursor-pointer text-sm"
-                      >
-                        #{t.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-
-                <Label>Ảnh minh họa (tùy chọn)</Label>
-                <Input type="file" accept="image/*" onChange={handleImageUpload} />
-              </div>
-
-              <DialogFooter>
-                <Button onClick={handleSubmit} disabled={uploading}>
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải...
-                    </>
-                  ) : (
-                    "Đăng bài"
-                  )}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  className={`text-white ${isAuthenticated
+                    ? "ml-auto bg-purple-600 hover:bg-purple-700"
+                    : "ml-auto bg-purple-600 hover:bg-purple-700 opacity-100 cursor-pointer"
+                    }`}
+                  onClick={(e) => {
+                    if (!isAuthenticated) {
+                      e.preventDefault();
+                      toast.warning("Bạn cần đăng nhập để tạo bài viết!");
+                    }
+                  }}
+                >
+                  <PlusCircle className="mr-2 w-5 h-5" /> Tạo bài viết
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>)}
+              </DialogTrigger>
+
+
+
+              <DialogContent className="max-w-lg bg-[#1e1e2e] text-white border border-white/10">
+                <DialogHeader>
+                  <DialogTitle>📝 Tạo bài viết mới</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 relative">
+                  <Label>Tiêu đề</Label>
+                  <Input
+                    value={newPost.title}
+                    onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                    className="bg-white/10 border-white/20 text-white"
+                  />
+
+                  <Label>Nội dung</Label>
+                  <Textarea
+                    value={newPost.content}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    className="bg-white/10 border-white/20 text-white"
+                  />
+
+                  {tagSuggestions.length > 0 && (
+                    <div className="absolute bg-[#2a2a3e] border border-white/10 rounded-lg p-2 mt-1 max-h-32 overflow-y-auto z-20 w-full">
+                      {tagSuggestions.map((t) => (
+                        <div
+                          key={t.tagId}
+                          onClick={() => {
+                            setNewPost((prev) => ({
+                              ...prev,
+                              content: prev.content.replace(
+                                /#([A-Za-z0-9_À-ỹ]*)$/,
+                                `#${t.name} `
+                              ),
+                            }));
+                            setTagSuggestions([]);
+                          }}
+                          className="px-3 py-1 hover:bg-white/10 cursor-pointer text-sm"
+                        >
+                          #{t.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+
+                  <Label>Ảnh minh họa (tùy chọn)</Label>
+                  <Input type="file" accept="image/*" onChange={handleImageUpload} />
+                </div>
+
+                <DialogFooter>
+                  <Button onClick={handleSubmit} disabled={uploading}>
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải...
+                      </>
+                    ) : (
+                      "Đăng bài"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>)}
         </div>
 
         {/* Search */}

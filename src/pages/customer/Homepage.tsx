@@ -247,68 +247,55 @@ const HeroBookSlide: React.FC<{
   const chips = bookGenres.slice(0, 4);
 
   return (
-    <div className="relative overflow-hidden">
-      <div className="absolute inset-0">
-        <img
-          src={cover}
-          alt={book.bookName}
-          className="w-full h-full object-cover scale-110 blur-3xl opacity-35"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-linear-to-r from-[#0b1224]/95 via-[#0b1224]/75 to-[#0b1224]/95" />
-        <div className="absolute inset-y-0 left-1/2 w-60 -translate-x-1/2 bg-linear-to-r from-[#0b1224]/0 via-[#0b1224]/65 to-[#0b1224]/0 blur-xl" />
-      </div>
+    <div className="relative bg-transparent">
+      <div className="mx-auto max-w-7xl px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center min-h-[520px]">
+          {/* LEFT */}
+          <div className="space-y-4">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight line-clamp-2">
+              {book.bookName}
+            </h2>
 
-      <div className="relative z-10">
-        <div className="mx-auto max-w-7xl px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center min-h-[520px]">
-            <div className="space-y-4">
-              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight line-clamp-2">
-                {book.bookName}
-              </h2>
-
-              {chips.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {chips.map((g) => (
-                    <Chip key={g.genreId}>{g.genreName}</Chip>
-                  ))}
-                  {bookGenres.length > chips.length && (
-                    <Chip>+{bookGenres.length - chips.length}</Chip>
-                  )}
-                </div>
-              )}
-
-              <p className="text-white/70 leading-relaxed line-clamp-4 max-w-xl">
-                {book.decription || "Chưa có mô tả cho cuốn sách này."}
-              </p>
-
-              <div className="pt-2">
-                <Link
-                  to={`/book/${book.bookId}`}
-                  className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-purple-600 hover:bg-purple-700 transition text-white font-semibold shadow-lg"
-                >
-                  Xem chi tiết
-                </Link>
+            {chips.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {chips.map((g) => (
+                  <Chip key={g.genreId}>{g.genreName}</Chip>
+                ))}
+                {bookGenres.length > chips.length && (
+                  <Chip>+{bookGenres.length - chips.length}</Chip>
+                )}
               </div>
-            </div>
+            )}
 
-            <div className="flex justify-center md:justify-end">
-              <div className="relative">
-                <div className="absolute -inset-8 rounded-[36px] bg-white/10 blur-2xl" />
-                <img
-                  src={cover}
-                  alt={book.bookName}
-                  className="relative w-60 md:w-[320px] lg:w-[360px] aspect-3/4 object-cover rounded-3xl shadow-[0_30px_90px_rgba(0,0,0,0.6)]"
-                  loading="lazy"
-                />
-              </div>
+            <p className="text-white/70 leading-relaxed line-clamp-4 max-w-xl">
+              {book.decription || "Chưa có mô tả cho cuốn sách này."}
+            </p>
+
+            <div className="pt-2">
+              <Link
+                to={`/book/${book.bookId}`}
+                className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-purple-600 hover:bg-purple-700 transition text-white font-semibold shadow-lg"
+              >
+                Xem chi tiết
+              </Link>
             </div>
+          </div>
+
+          {/* RIGHT */}
+          <div className="flex justify-center md:justify-end">
+            <img
+              src={cover}
+              alt={book.bookName}
+              className="w-60 md:w-[320px] lg:w-[360px] aspect-3/4 object-cover rounded-3xl shadow-[0_30px_90px_rgba(0,0,0,0.6)]"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -343,24 +330,25 @@ const HeroFullBleed: React.FC<{
 
   return (
     <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
-      <div className="relative">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeBook.bookId}
-            initial={{ opacity: 0, y: 10, scale: 1.01 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.995 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <HeroBookSlide
-              book={activeBook}
-              bookGenres={genresMap[String(activeBook.bookId)] || []}
-            />
-          </motion.div>
-        </AnimatePresence>
+      {/* Slide (transparent, no overlays) */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeBook.bookId}
+          initial={{ opacity: 0, y: 10, scale: 1.01 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.995 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
+          <HeroBookSlide
+            book={activeBook}
+            bookGenres={genresMap[String(activeBook.bookId)] || []}
+          />
+        </motion.div>
+      </AnimatePresence>
 
-        {/* tabs (max 5) */}
-        <div className="absolute bottom-10 right-10 z-20 flex items-center gap-3">
+      {/* ✅ Thumbnails moved: center under carousel */}
+      <div className="mx-auto max-w-7xl px-6 pb-8 -mt-6">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           {thumb.items.map((b, i) => {
             const realIndex = thumb.start + i;
             const isActive = realIndex === active;
@@ -369,15 +357,13 @@ const HeroFullBleed: React.FC<{
               <button
                 key={b.bookId}
                 onClick={() => setActive(realIndex)}
-                className={`
-                  relative overflow-hidden rounded-xl
-                  w-14 h-20 md:w-16 md:h-24
-                  border transition
-                  ${isActive
+                className={[
+                  "relative overflow-hidden rounded-xl border transition",
+                  "w-14 h-20 md:w-16 md:h-24",
+                  isActive
                     ? "border-white/70 shadow-xl"
-                    : "border-white/15 opacity-75 hover:opacity-100"
-                  }
-                `}
+                    : "border-white/15 opacity-75 hover:opacity-100",
+                ].join(" ")}
                 title={b.bookName}
               >
                 <img
@@ -393,20 +379,10 @@ const HeroFullBleed: React.FC<{
             );
           })}
         </div>
-
-        {/* ✅ Gradient blend 4 mép (match homepage: from #0F3460 -> #16213E -> #1a1a2e) */}
-        <div className="pointer-events-none absolute inset-0 z-30">
-          {/* Vignette (tối dần 4 phía) */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_55%,rgba(0,0,0,0.55)_100%)]" />
-          {/* Tăng độ “mềm” ở mép */}
-          <div className="absolute inset-0 shadow-[inset_0_0_120px_rgba(0,0,0,0.55)]" />
-        </div>
-
       </div>
     </div>
   );
 };
-
 
 /* -------------------------
  🧩 Section: Grid sách (có stagger)

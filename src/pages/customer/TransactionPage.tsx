@@ -80,7 +80,7 @@ export default function TransactionPage() {
       case ORDER_STATUS.DELIVERED: return "Đã giao (chờ xác nhận)";
       case ORDER_STATUS.RECEIVED: return "Đã nhận hàng";
       case ORDER_STATUS.CANCELLED: return "Đã hủy";
-      case ORDER_STATUS.RETURNED: return "Đã trả hàng";
+      case ORDER_STATUS.RETURNED: return "Trả hàng";
       default: return "Không xác định";
     }
   };

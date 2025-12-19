@@ -59,7 +59,7 @@ export default function ImagePageEdit() {
   const { data: allMarkersResp } = useSearchMarkers({
     page: 0,
     size: 9999,
-    sort: ["createdAt,asc"], // mới nhất trước (nếu BE hỗ trợ)
+    sort: ["updatedAt,desc"], // mới nhất trước (nếu BE hỗ trợ)
   });
   const allMarkers = allMarkersResp?.content ?? [];
 
@@ -67,7 +67,7 @@ export default function ImagePageEdit() {
   // marker đang gắn với page (nếu có)
   const { data: pageMarkersResp } = useSearchMarkers(
     pageId
-      ? { pageId, page: 0, size: 1, sort: ["createdAt,asc"] }
+      ? { pageId, page: 0, size: 1, sort: ["updatedAt,desc"] }
       : undefined
   );
 
@@ -92,7 +92,7 @@ export default function ImagePageEdit() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     size: 9999,
-    sort: ["createdAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["updatedAt,asc"], 
   });
 
   // === Lấy liên kết page-illustration hiện có ===
@@ -113,19 +113,18 @@ export default function ImagePageEdit() {
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations) || illustrations.length === 0) return [];
 
-    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : Number.POSITIVE_INFINITY);
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)) // ✅ desc: mới nhất lên đầu
+      .sort((a, b) => toTime(a.updatedAt) - toTime(b.updatedAt))
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,
         url: it.imageUrl,
-        createdAt: it.createdAt, // optional debug
+        updatedAt: it.updatedAt,
       }));
   }, [illustrations]);
-
 
   // === Tự động điền illustration đã liên kết (từ page-illustrations) ===
   useEffect(() => {
@@ -173,7 +172,7 @@ export default function ImagePageEdit() {
 
     return [...allMarkers]
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt))
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ mới nhất trước
       .map((m: any) => ({
         id: m.markerId ?? m.id,
         code: m.markerCode,

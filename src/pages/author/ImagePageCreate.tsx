@@ -49,7 +49,7 @@ export default function ImagePageCreate() {
     userId,
     page: 0,
     size: 9999,               // ✅ lấy hết
-    sort: ["updatedAt,desc"], // ✅ gần đây nhất trước (nếu BE support)
+    sort: ["updatedAt,asc"], // ✅ gần đây nhất trước (nếu BE support)
   });
 
 
@@ -70,15 +70,14 @@ export default function ImagePageCreate() {
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)) // ✅ desc: mới nhất lên đầu
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ asc
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,
         url: it.imageUrl,
-        createdAt: it.createdAt, // optional, để debug
+        updatedAt: it.updatedAt, // optional, để debug
       }));
   }, [illustrations]);
-
 
   // when user selects an illustration -> set selected id and replace content with image url
   const handleSelectIllustration = (id: string) => {

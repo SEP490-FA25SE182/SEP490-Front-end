@@ -21,21 +21,15 @@ interface Props {
   onSaved?: () => void;
 }
 
-export default function MarkerPageDialog({
-  isOpen,
-  onClose,
-  pageId,
-  pageNumber,
-  onSaved,
-}: Props) {
+export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
   const { toast } = useToast();
 
   // ✅ server sort theo createdAt desc (mới nhất lên đầu)
   const { data: markersResp } = useSearchMarkers({
     page: 0,
-    size: 9999,
-    sort: ["createdAt,desc"],
-    // isActived: "ACTIVE",
+    size: 9999,                 // ✅ lấy tất cả
+    sort: ["updatedAt,asc"],   // ✅ gần đây nhất trước
+    // isActived: "ACTIVE",      // nếu BE hỗ trợ filter thì bật lên
   });
 
   const markers = markersResp?.content ?? [];
@@ -50,18 +44,18 @@ export default function MarkerPageDialog({
   const markerList = useMemo(() => {
     if (!Array.isArray(markers)) return [];
 
-    const toTime = (d?: string) =>
-      d ? new Date(d).getTime() : Number.NEGATIVE_INFINITY;
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+
 
     return markers
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt))
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
       .map((m: any) => ({
         id: (m.markerId ?? m.id) as string,
         code: m.markerCode,
         type: m.markerType,
         imageUrl: m.imageUrl,
-        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
       }));
   }, [markers]);
 
@@ -73,9 +67,7 @@ export default function MarkerPageDialog({
     const bucket = parts.shift();
     const path = parts.join("/");
     if (!bucket || !path) return url;
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-      path
-    )}?alt=media`;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
   };
 
   const handleSave = async () => {

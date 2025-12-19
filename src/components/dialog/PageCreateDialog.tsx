@@ -77,8 +77,8 @@ export const PageCreateDialog: React.FC<Props> = ({
     const list = Array.isArray(pagesResp)
       ? pagesResp
       : Array.isArray((pagesResp as any)?.content)
-        ? (pagesResp as any).content
-        : [];
+      ? (pagesResp as any).content
+      : [];
 
     const duplicate = list.some(
       (p: any) =>

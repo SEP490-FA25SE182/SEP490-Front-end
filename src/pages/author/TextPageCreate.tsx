@@ -54,7 +54,7 @@ export default function TextPageCreate() {
     isActived: "ACTIVE",
     page: 0,
     size: 9999,                 // ✅ lấy hết (hoặc đủ lớn)
-    sort: ["createdAt,desc"],  // ✅ mới nhất trước (nếu BE support)
+    sort: ["updatedAt,asc"],  // ✅ mới nhất trước (nếu BE support)
   });
 
 
@@ -73,13 +73,14 @@ export default function TextPageCreate() {
 
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
-      .sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt)) // ✅ desc theo createdAt
+      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
         url: gsToHttp(a.audioUrl),
-        createdAt: a.createdAt, // optional để debug
+        updatedAt: a.updatedAt, // optional để debug
       }));
+
     setAudioList(activeList);
   }, [audiosData]);
 

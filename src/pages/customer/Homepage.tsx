@@ -252,10 +252,32 @@ const HeroBookSlide: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center min-h-[520px]">
           {/* LEFT */}
           <div className="space-y-4">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight line-clamp-2">
-              {book.bookName}
-            </h2>
+            <h2 className="relative overflow-visible">
+              {/* glow */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-3 blur-2xl opacity-70
+                          bg-linear-to-tr from-fuchsia-400/70 via-violet-400/55 to-sky-300/60"
+              />
 
+              {/* wrapper có “đệm” ngang để không bị cắt nét italic */}
+              <span className="relative inline-block px-2 -mx-2 overflow-visible">
+                <span
+                  className={[
+                    "block",
+                    "text-5xl md:text-7xl leading-[1.05]",
+                    "font-['Fraunces'] italic tracking-tight",
+                    "bg-linear-to-tr from-white via-fuchsia-200 to-sky-200",
+                    "bg-clip-text text-transparent",
+                    "drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]",
+                    "line-clamp-2", // ✅ clamp ở span trong cùng
+                  ].join(" ")}
+                  style={{ fontWeight: 700, fontVariationSettings: '"opsz" 96, "wght" 700, "ital" 1' }}
+                >
+                  {book.bookName}
+                </span>
+              </span>
+            </h2>
             {chips.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {chips.map((g) => (
@@ -319,65 +341,70 @@ const HeroFullBleed: React.FC<{
 }> = ({ books, genresMap }) => {
   const [active, setActive] = useState(0);
 
+  useEffect(() => setActive(0), [books.length]);
+
   useEffect(() => {
-    setActive(0);
+    if (!books || books.length <= 1) return;
+
+    const id = window.setInterval(() => {
+      setActive((prev) => (prev + 1) % books.length);
+    }, 5000);
+
+    return () => window.clearInterval(id);
   }, [books.length]);
 
   const activeBook = books[active];
   const thumb = useMemo(() => getThumbWindow(books, active, 5), [books, active]);
-
   if (!activeBook) return null;
 
   return (
-    <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
-      {/* Slide (transparent, no overlays) */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeBook.bookId}
-          initial={{ opacity: 0, y: 10, scale: 1.01 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -6, scale: 0.995 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
-          <HeroBookSlide
-            book={activeBook}
-            bookGenres={genresMap[String(activeBook.bookId)] || []}
-          />
-        </motion.div>
-      </AnimatePresence>
+    <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
+    <div className="absolute inset-0 bg-[linear-gradient(120deg,#120A2A_0%,#1B2A6B_38%,#0B3A6D_72%,#071228_100%)]" />
+    <div className="absolute inset-0 opacity-90 bg-[radial-gradient(circle_at_18%_30%,rgba(236,72,153,0.22),transparent_55%),radial-gradient(circle_at_45%_18%,rgba(168,85,247,0.26),transparent_55%),radial-gradient(circle_at_80%_35%,rgba(59,130,246,0.24),transparent_60%),radial-gradient(circle_at_70%_85%,rgba(34,211,238,0.16),transparent_60%)]" />
+    <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
-      {/* ✅ Thumbnails moved: center under carousel */}
-      <div className="mx-auto max-w-7xl px-6 pb-8 -mt-6">
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {thumb.items.map((b, i) => {
-            const realIndex = thumb.start + i;
-            const isActive = realIndex === active;
+      {/* Content nằm trên background */}
+      <div className="relative z-10">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeBook.bookId}
+            initial={{ opacity: 0, y: 10, scale: 1.01 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.995 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          >
+            <HeroBookSlide
+              book={activeBook}
+              bookGenres={genresMap[String(activeBook.bookId)] || []}
+            />
+          </motion.div>
+        </AnimatePresence>
 
-            return (
-              <button
-                key={b.bookId}
-                onClick={() => setActive(realIndex)}
-                className={[
-                  "relative overflow-hidden rounded-xl border transition",
-                  "w-14 h-20 md:w-16 md:h-24",
-                  isActive
-                    ? "border-white/70 shadow-xl"
-                    : "border-white/15 opacity-75 hover:opacity-100",
-                ].join(" ")}
-                title={b.bookName}
-              >
-                <img
-                  src={b.coverUrl}
-                  alt={b.bookName}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                {isActive && (
-                  <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />
-                )}
-              </button>
-            );
-          })}
+        <div className="mx-auto max-w-7xl px-6 pb-8 -mt-6">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {thumb.items.map((b, i) => {
+              const realIndex = thumb.start + i;
+              const isActive = realIndex === active;
+              return (
+                <button
+                  key={b.bookId}
+                  onClick={() => setActive(realIndex)}
+                  className={[
+                    "relative overflow-hidden rounded-xl border transition",
+                    "w-14 h-20 md:w-16 md:h-24",
+                    isActive
+                      ? "border-white/70 shadow-xl"
+                      : "border-white/15 opacity-75 hover:opacity-100",
+                  ].join(" ")}
+                  title={b.bookName}
+                >
+                  <img src={b.coverUrl} alt={b.bookName} className="w-full h-full object-cover" />
+                  {isActive && <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

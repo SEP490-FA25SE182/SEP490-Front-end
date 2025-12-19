@@ -84,8 +84,8 @@ export default function AssetToolPanel({
   }, []);
 
   return (
-    <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col justify-between">
-      <div>
+    <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col h-full">
+      <div className="fflex-1 min-h-0 overflow-auto pr-1">
         <div className="flex items-center justify-between mb-3">
           <div className="text-white font-semibold capitalize">
             {panelType === "model"
@@ -212,7 +212,7 @@ export default function AssetToolPanel({
       </div>
 
       {/* BUTTONS bottom */}
-      <div className="flex gap-3 overflow-auto">
+       <div className="mt-4 flex gap-3 shrink-0">
         {panelType === "model" && (
           <>
             <Button

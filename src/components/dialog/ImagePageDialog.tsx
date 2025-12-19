@@ -34,13 +34,13 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
   // load illustrations (only user's)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?.userId;
+
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,desc"], // ✅ mới nhất trước
+    sort: ["createdAt,desc"], // ✅ mới nhất lên đầu theo createdAt
   });
-
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,17 +51,18 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
 
+    // thiếu createdAt => đẩy xuống cuối khi sort desc
     const toTime = (d?: string) =>
-      d ? new Date(d).getTime() : 0; // thiếu updatedAt thì đẩy xuống cuối (vì desc)
+      d ? new Date(d).getTime() : Number.NEGATIVE_INFINITY;
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && (it.illustrationId || it.id))
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc: mới nhất trước
+      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)) // ✅ desc: mới nhất trước
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,
         url: it.imageUrl,
-        updatedAt: it.updatedAt, // (optional) để debug
+        createdAt: it.createdAt, // optional để debug
       }));
   }, [illustrations]);
 

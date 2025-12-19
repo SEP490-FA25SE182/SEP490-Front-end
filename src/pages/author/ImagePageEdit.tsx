@@ -59,7 +59,7 @@ export default function ImagePageEdit() {
   const { data: allMarkersResp } = useSearchMarkers({
     page: 0,
     size: 9999,
-    sort: ["updatedAt,desc"], // mới nhất trước (nếu BE hỗ trợ)
+    sort: ["createdAt,asc"], // mới nhất trước (nếu BE hỗ trợ)
   });
   const allMarkers = allMarkersResp?.content ?? [];
 
@@ -67,7 +67,7 @@ export default function ImagePageEdit() {
   // marker đang gắn với page (nếu có)
   const { data: pageMarkersResp } = useSearchMarkers(
     pageId
-      ? { pageId, page: 0, size: 1, sort: ["updatedAt,desc"] }
+      ? { pageId, page: 0, size: 1, sort: ["createdAt,asc"] }
       : undefined
   );
 
@@ -92,7 +92,7 @@ export default function ImagePageEdit() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     size: 9999,
-    sort: ["updatedAt,asc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["createdAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
   });
 
   // === Lấy liên kết page-illustration hiện có ===
@@ -113,16 +113,16 @@ export default function ImagePageEdit() {
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations) || illustrations.length === 0) return [];
 
-    const toTime = (d?: string) => (d ? new Date(d).getTime() : Number.POSITIVE_INFINITY);
+    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a, b) => toTime(a.updatedAt) - toTime(b.updatedAt))
+      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)) // ✅ desc: mới nhất lên đầu
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,
         url: it.imageUrl,
-        updatedAt: it.updatedAt,
+        createdAt: it.createdAt, // optional debug
       }));
   }, [illustrations]);
 
@@ -173,7 +173,7 @@ export default function ImagePageEdit() {
 
     return [...allMarkers]
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ mới nhất trước
+      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt))
       .map((m: any) => ({
         id: m.markerId ?? m.id,
         code: m.markerCode,

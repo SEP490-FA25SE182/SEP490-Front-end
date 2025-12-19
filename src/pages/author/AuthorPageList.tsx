@@ -82,7 +82,7 @@ const AuthorPageList = () => {
   // 🆕 lấy authorId giống AuthorIncome
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
-  
+
 
   useEffect(() => {
     const fetchAuthorId = async () => {
@@ -121,11 +121,18 @@ const AuthorPageList = () => {
   const { data: pagesResp, isLoading: loadingPages } = useGetAllPages(
     chapterId ? { chapterId } : undefined
   );
-  
+
 
   // 🆕 Markers (right panel) - lọc theo userId của author
   const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
-    authorId ? { userId: authorId } : undefined
+    authorId
+      ? {
+        userId: authorId,
+        page: 0,
+        size: 9999,
+        sort: ["createdAt,desc"],
+      }
+      : undefined
   );
 
   // 🔹 Lấy quan hệ page-illustration & danh sách illustration
@@ -235,10 +242,19 @@ const AuthorPageList = () => {
   // Markers list normalized
   const markers: Marker[] = useMemo(() => {
     if (!markersResp) return [];
-    return Array.isArray(markersResp)
-      ? markersResp
+
+    const list = Array.isArray(markersResp)
+      ? (markersResp as any[])
       : (markersResp as any).content || [];
+
+    const toTime = (d?: string) =>
+      d ? new Date(d).getTime() : Number.NEGATIVE_INFINITY;
+
+    return list
+      .filter((m: any) => m.isActived !== "INACTIVE") // nếu có flag
+      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)); // ✅ DESC
   }, [markersResp]);
+
 
   const isImageUrl = (url?: string) => {
     if (!url) return false;
@@ -292,15 +308,16 @@ const AuthorPageList = () => {
     try {
       await updateChapter.mutateAsync({
         id: chapterId,
-        data: { chapterName: chapter.chapterName,
-        chapterNumber: chapter.chapterNumber,
-        decription: chapter.decription,
-        bookId: chapter.bookId,
-        progressStatus: 0,
-        isActived: chapter.isActived,
-        publishedDate: chapter.publishedDate,
-        review: chapter.review
-         },
+        data: {
+          chapterName: chapter.chapterName,
+          chapterNumber: chapter.chapterNumber,
+          decription: chapter.decription,
+          bookId: chapter.bookId,
+          progressStatus: 0,
+          isActived: chapter.isActived,
+          publishedDate: chapter.publishedDate,
+          review: chapter.review
+        },
       });
 
       toast({
@@ -418,14 +435,14 @@ const AuthorPageList = () => {
                 </span>
               </div>
               {(chapter?.progressStatus === 1 || chapter?.progressStatus === 3)
-                  && (
-                    <Button
-                      className="ml-2 bg-green-600 hover:bg-green-700 text-white"
-                      onClick={handleSubmitForReview}
-                    >
-                      Hoàn thành chương → Gửi duyệt
-                    </Button>
-                  )}
+                && (
+                  <Button
+                    className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleSubmitForReview}
+                  >
+                    Hoàn thành chương → Gửi duyệt
+                  </Button>
+                )}
             </div>
           </div>
 

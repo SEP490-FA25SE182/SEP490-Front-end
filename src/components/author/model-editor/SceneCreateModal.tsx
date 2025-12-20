@@ -25,7 +25,7 @@ export default function SceneCreateModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+    <div className="fixed inset-0 z-10000 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-[#0f172a] border border-white/10 rounded p-4 text-white">
         <h3 className="text-lg font-semibold mb-2">

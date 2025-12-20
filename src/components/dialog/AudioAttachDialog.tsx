@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,13 +10,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useCreatePageAudio, useSearchAudios } from "@/services/AIService";
 
-/**
- * AudioAttachDialog
- * Props:
- *  - isOpen, onClose
- *  - pageId: string | null  (page must exist)
- *  - onAttached: (ids: string[]) => void
- */
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +17,12 @@ interface Props {
   onAttached?: (ids: string[]) => void;
 }
 
-export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached }: Props) {
+export default function AudioAttachDialog({
+  isOpen,
+  onClose,
+  pageId,
+  onAttached,
+}: Props) {
   const { toast } = useToast();
   const [selectedAudio, setSelectedAudio] = useState<string>("");
   const [openPreview, setOpenPreview] = useState(false);
@@ -37,11 +35,30 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
     isActived: "ACTIVE",
   });
 
-  const audioList = (audiosData ?? []).map((a: any) => ({
-    id: a.audioId ?? a.id,
-    name: a.title || "Audio không tên",
-    url: a.audioUrl,
-  }));
+  // ✅ FIX: sort audios by updatedAt newest first (fallback createdAt), avoid mutating query cache
+  // Also supports response shape: Array OR { content: Array }
+  const audioList = useMemo(() => {
+    const raw = Array.isArray(audiosData)
+      ? audiosData
+      : (audiosData as any)?.content ?? [];
+
+    return (raw ?? [])
+      .slice() // prevent in-place sort mutation (react-query cache safety)
+      .sort((a: any, b: any) => {
+        const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+        const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+
+        if (tb !== ta) return tb - ta; // newest first
+
+        // stable tie-breaker to reduce "jumping" order
+        return String(a.title ?? "").localeCompare(String(b.title ?? ""));
+      })
+      .map((a: any) => ({
+        id: a.audioId ?? a.id,
+        name: a.title || "Audio không tên",
+        url: a.audioUrl,
+      }));
+  }, [audiosData]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -95,7 +112,9 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
 
         <div className="space-y-4 mt-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Chọn audio</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Chọn audio
+            </label>
             <select
               className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
               value={selectedAudio}
@@ -112,9 +131,16 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
 
           {selectedAudio && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nghe thử</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nghe thử
+              </label>
               <audio controls className="w-full" preload="metadata">
-                <source src={audioList.find((x: any) => x.id === selectedAudio)?.url || ""} />
+                <source
+                  src={
+                    audioList.find((x: any) => x.id === selectedAudio)?.url ||
+                    ""
+                  }
+                />
                 Trình duyệt không hỗ trợ phát audio.
               </audio>
             </div>
@@ -122,7 +148,9 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
         </div>
 
         <DialogFooter className="mt-4">
-          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="ghost" onClick={onClose}>
+            Huỷ
+          </Button>
           <Button onClick={handleSave} disabled={createPageAudio.isPending}>
             {createPageAudio.isPending ? "Đang lưu..." : "Lưu audio"}
           </Button>
@@ -130,24 +158,32 @@ export default function AudioAttachDialog({ isOpen, onClose, pageId, onAttached 
       </DialogContent>
 
       {/* Preview dialog for selected audio */}
-      <Dialog open={openPreview} onOpenChange={(open) => !open && setOpenPreview(false)}>
+      <Dialog
+        open={openPreview}
+        onOpenChange={(open) => !open && setOpenPreview(false)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Xem trước audio</DialogTitle>
           </DialogHeader>
           <div className="mt-2">
-            <div className="text-sm text-gray-700 mb-2">{audioList.find((x) => x.id === selectedAudio)?.name || "Audio"}</div>
+            <div className="text-sm text-gray-700 mb-2">
+              {audioList.find((x: { id: string; }) => x.id === selectedAudio)?.name || "Audio"}
+            </div>
             <audio controls className="w-full" preload="metadata">
-              <source src={audioList.find((x) => x.id === selectedAudio)?.url || ""} />
+              <source
+                src={audioList.find((x: { id: string; }) => x.id === selectedAudio)?.url || ""}
+              />
               Trình duyệt không hỗ trợ phát audio.
             </audio>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setOpenPreview(false)}>Đóng</Button>
+            <Button variant="ghost" onClick={() => setOpenPreview(false)}>
+              Đóng
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </Dialog>
   );
 }

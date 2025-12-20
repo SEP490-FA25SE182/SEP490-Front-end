@@ -49,7 +49,7 @@ export default function ImagePageCreate() {
     userId,
     page: 0,
     size: 9999,               // ✅ lấy hết
-    sort: ["updatedAt,asc"], // ✅ gần đây nhất trước (nếu BE support)
+    sort: ["updatedAt,desc"], // ✅ gần đây nhất trước (nếu BE support)
   });
 
 
@@ -62,20 +62,33 @@ export default function ImagePageCreate() {
     }
   }, [pageData]);
 
-  // Memoize illustrationsList with userId filtering
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations) || illustrations.length === 0) return [];
 
-    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+    const toTime = (d?: string) => {
+      if (!d) return 0;
+      const t = new Date(d).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
 
-    return illustrations
+    return [...illustrations]
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ asc
+      .sort((a: any, b: any) => {
+        // ✅ ưu tiên updatedAt, fallback createdAt
+        const tb = toTime(b.updatedAt) || toTime(b.createdAt);
+        const ta = toTime(a.updatedAt) || toTime(a.createdAt);
+
+        // mới nhất trước
+        if (tb !== ta) return tb - ta;
+
+        // ✅ nếu trùng thời gian thì sort thêm theo id để ổn định
+        return String(b.illustrationId).localeCompare(String(a.illustrationId));
+      })
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,
         url: it.imageUrl,
-        updatedAt: it.updatedAt, // optional, để debug
+        updatedAt: it.updatedAt,
       }));
   }, [illustrations]);
 

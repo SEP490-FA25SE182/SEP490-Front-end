@@ -92,7 +92,7 @@ export default function ImagePageEdit() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     size: 9999,
-    sort: ["updatedAt,asc"], 
+    sort: ["updatedAt,desc"], 
   });
 
   // === Lấy liên kết page-illustration hiện có ===
@@ -117,7 +117,7 @@ export default function ImagePageEdit() {
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
-      .sort((a, b) => toTime(a.updatedAt) - toTime(b.updatedAt))
+      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt))
       .map((it: any) => ({
         id: it.illustrationId as string,
         title: it.title,

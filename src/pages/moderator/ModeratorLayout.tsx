@@ -42,24 +42,22 @@ export default function ModeratorLayout({ title, breadcrumb, children }: Props) 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-300">
             {breadcrumb.map((item, i) => {
-              const isBooks = item.label.trim().toLowerCase() === "books";
-
-              // ✅ nếu Books mà to bị sai (vd /moderator/books hoặc có :authorId) thì override
+              // ✅ nếu item.to có thì dùng to
+              // ✅ nếu label === "Books" mà không có to => auto về books list
               const computedTo =
-                isBooks
-                  ? booksListPath
-                  : item.to;
+                item.to ?? (item.label.toLowerCase() === "books" ? booksListPath : undefined);
 
               const isClickable = !!computedTo;
 
               return (
                 <div key={i} className="flex items-center gap-2">
                   <span
-                    onClick={() =>
-                      isClickable &&
-                      navigate(computedTo!, { state: location.state }) // ✅ giữ state (books/authorId) nếu có
+                    onClick={() => isClickable && navigate(computedTo!)}
+                    className={
+                      isClickable
+                        ? "hover:text-white cursor-pointer"
+                        : "text-white font-medium"
                     }
-                    className={isClickable ? "hover:text-white cursor-pointer" : "text-white font-medium"}
                   >
                     {item.label}
                   </span>

@@ -261,7 +261,7 @@ export default function OrderManagementPage() {
         status: TRANS_STATUS.PAID, // 3
         orderId: refundTrans.orderId,
         paymentMethodId: refundTrans.paymentMethodId,
-        walletId: refundTrans.walletId,
+        walletId: refundTrans.walletId ?? refundOrder.walletId,
         transType: "REFUND", // ✅ ép giữ REFUND
         isActived: refundTrans.isActived ?? "ACTIVE",
       });

@@ -220,7 +220,6 @@ export default function CartPage() {
       : "bg-slate-700 border border-slate-400 hover:border-slate-200 hover:bg-slate-600"
   }
 `}
-
                       >
                         {!isOutOfStock && selectedIds.includes(id) && (
                           <span className="text-white text-sm font-bold">

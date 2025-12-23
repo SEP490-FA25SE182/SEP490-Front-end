@@ -50,6 +50,12 @@ export default function AuthorProfile() {
   const [txError, setTxError] = useState<string | null>(null);
   const [openTerms, setOpenTerms] = useState(false);
 
+  const TX_PAGE_SIZE = 10;
+
+  const [txPage, setTxPage] = useState(0);       // 0-based
+  const [txTotalPages, setTxTotalPages] = useState(0);
+  const [txTotalElements, setTxTotalElements] = useState(0);
+
   useEffect(() => {
     let mounted = true;
 
@@ -230,48 +236,42 @@ export default function AuthorProfile() {
   };
 
   useEffect(() => {
-    // when wallets loaded, default select first wallet
-    if (wallets && wallets.length > 0 && !selectedWalletId) {
-      setSelectedWalletId(wallets[0].walletId);
-    }
-  }, [wallets, selectedWalletId]);
-
-  // fetch transactions for selected wallet automatically
-  useEffect(() => {
-    let mounted = true;
-    const fetchTransactions = async (wid: string) => {
-      setTxLoading(true);
-      setTxError(null);
-      try {
-        // gọi đúng endpoint transactions/search (page/size tuỳ chỉnh)
-        const res = await TransactionService.searchTransactions({
-          walletId: wid,
-          page: 0,
-          size: 20,
-        });
-        const items = Array.isArray(res)
-          ? res
-          : res && res.content
-            ? res.content
-            : [];
-        if (!mounted) return;
-        setTransactions(items);
-      } catch (err) {
-        console.error("Lỗi khi lấy lịch sử giao dịch:", err);
-        if (mounted) {
-          setTxError("Không tải được lịch sử giao dịch");
-          setTransactions([]);
-        }
-      } finally {
-        if (mounted) setTxLoading(false);
-      }
-    };
-
-    if (selectedWalletId) fetchTransactions(selectedWalletId);
-    return () => {
-      mounted = false;
-    };
+    if (!selectedWalletId) return;
+    setTxPage(0);
+    fetchTransactions(selectedWalletId, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWalletId]);
+
+
+  const fetchTransactions = async (wid: string, page = 0) => {
+    setTxLoading(true);
+    setTxError(null);
+    try {
+      const res: any = await TransactionService.searchTransactions({
+        walletId: wid,
+        page,
+        size: TX_PAGE_SIZE, // ✅ 10 / page
+        sort: ["createdAt,desc"], // nếu BE hỗ trợ
+      });
+
+      // Spring pageable thường có: content, totalPages, totalElements, number
+      const items = res?.content ?? [];
+      setTransactions(items);
+
+      setTxTotalPages(res?.totalPages ?? 0);
+      setTxTotalElements(res?.totalElements ?? items.length);
+      setTxPage(res?.number ?? page);
+    } catch (err) {
+      console.error("Lỗi khi lấy lịch sử giao dịch:", err);
+      setTxError("Không tải được lịch sử giao dịch");
+      setTransactions([]);
+      setTxTotalPages(0);
+      setTxTotalElements(0);
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -607,8 +607,7 @@ export default function AuthorProfile() {
                         <button
                           className="ml-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white"
                           onClick={() => {
-                            // re-fetch current selected wallet transactions
-                            setSelectedWalletId((s) => s);
+                            if (selectedWalletId) fetchTransactions(selectedWalletId, txPage);
                           }}
                         >
                           Tải
@@ -726,6 +725,37 @@ export default function AuthorProfile() {
                             )}
                           </TableBody>
                         </Table>
+
+                        {txTotalPages > 1 && (
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <div className="text-sm text-white/60">
+                              Trang {txPage + 1} / {txTotalPages} • Tổng {txTotalElements} giao dịch
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={txPage === 0 || txLoading}
+                                onClick={() => selectedWalletId && fetchTransactions(selectedWalletId, txPage - 1)}
+                                className="border-white/20 text-white bg-transparent hover:bg-white/10 disabled:opacity-40"
+                              >
+                                Trước
+                              </Button>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={txPage + 1 >= txTotalPages || txLoading}
+                                onClick={() => selectedWalletId && fetchTransactions(selectedWalletId, txPage + 1)}
+                                className="border-white/20 text-white bg-transparent hover:bg-white/10 disabled:opacity-40"
+                              >
+                                Sau
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     )}
                   </div>

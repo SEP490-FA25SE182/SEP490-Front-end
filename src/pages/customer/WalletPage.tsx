@@ -107,7 +107,7 @@ export default function WalletPage() {
       <div className="text-center mb-10">
         <p className="text-gray-500 text-sm">Xu thưởng</p>
         <h2 className="text-3xl font-extrabold text-yellow-500">
-          {coin} Xu
+          {Number(coin ?? 0).toLocaleString("vi-VN")} xu
         </h2>
       </div>
 

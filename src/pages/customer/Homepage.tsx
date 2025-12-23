@@ -24,6 +24,7 @@ import {
   type Variants,
   useReducedMotion,
 } from "framer-motion";
+import SnowCanvas from "@/pages/customer/SnowCanvas";
 
 /* -------------------------
  🖼 Danh sách ảnh quảng cáo
@@ -363,6 +364,9 @@ const HeroFullBleed: React.FC<{
     <div className="absolute inset-0 opacity-90 bg-[radial-gradient(circle_at_18%_30%,rgba(236,72,153,0.22),transparent_55%),radial-gradient(circle_at_45%_18%,rgba(168,85,247,0.26),transparent_55%),radial-gradient(circle_at_80%_35%,rgba(59,130,246,0.24),transparent_60%),radial-gradient(circle_at_70%_85%,rgba(34,211,238,0.16),transparent_60%)]" />
     <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
+
+    {/* ✅ SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
+      <SnowCanvas className="z-5" buildSnowmanAfterMs={3500} density={1.1} />
 
       {/* Content nằm trên background */}
       <div className="relative z-10">

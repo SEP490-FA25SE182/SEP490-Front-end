@@ -103,8 +103,7 @@ export default function AuthorManagementPage() {
   const [settleOpen, setSettleOpen] = useState(false);
   const [settleAuthor, setSettleAuthor] = useState<AuthorRow | null>(null);
 
-  const [contractOpen, setContractOpen] = useState(false);
-  const [contract, setContract] = useState<any>(null);
+  const [, setContract] = useState<any>(null);
 
   const [contractViewOpen, setContractViewOpen] = useState(false);
   const [contractView, setContractView] = useState<any>(null);

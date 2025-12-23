@@ -134,7 +134,7 @@ export default function AuthorManagementPage() {
                 .map((x) => x.user);
 
 
-            // 4️⃣ Lấy danh sách order (status = 4) + orderDetails
+            // 4️⃣ Lấy danh sách order (status 5) + orderDetails
             let successOrders: OrderResponse[] = [];
             let detailsByOrderId = new Map<string, OrderDetailResponse[]>();
 
@@ -144,7 +144,7 @@ export default function AuthorManagementPage() {
                     ? ordersRes
                     : (ordersRes as any)?.content ?? [];
 
-                successOrders = orders.filter((o: OrderResponse) => Number(o.status) === 4);
+                successOrders = orders.filter((o: OrderResponse) => Number(o.status) === 5);
 
                 // Lấy orderDetails theo từng order
                 const allDetailsArrays = await Promise.all(

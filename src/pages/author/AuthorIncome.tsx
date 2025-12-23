@@ -21,7 +21,10 @@ import { OrderService } from "@/services/OrderService";
 import { OrderDetailService } from "@/services/OrderDetailService";
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
-import { getUserByEmail, getUserById } from "@/services/UserService";
+import { getUserByEmail } from "@/services/UserService";
+
+// ✅ NEW: lấy phí tác quyền theo searchWallets
+import { searchWallets } from "@/services/WalletService";
 
 // Recharts
 import {
@@ -51,9 +54,29 @@ export default function AuthorIncome() {
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
 
-  const [authorRoyaltyPercent, setAuthorRoyaltyPercent] = useState<number | null>(
-    null
+  // ✅ NEW: chọn tháng (default: tháng hiện tại) để tính tất cả phí theo tháng
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`
   );
+
+  const monthRange = useMemo(() => {
+    const [yStr, mStr] = selectedMonth.split("-");
+    const y = Number(yStr);
+    const m = Number(mStr); // 1-12
+    const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const end = new Date(y, m, 1, 0, 0, 0, 0);
+    return { start, end };
+  }, [selectedMonth]);
+
+  const monthLabel = useMemo(() => {
+    const [y, m] = selectedMonth.split("-");
+    return `${m}/${y}`;
+  }, [selectedMonth]);
+
+  // ✅ NEW: phí tác quyền theo searchWallets (theo tháng)
+  const [settlementThisMonth, setSettlementThisMonth] = useState<number>(0);
 
   // ===== helper: giống AuthorBookList, ĐẶT LÊN TRÊN =====
   const isBookActive = (book: any) => {
@@ -96,22 +119,25 @@ export default function AuthorIncome() {
 
   const pubStatusLabel = (code: number) => {
     switch (code) {
-      case 0: return "Nháp (đang làm)";
-      case 1: return "Đã xuất bản";
-      case 2: return "Đã được duyệt";
-      case 3: return "Chờ duyệt";
-      case 4: return "Bị từ chối duyệt";
-      default: return "Không xác định";
+      case 0:
+        return "Nháp (đang làm)";
+      case 1:
+        return "Đã xuất bản";
+      case 2:
+        return "Đã được duyệt";
+      case 3:
+        return "Chờ duyệt";
+      case 4:
+        return "Bị từ chối duyệt";
+      default:
+        return "Không xác định";
     }
   };
 
   // =====================================================
 
   // dùng cùng tập sách ACTIVE như BookList
-  const activeBooks = useMemo(
-    () => books.filter((b) => isBookActive(b)),
-    [books]
-  );
+  const activeBooks = useMemo(() => books.filter((b) => isBookActive(b)), [books]);
 
   // tổng sách = số sách ACTIVE
   const totalBooks = activeBooks.length;
@@ -125,37 +151,6 @@ export default function AuthorIncome() {
   const pendingBooks = activeBooks.filter(
     (b) => Number(b.publicationStatus ?? b.publication_status) === 3
   ).length;
-
-  // ===== royalty =====
-  useEffect(() => {
-    if (!authorId) return;
-    let mounted = true;
-    const fetchAuthor = async () => {
-      try {
-        const u = await getUserById(authorId);
-        if (!mounted) return;
-        if (typeof u?.royalty === "number" && !Number.isNaN(u.royalty)) {
-          setAuthorRoyaltyPercent(u.royalty);
-        }
-      } catch (err) {
-        console.error("Error fetching author profile for royalty:", err);
-      }
-    };
-    fetchAuthor();
-    return () => {
-      mounted = false;
-    };
-  }, [authorId]);
-
-  const royaltyRate = useMemo(() => {
-    const r = typeof authorRoyaltyPercent === "number" ? authorRoyaltyPercent : 20;
-    return r > 1 ? r / 100 : r;
-  }, [authorRoyaltyPercent]);
-
-  const authorRoyaltyDisplay = useMemo(() => {
-    const r = typeof authorRoyaltyPercent === "number" ? authorRoyaltyPercent : 20;
-    return r > 1 ? `${r}%` : `${Math.round(r * 100)}%`;
-  }, [authorRoyaltyPercent]);
 
   // ===== resolve authorId =====
   useEffect(() => {
@@ -201,8 +196,8 @@ export default function AuthorIncome() {
             typeof booksResp === "object" &&
             "content" in booksResp &&
             Array.isArray((booksResp as any).content)
-            ? (booksResp as any).content
-            : [];
+          ? (booksResp as any).content
+          : [];
         setAllBooks(filtered);
         const myBooks = userId
           ? (filtered as any[]).filter((b) => String(b.authorId) === String(userId))
@@ -227,7 +222,58 @@ export default function AuthorIncome() {
       currency: "VND",
     }).format(amount);
 
-  // ===== doanh thu thực tế =====
+  // ✅ NEW: tính phí tác quyền theo searchWallets (theo tháng)
+  useEffect(() => {
+    let mounted = true;
+
+    const computeSettlementByWalletSnapshots = async () => {
+      if (!authorId) return;
+
+      try {
+        const res = await searchWallets({
+          userId: authorId,
+          page: 0,
+          size: 1000,
+          sort: "updatedAt,asc",
+        } as any);
+
+        const items = (res?.content ?? []) as any[];
+
+        const inMonth = items
+          .filter((w) => {
+            const t = w?.updatedAt ?? w?.createdAt;
+            if (!t) return false;
+            const d = new Date(t);
+            return d >= monthRange.start && d < monthRange.end;
+          })
+          .sort((a, b) => {
+            const da = new Date(a?.updatedAt ?? a?.createdAt ?? 0).getTime();
+            const db = new Date(b?.updatedAt ?? b?.createdAt ?? 0).getTime();
+            return da - db;
+          });
+
+        let sum = 0;
+        for (let i = 1; i < inMonth.length; i++) {
+          const prev = Number(inMonth[i - 1]?.balance ?? 0);
+          const curr = Number(inMonth[i]?.balance ?? 0);
+          const delta = curr - prev;
+          if (delta > 0) sum += delta; // chỉ cộng phần tăng (tiền vào ví)
+        }
+
+        if (mounted) setSettlementThisMonth(sum);
+      } catch (err) {
+        console.error("Error fetching wallet snapshots via searchWallets:", err);
+        if (mounted) setSettlementThisMonth(0);
+      }
+    };
+
+    computeSettlementByWalletSnapshots();
+    return () => {
+      mounted = false;
+    };
+  }, [authorId, monthRange.start, monthRange.end]);
+
+  // ===== doanh thu thực tế (✅ theo tháng) =====
   useEffect(() => {
     let mounted = true;
 
@@ -235,7 +281,7 @@ export default function AuthorIncome() {
       if (!authorId || allBooks.length === 0) return;
       try {
         const resp = await OrderService.searchOrders({
-          status: "DELIVERED",
+          status: "RECEIVED",
           page: 0,
           size: 1000,
         });
@@ -243,27 +289,31 @@ export default function AuthorIncome() {
         const orders = Array.isArray(resp)
           ? resp
           : resp && resp.content
-            ? resp.content
-            : [];
+          ? resp.content
+          : [];
+
+        const ordersInMonth = (orders as any[]).filter((ord: any) => {
+          const t = ord?.updatedAt ?? ord?.createdAt ?? ord?.createdDate ?? ord?.date;
+          if (!t) return true;
+          const d = new Date(t);
+          return d >= monthRange.start && d < monthRange.end;
+        });
 
         let total = 0;
 
         await Promise.all(
-          orders.map(async (ord: any) => {
+          ordersInMonth.map(async (ord: any) => {
             const orderId = ord.orderId || ord.id || ord.orderID || ord._id;
             if (!orderId) return;
 
             try {
-              const details = await OrderDetailService.getOrderDetailsByOrderId(
-                orderId
-              );
+              const details = await OrderDetailService.getOrderDetailsByOrderId(orderId);
               if (Array.isArray(details)) {
                 details.forEach((d: any) => {
                   const bookId = d.bookId;
                   const book = allBooks.find(
                     (b) =>
-                      String(b.bookId ?? b.id ?? b.bookID ?? b._id) ===
-                      String(bookId)
+                      String(b.bookId ?? b.id ?? b.bookID ?? b._id) === String(bookId)
                   );
                   const bookAuthorId = book
                     ? book.authorId ?? book.userId ?? book.author?.id
@@ -275,11 +325,7 @@ export default function AuthorIncome() {
                 });
               }
             } catch (err) {
-              console.error(
-                "Error fetching order details for order",
-                orderId,
-                err
-              );
+              console.error("Error fetching order details for order", orderId, err);
             }
           })
         );
@@ -294,25 +340,24 @@ export default function AuthorIncome() {
     return () => {
       mounted = false;
     };
-  }, [authorId, allBooks]);
+  }, [authorId, allBooks, monthRange.start, monthRange.end]);
 
-  const royaltyFee = useMemo(
-    () => Math.round(authorRevenue * royaltyRate),
-    [authorRevenue, royaltyRate]
-  );
+  // ✅ CHANGED: Phí tác quyền = số tiền theo ví (KHÔNG tính royaltyRate nữa)
+  const royaltyFee = useMemo(() => Math.round(settlementThisMonth), [settlementThisMonth]);
 
   const cards = [
     {
       title: "Tổng Doanh Thu",
       value: formatCurrency(authorRevenue),
-      desc: "Tổng doanh thu từ đơn hàng đã giao",
+      desc: `Tổng doanh thu đơn hàng (tháng ${monthLabel})`,
       icon: <DollarSign className="w-6 h-6" />,
       accent: "from-[#764BA2] to-[#667EEA]",
     },
     {
       title: "Phí tác quyền",
       value: formatCurrency(royaltyFee),
-      desc: `Tác quyền ${authorRoyaltyDisplay} trên tổng doanh thu`,
+      // ✅ CHANGED: bỏ tính royalty / bỏ hiển thị tỉ lệ
+      desc: `Phí tác quyền trong tháng ${monthLabel} (theo ví)`,
       icon: <BookOpen className="w-6 h-6" />,
       accent: "from-[#334155] to-[#475569]",
     },
@@ -396,10 +441,7 @@ export default function AuthorIncome() {
     });
   }
 
-  const lineData = useMemo(
-    () => generateTimeSeries(activeBooks, timeframe),
-    [activeBooks, timeframe]
-  );
+  const lineData = useMemo(() => generateTimeSeries(activeBooks, timeframe), [activeBooks, timeframe]);
 
   const pubStatusCounts = useMemo(() => {
     const counts: Record<number, number> = {};
@@ -412,14 +454,11 @@ export default function AuthorIncome() {
   }, [activeBooks]);
 
   const pieDataCounts = useMemo(() => {
-    // chỉ show các status có số lượng > 0
     return Object.entries(pubStatusCounts)
       .map(([k, v]) => ({ code: Number(k), name: pubStatusLabel(Number(k)), value: v }))
       .filter((x) => x.value > 0)
-      // sắp xếp theo code cho đẹp
       .sort((a, b) => a.code - b.code);
   }, [pubStatusCounts]);
-
 
   const pieDataDisplayed = useMemo(() => {
     const total = pieDataCounts.reduce((sum, d) => sum + d.value, 0);
@@ -430,9 +469,7 @@ export default function AuthorIncome() {
     }));
   }, [pieDataCounts, showPercent]);
 
-
   const COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#a855f7", "#ef4444", "#64748b"];
-
 
   // ===== render =====
   return (
@@ -468,9 +505,7 @@ export default function AuthorIncome() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-3 bg-white/20 rounded-lg">{card.icon}</div>
                   </div>
-                  <CardDescription className="text-white/70">
-                    {card.title}
-                  </CardDescription>
+                  <CardDescription className="text-white/70">{card.title}</CardDescription>
                   <CardTitle className="text-2xl">{card.value}</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -483,25 +518,33 @@ export default function AuthorIncome() {
           {/* charts */}
           <div className="bg-white rounded-lg shadow-xl overflow-hidden p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Hoạt động tạo sách
-              </h2>
+              <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
+
               <div className="flex gap-2">
+                {/* ✅ NEW: chọn tháng để tính phí theo tháng */}
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-1 rounded bg-gray-100 text-sm"
+                />
+
                 <div className="flex gap-2">
                   {(["week", "month", "quarter", "year"] as Timeframe[]).map((tf) => (
                     <button
                       key={tf}
                       onClick={() => setTimeframe(tf)}
-                      className={`px-3 py-1 rounded ${timeframe === tf ? "bg-indigo-600 text-white" : "bg-gray-100"
-                        }`}
+                      className={`px-3 py-1 rounded ${
+                        timeframe === tf ? "bg-indigo-600 text-white" : "bg-gray-100"
+                      }`}
                     >
                       {tf === "week"
                         ? "Tuần"
                         : tf === "month"
-                          ? "Tháng"
-                          : tf === "quarter"
-                            ? "Quý"
-                            : "Năm"}
+                        ? "Tháng"
+                        : tf === "quarter"
+                        ? "Quý"
+                        : "Năm"}
                     </button>
                   ))}
                 </div>
@@ -517,9 +560,7 @@ export default function AuthorIncome() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="col-span-2 bg-white p-4 rounded">
-                <h3 className="text-sm text-gray-600 mb-2">
-                  Số sách tạo theo thời gian
-                </h3>
+                <h3 className="text-sm text-gray-600 mb-2">Số sách tạo theo thời gian</h3>
                 <div style={{ width: "100%", height: 320 }}>
                   <ResponsiveContainer>
                     <LineChart data={lineData}>
@@ -527,12 +568,7 @@ export default function AuthorIncome() {
                       <XAxis dataKey="name" />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="count"
-                        stroke="#667eea"
-                        strokeWidth={2}
-                      />
+                      <Line type="monotone" dataKey="count" stroke="#667eea" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -551,23 +587,15 @@ export default function AuthorIncome() {
                         cy="50%"
                         outerRadius={80}
                         label={({ name, value }) =>
-                          `${name}: ${showPercent ? String(value) + "%" : String(value)
-                          }`
+                          `${name}: ${showPercent ? String(value) + "%" : String(value)}`
                         }
                       >
                         {pieDataDisplayed.map((_entry, idx) => (
-                          <Cell
-                            key={`cell-${idx}`}
-                            fill={COLORS[idx % COLORS.length]}
-                          />
+                          <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
                         ))}
                       </Pie>
                       <Legend />
-                      <Tooltip
-                        formatter={(val: any) =>
-                          showPercent ? `${val}%` : String(val)
-                        }
-                      />
+                      <Tooltip formatter={(val: any) => (showPercent ? `${val}%` : String(val))} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -577,12 +605,10 @@ export default function AuthorIncome() {
             <div className="mt-6 text-sm text-gray-600">
               Tổng sách: <span className="font-semibold">{totalBooks}</span>
               <span className="ml-4">
-                Đã xuất bản:{" "}
-                <span className="font-semibold">{publishedBooks}</span>
+                Đã xuất bản: <span className="font-semibold">{publishedBooks}</span>
               </span>
               <span className="ml-4">
-                Chờ duyệt:{" "}
-                <span className="font-semibold">{pendingBooks}</span>
+                Chờ duyệt: <span className="font-semibold">{pendingBooks}</span>
               </span>
             </div>
           </div>

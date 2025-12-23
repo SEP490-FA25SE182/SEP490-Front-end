@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
+import SnowCanvas from "@/pages/customer/SnowCanvas";
 import {
   Carousel,
   CarouselContent,
@@ -252,10 +253,35 @@ const HeroBookSlide: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center min-h-[520px]">
           {/* LEFT */}
           <div className="space-y-4">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight line-clamp-2">
-              {book.bookName}
-            </h2>
+            <h2 className="relative overflow-visible">
+              {/* glow */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-3 blur-2xl opacity-70
+                          bg-gradient-to-tr from-fuchsia-400/70 via-violet-400/55 to-sky-300/60"
+              />
 
+              {/* wrapper có “đệm” ngang để không bị cắt nét italic */}
+              <span className="relative inline-block px-2 -mx-2 overflow-visible">
+                <span
+                  className={[
+                    "block",
+                    "text-5xl md:text-7xl leading-[1.05]",
+                    "font-['Fraunces'] italic tracking-tight",
+                    "bg-gradient-to-tr from-white via-fuchsia-200 to-sky-200",
+                    "bg-clip-text text-transparent",
+                    "drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]",
+                    "line-clamp-2", // ✅ clamp ở span trong cùng
+                  ].join(" ")}
+                  style={{
+                    fontWeight: 700,
+                    fontVariationSettings: '"opsz" 96, "wght" 700, "ital" 1',
+                  }}
+                >
+                  {book.bookName}
+                </span>
+              </span>
+            </h2>
             {chips.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {chips.map((g) => (
@@ -296,7 +322,6 @@ const HeroBookSlide: React.FC<{
   );
 };
 
-
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -319,9 +344,7 @@ const HeroFullBleed: React.FC<{
 }> = ({ books, genresMap }) => {
   const [active, setActive] = useState(0);
 
-  useEffect(() => {
-    setActive(0);
-  }, [books.length]);
+  useEffect(() => setActive(0), [books.length]);
 
   const activeBook = books[active];
   const thumb = useMemo(() => getThumbWindow(books, active, 5), [books, active]);
@@ -329,60 +352,70 @@ const HeroFullBleed: React.FC<{
   if (!activeBook) return null;
 
   return (
-    <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]">
-      {/* Slide (transparent, no overlays) */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeBook.bookId}
-          initial={{ opacity: 0, y: 10, scale: 1.01 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -6, scale: 0.995 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
-          <HeroBookSlide
-            book={activeBook}
-            bookGenres={genresMap[String(activeBook.bookId)] || []}
-          />
-        </motion.div>
-      </AnimatePresence>
+    <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
+      {/* Background layers */}
+      <div className="absolute inset-0 bg-[linear-gradient(120deg,#120A2A_0%,#1B2A6B_38%,#0B3A6D_72%,#071228_100%)]" />
+      <div className="absolute inset-0 opacity-90 bg-[radial-gradient(circle_at_18%_30%,rgba(236,72,153,0.22),transparent_55%),radial-gradient(circle_at_45%_18%,rgba(168,85,247,0.26),transparent_55%),radial-gradient(circle_at_80%_35%,rgba(59,130,246,0.24),transparent_60%),radial-gradient(circle_at_70%_85%,rgba(34,211,238,0.16),transparent_60%)]" />
+      <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:28px_28px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
-      {/* ✅ Thumbnails moved: center under carousel */}
-      <div className="mx-auto max-w-7xl px-6 pb-8 -mt-6">
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {thumb.items.map((b, i) => {
-            const realIndex = thumb.start + i;
-            const isActive = realIndex === active;
+      {/* ✅ SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
+      <SnowCanvas className="z-[5]" buildSnowmanAfterMs={3500} density={1.1} />
 
-            return (
-              <button
-                key={b.bookId}
-                onClick={() => setActive(realIndex)}
-                className={[
-                  "relative overflow-hidden rounded-xl border transition",
-                  "w-14 h-20 md:w-16 md:h-24",
-                  isActive
-                    ? "border-white/70 shadow-xl"
-                    : "border-white/15 opacity-75 hover:opacity-100",
-                ].join(" ")}
-                title={b.bookName}
-              >
-                <img
-                  src={b.coverUrl}
-                  alt={b.bookName}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                {isActive && (
-                  <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />
-                )}
-              </button>
-            );
-          })}
+      {/* Content */}
+      <div className="relative z-10">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeBook.bookId}
+            initial={{ opacity: 0, y: 10, scale: 1.01 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.995 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          >
+            <HeroBookSlide
+              book={activeBook}
+              bookGenres={genresMap[String(activeBook.bookId)] || []}
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="mx-auto max-w-7xl px-6 pb-8 -mt-6">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {thumb.items.map((b, i) => {
+              const realIndex = thumb.start + i;
+              const isActive = realIndex === active;
+
+              return (
+                <button
+                  key={b.bookId}
+                  onClick={() => setActive(realIndex)}
+                  className={[
+                    "relative overflow-hidden rounded-xl border transition",
+                    "w-14 h-20 md:w-16 md:h-24",
+                    isActive
+                      ? "border-white/70 shadow-xl"
+                      : "border-white/15 opacity-75 hover:opacity-100",
+                  ].join(" ")}
+                  title={b.bookName}
+                >
+                  <img
+                    src={b.coverUrl}
+                    alt={b.bookName}
+                    className="w-full h-full object-cover"
+                  />
+                  {isActive && (
+                    <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
 
 /* -------------------------
  🧩 Section: Grid sách (có stagger)
@@ -476,7 +509,9 @@ const BookCarouselSection: React.FC<{
           </Carousel>
         </motion.div>
       ) : (
-        <p className="text-center text-white/60">Không có sách nào để hiển thị.</p>
+        <p className="text-center text-white/60">
+          Không có sách nào để hiển thị.
+        </p>
       )}
     </SectionReveal>
   );
@@ -517,7 +552,10 @@ const GenreRowsBlock: React.FC<{
               {/* RIGHT: Books carousel */}
               <div className="col-span-12 md:col-span-9 md:-mt-2">
                 {row.books.length > 0 ? (
-                  <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                  <Carousel
+                    opts={{ align: "start", loop: false }}
+                    className="w-full"
+                  >
                     <CarouselContent className="-ml-3 md:-ml-4">
                       {row.books.map((book) => (
                         <CarouselItem
@@ -534,7 +572,9 @@ const GenreRowsBlock: React.FC<{
                     {/* <CarouselNext /> */}
                   </Carousel>
                 ) : (
-                  <p className="text-white/60">Chưa có sách cho thể loại này.</p>
+                  <p className="text-white/60">
+                    Chưa có sách cho thể loại này.
+                  </p>
                 )}
               </div>
             </div>
@@ -560,15 +600,21 @@ export default function Homepage() {
   const [searchParams] = useSearchParams();
   const q = (searchParams.get("q") ?? "").trim();
 
-  const [genreRows, setGenreRows] = useState<Array<{ genre: Genre; books: Book[] }>>([]);
+  const [genreRows, setGenreRows] = useState<
+    Array<{ genre: Genre; books: Book[] }>
+  >([]);
   const [loadingGenreRows, setLoadingGenreRows] = useState(false);
 
-  const [heroGenresMap, setHeroGenresMap] = useState<Record<string, Genre[]>>({});
+  const [heroGenresMap, setHeroGenresMap] = useState<Record<string, Genre[]>>(
+    {}
+  );
 
   const filteredBooks = useMemo(() => {
     if (!q) return books;
     const needle = q.toLowerCase();
-    return books.filter((b) => (b.bookName ?? "").toLowerCase().includes(needle));
+    return books.filter((b) =>
+      (b.bookName ?? "").toLowerCase().includes(needle)
+    );
   }, [books, q]);
 
   // Fetch books
@@ -582,16 +628,21 @@ export default function Homepage() {
           publicationStatus: 1, // ✅ chỉ lấy sách đã xuất bản
         });
 
-        const publishedActiveBooks = (Array.isArray(data) ? data : []).filter((b: any) => {
-          const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
-          const pubRaw = b.publicationStatus ?? b.publication_status;
-          const pub = typeof pubRaw === "string" ? pubRaw.toUpperCase() : Number(pubRaw);
+        const publishedActiveBooks = (Array.isArray(data) ? data : []).filter(
+          (b: any) => {
+            const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
+            const pubRaw = b.publicationStatus ?? b.publication_status;
+            const pub =
+              typeof pubRaw === "string"
+                ? pubRaw.toUpperCase()
+                : Number(pubRaw);
 
-          const isActive = act === "ACTIVE";
-          const isPublished = pub === 1 || pub === "PUBLISHED";
+            const isActive = act === "ACTIVE";
+            const isPublished = pub === 1 || pub === "PUBLISHED";
 
-          return isActive && isPublished;
-        });
+            return isActive && isPublished;
+          }
+        );
 
         setBooks(publishedActiveBooks);
       } catch (error) {
@@ -608,7 +659,10 @@ export default function Homepage() {
   // heroBooks (đặt TRƯỚC effect dùng heroBooks)
   const heroBooks = useMemo(() => {
     return [...books]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
       .slice(0, 6);
   }, [books]);
 
@@ -683,12 +737,19 @@ export default function Homepage() {
                 publicationStatus: 1,
               });
 
-              const list = (Array.isArray(data) ? data : []).filter((b: any) => {
-                const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
-                const pubRaw = b.publicationStatus ?? b.publication_status;
-                const pub = typeof pubRaw === "string" ? pubRaw.toUpperCase() : Number(pubRaw);
-                return act === "ACTIVE" && (pub === 1 || pub === "PUBLISHED");
-              });
+              const list = (Array.isArray(data) ? data : []).filter(
+                (b: any) => {
+                  const act = String(
+                    b.isActived ?? b.is_actived ?? ""
+                  ).toUpperCase();
+                  const pubRaw = b.publicationStatus ?? b.publication_status;
+                  const pub =
+                    typeof pubRaw === "string"
+                      ? pubRaw.toUpperCase()
+                      : Number(pubRaw);
+                  return act === "ACTIVE" && (pub === 1 || pub === "PUBLISHED");
+                }
+              );
 
               return { genre: g, books: list.slice(0, 16) };
             } catch {
@@ -706,10 +767,12 @@ export default function Homepage() {
     fetchGenreRows();
   }, [genres, loadingGenres, genreId]);
 
-
   const newestBooks = useMemo(() => {
     return [...books]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
       .slice(0, 10);
   }, [books]);
 
@@ -731,7 +794,9 @@ export default function Homepage() {
       .sort((a, b) => {
         const diff = score(b) - score(a);
         if (diff !== 0) return diff;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        return (
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
       })
       .slice(0, 10);
   }, [books]);
@@ -751,7 +816,9 @@ export default function Homepage() {
   }, [books]);
 
   const carouselBooks2 = useMemo(() => {
-    const ids = new Set([...carouselBooks1, ...newestBooks].map((b) => b.bookId));
+    const ids = new Set(
+      [...carouselBooks1, ...newestBooks].map((b) => b.bookId)
+    );
     const rest = books.filter((b) => !ids.has(b.bookId));
     const source = rest.length ? rest : books;
     return [...source].slice(0, 16);

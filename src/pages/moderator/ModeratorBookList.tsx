@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ModeratorLayout from "./ModeratorLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ export default function ModeratorBookList() {
   const { state } = useLocation() as any;
   const [books] = useState<any[]>(state?.books ?? []);
   const [search, setSearch] = useState("");
+  const { authorId } = useParams<{ authorId: string }>();
   const navigate = useNavigate();
 
   // 🔹 chỉ hiện sách có publicationStatus = 3 hoặc PENDING
@@ -42,7 +43,7 @@ export default function ModeratorBookList() {
       title="Danh sách sách"
       breadcrumb={[
         { label: "Moderator", to: "/moderator" },
-        { label: "Books" },
+        { label: "Books", to: authorId ? `/moderator/authors/${authorId}/books` : "/moderator" }
       ]}
     >
       <Input
@@ -61,7 +62,7 @@ export default function ModeratorBookList() {
             >
               <img
                 src={b.coverUrl}
-                className="w-full max-w-full h-40 sm:h-44 object-cover rounded-md"
+                className="w-full max-w-full object-cover rounded-md"
                 alt={b.bookName}
               />
 
@@ -95,3 +96,4 @@ export default function ModeratorBookList() {
     </ModeratorLayout>
   );
 }
+

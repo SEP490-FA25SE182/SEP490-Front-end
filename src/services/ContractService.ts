@@ -19,7 +19,7 @@ export interface ContractResponseDTO {
   contractNumber: string;
   title?: string;
   description?: string;
-  documentUrl?: string;
+  documentUrls?: string[];
   startDate?: string;
   endDate?: string;
   status: ContractStatus;
@@ -34,7 +34,7 @@ export interface ContractRequestDTO {
   contractNumber?: string;
   title?: string;
   description?: string;
-  documentUrl?: string;
+  documentUrls?: string[];
   startDate?: string;
   endDate?: string;
   status?: ContractStatus;

@@ -310,8 +310,8 @@ export default function OrderManagementPage() {
   const filteredOrders = orders
     .slice() // tránh mutate state gốc
     .sort((a, b) => {
-      const t1 = new Date(b.createdAt ?? "").getTime();
-      const t2 = new Date(a.createdAt ?? "").getTime();
+      const t1 = new Date(b.updatedAt ?? "").getTime();
+      const t2 = new Date(a.updatedAt ?? "").getTime();
       return t1 - t2; // mới nhất lên đầu
     })
     .filter((order) => {
@@ -423,7 +423,7 @@ export default function OrderManagementPage() {
                       <TableHead className="text-white">Mã đơn</TableHead>
                       <TableHead className="text-white">Tổng tiền</TableHead>
                       <TableHead className="text-white">Trạng thái</TableHead>
-                      <TableHead className="text-white">Ngày tạo</TableHead>
+                      <TableHead className="text-white">Thời gian</TableHead>
                       <TableHead className="text-white text-right">
                         Hành động
                       </TableHead>
@@ -491,8 +491,8 @@ export default function OrderManagementPage() {
                             </TableCell>
 
                             <TableCell>
-                              {order.createdAt
-                                ? new Date(order.createdAt).toLocaleString(
+                              {order.updatedAt
+                                ? new Date(order.updatedAt).toLocaleString(
                                     "vi-VN"
                                   )
                                 : "-"}

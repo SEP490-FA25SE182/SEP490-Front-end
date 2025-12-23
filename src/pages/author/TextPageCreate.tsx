@@ -54,7 +54,7 @@ export default function TextPageCreate() {
     isActived: "ACTIVE",
     page: 0,
     size: 9999,                 // ✅ lấy hết (hoặc đủ lớn)
-    sort: ["updatedAt,asc"],   // ✅ mới nhất trước (nếu BE support)
+    sort: ["updatedAt,desc"],  // ✅ mới nhất trước (nếu BE support)
   });
 
 
@@ -69,21 +69,31 @@ export default function TextPageCreate() {
   useEffect(() => {
     const audioItems = audiosData ?? [];
 
-    const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+    const toTime = (d?: string) => {
+      if (!d) return 0;
+      const t = new Date(d).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
 
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
-      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
+      .sort((a, b) => {
+        const tb = toTime(b.updatedAt) || toTime(b.createdAt);
+        const ta = toTime(a.updatedAt) || toTime(a.createdAt);
+        if (tb !== ta) return tb - ta;
+
+        // ổn định nếu trùng thời gian
+        return String(b.audioId).localeCompare(String(a.audioId));
+      })
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
         url: gsToHttp(a.audioUrl),
-        updatedAt: a.updatedAt, // optional để debug
+        updatedAt: a.updatedAt,
       }));
 
     setAudioList(activeList);
   }, [audiosData]);
-
 
   // === Submit update ===
   const handleSubmit = async () => {

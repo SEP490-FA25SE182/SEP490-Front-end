@@ -12,7 +12,7 @@ import {
   useSearchAudios,
   useUpdatePageAudio,
   useSearchPageAudios,
-  useCreatePageAudio,          // 🆕 THÊM
+  useCreatePageAudio,
 } from "@/services/AIService";
 import {
   Select,
@@ -55,7 +55,7 @@ export default function TextPageEdit() {
     isActived: "ACTIVE",
     page: 0,
     size: 9999,                 // ✅ lấy hết
-    sort: ["updatedAt,asc"],   // ✅ mới nhất trước (nếu BE support)
+    sort: ["updatedAt,desc"], // ✅ mới nhất trước (nếu BE support)
   });
 
 
@@ -94,7 +94,7 @@ export default function TextPageEdit() {
 
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
-      .sort((a, b) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ ASC: cũ -> mới (mới nhất ở cuối)
+      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ DESC: mới -> cũ (mới nhất ở đầu)
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",

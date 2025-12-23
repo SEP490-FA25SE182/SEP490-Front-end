@@ -97,8 +97,74 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
     });
   };
 
+  const validateBeforeSave = () => {
+    if (!local) return { ok: false, message: "Không có dữ liệu." };
+
+    // validate quiz meta
+    if (!local.title?.trim()) return { ok: false, message: "Thiếu tiêu đề quiz." };
+    if (!Number(local.totalScore) || Number(local.totalScore) <= 0)
+      return { ok: false, message: "Tổng điểm phải > 0." };
+
+    // validate each question + answers (allow multiple correct)
+    for (let qi = 0; qi < local.questions.length; qi++) {
+      const q = local.questions[qi];
+
+      if (!q.content?.trim())
+        return { ok: false, message: `Câu ${qi + 1} chưa có nội dung.` };
+
+      if (!Number(q.score) || Number(q.score) <= 0)
+        return { ok: false, message: `Điểm của câu ${qi + 1} phải > 0.` };
+
+      if (!q.answers || q.answers.length === 0)
+        return { ok: false, message: `Câu ${qi + 1} chưa có đáp án.` };
+
+      // nội dung đáp án
+      for (let ai = 0; ai < q.answers.length; ai++) {
+        if (!q.answers[ai].content?.trim()) {
+          return {
+            ok: false,
+            message: `Đáp án ${ai + 1} của câu ${qi + 1} chưa có nội dung.`,
+          };
+        }
+      }
+
+      // ít nhất 1 đáp án đúng (KHÔNG giới hạn nhiều)
+      const correctCount = q.answers.reduce(
+        (s, a) => s + (a.isCorrect ? 1 : 0),
+        0
+      );
+      if (correctCount === 0) {
+        return {
+          ok: false,
+          message: `Câu ${qi + 1} phải có ít nhất 1 đáp án đúng.`,
+        };
+      }
+    }
+
+    // (tuỳ bạn) check tổng điểm câu bằng totalScore
+    const sumQuestionScore = local.questions.reduce((s, q) => s + Number(q.score || 0), 0);
+    if (sumQuestionScore !== Number(local.totalScore || 0)) {
+      return {
+        ok: false,
+        message: `Tổng điểm các câu (${sumQuestionScore}) phải bằng tổng điểm quiz (${local.totalScore}).`,
+      };
+    }
+
+    return { ok: true as const };
+  };
+
   const handleSave = async () => {
     if (!local || !quizId) return;
+    const v = validateBeforeSave();
+    if (!v.ok) {
+      toast({
+        title: "Không thể lưu",
+        description: v.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!quizMeta) {
       toast({
         title: "Không tìm thấy quiz gốc",
@@ -267,11 +333,10 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
                       {q.answers.map((a, ai) => (
                         <div
                           key={a.answerId ?? ai}
-                          className={`p-2 rounded border ${
-                            a.isCorrect
-                              ? "border-green-400 bg-green-50"
-                              : "bg-white border-gray-200"
-                          }`}
+                          className={`p-2 rounded border ${a.isCorrect
+                            ? "border-green-400 bg-green-50"
+                            : "bg-white border-gray-200"
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <input

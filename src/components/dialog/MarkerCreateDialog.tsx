@@ -40,7 +40,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,asc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["updatedAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
   });
 
   // reset state khi đóng dialog
@@ -77,13 +77,13 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const illustrationList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
 
-    // thiếu updatedAt => đẩy xuống cuối
+    // thiếu createdAt => đẩy xuống cuối
     const toTime = (d?: string) =>
       d ? new Date(d).getTime() : Number.POSITIVE_INFINITY;
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!(it.illustrationId ?? it.id))
-      .sort((a: any, b: any) => toTime(a.updatedAt) - toTime(b.updatedAt)) // ✅ ASC: cũ -> mới
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ DESC: mới -> cũ
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,
@@ -91,8 +91,6 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
         updatedAt: it.updatedAt,
       }));
   }, [illustrations]);
-
-
 
   const selectedIllustration = illustrationList.find(
     (i) => i.id === selectedIllustrationId

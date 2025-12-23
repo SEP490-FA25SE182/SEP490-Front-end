@@ -26,6 +26,7 @@ import { getUserById, updateUser, type User } from "@/services/UserService";
 import { UploadService } from "@/services/FirebaseService";
 import { TransactionService } from "@/services/TransactionService";
 import { getCurrentUserId } from "@/utils/authStorage";
+import AuthorTermsOfUse from "@/components/dialog/AuthorTermsOfUse";
 
 export default function AuthorProfile() {
   const { userId } = useParams<{ userId: string }>();
@@ -47,6 +48,7 @@ export default function AuthorProfile() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [txLoading, setTxLoading] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
+  const [openTerms, setOpenTerms] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -494,28 +496,37 @@ export default function AuthorProfile() {
                       )}
                     </div>
 
-                    {/* Edit / Save / Cancel moved into the author info card */}
-                    <div className="mt-4 flex gap-2">
-                      {!isEditing ? (
+                    {/* Actions: Điều khoản / Chỉnh sửa (canh phải) */}
+                    <div className="mt-4 flex justify-end">
+                      <div className="flex items-center gap-2">
                         <Button
-                          onClick={startEdit}
-                          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                          onClick={() => setOpenTerms(true)}
+                          className="flex items-center gap-2 bg-gray-100/10 hover:bg-gray-100/20 text-white"
                         >
-                          <Edit className="w-4 h-4" /> Chỉnh sửa
+                          Điều khoản sử dụng
                         </Button>
-                      ) : (
-                        <>
+
+                        {!isEditing ? (
                           <Button
-                            onClick={handleSave}
+                            onClick={startEdit}
                             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
                           >
-                            <Save className="w-4 h-4" /> Lưu
+                            <Edit className="w-4 h-4" /> Chỉnh sửa
                           </Button>
-                          <Button variant="ghost" onClick={cancelEdit}>
-                            Huỷ
-                          </Button>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <Button
+                              onClick={handleSave}
+                              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                            >
+                              <Save className="w-4 h-4" /> Lưu
+                            </Button>
+                            <Button variant="ghost" onClick={cancelEdit}>
+                              Huỷ
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -721,6 +732,11 @@ export default function AuthorProfile() {
                   {/* --- end lịch sử giao dịch --- */}
                 </CardContent>
               </Card>
+
+              <AuthorTermsOfUse
+                isOpen={openTerms}
+                onClose={() => setOpenTerms(false)}
+              />
             </div>
           )}
         </div>

@@ -56,7 +56,7 @@ import axios from "axios";
 import { API_RK } from "@/config";
 
 // ===============================
-//  TYPES
+//  TYPES & HELPERS
 // ===============================
 type AuthorBookStat = {
   bookId: string;
@@ -80,6 +80,15 @@ type AuthorRow = {
 };
 
 type FilterStatus = "all" | "hasRevenue" | "noRevenue";
+
+async function getContractByUserId(userId: string) {
+  const contracts = await ContractService.search({
+    isActived: "ACTIVE",
+  });
+
+  return contracts.find((c) => c.userId === userId) ?? null;
+}
+
 
 export default function AuthorManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -338,31 +347,36 @@ export default function AuthorManagementPage() {
   //  VIEW DETAIL
   // ===============================
   const openDetailDialog = async (author: AuthorRow) => {
-    setSelectedAuthor(author);
+  setSelectedAuthor(author);
+  setDetailOpen(true);
 
-    const c = await ContractService.searchByAuthor(author.userId);
+  try {
+    const c = await getContractByUserId(author.userId);
     setContract(c);
+  } catch {
+    setContract(null);
+  }
+};
 
-    setDetailOpen(true);
-  };
 
   const openContractView = async (authorId: string) => {
-    setContractViewOpen(true);
-    setContractView(null);
-    setContractViewUrl("");
+  setContractViewOpen(true);
+  setContractView(null);
+  setContractViewUrl("");
 
-    try {
-      const c = await ContractService.findByUserId(authorId);
-      setContractView(c);
+  try {
+    const c = await getContractByUserId(authorId);
+    setContractView(c);
 
-      if (c?.documentUrl) {
-        const url = await resolveFirebaseUrl(c.documentUrl);
-        setContractViewUrl(url);
-      }
-    } catch {
-      setContractView(null);
+    if (c?.documentUrl) {
+      const url = await resolveFirebaseUrl(c.documentUrl);
+      setContractViewUrl(url);
     }
-  };
+  } catch {
+    setContractView(null);
+  }
+};
+
 
   // ===============================
   //  SETTLEMENT (TẤT TOÁN)

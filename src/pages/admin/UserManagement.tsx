@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Menu, X, Search, Trash2, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { resolveFirebaseUrl } from "@/firebase";
 import { UploadService } from "@/services/FirebaseService";
+import { updateUser } from "@/services/UserService";
+
 
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -56,6 +58,7 @@ export default function UserManagementPage() {
   const [contractHttpUrl, setContractHttpUrl] = useState<string>("");
 
   const [contractPreviewUrl, setContractPreviewUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -236,59 +239,88 @@ export default function UserManagementPage() {
   });
 
   const handleRoyaltyUpdate = async (u: User) => {
-  setOpenRoyaltyModal(true);
-  setSelectedUser(u);
-  setContract(null);
-  setContractPreviewUrl(""); // ✅ thêm dòng này
-  setContractFile(null);
-
-  try {
-    const contracts = await ContractService.search();
-    console.log("ALL CONTRACTS FROM API:", contracts);
-    const found = contracts.find((c) => c.userId === u.userId);
-    setContract(found ?? null);
-  } catch {
+    setOpenRoyaltyModal(true);
+    setSelectedUser(u);
     setContract(null);
-  }
-};
+    setContractPreviewUrl(""); // ✅ thêm dòng này
+    setContractFile(null);
+
+    try {
+      const contracts = await ContractService.search();
+      console.log("ALL CONTRACTS FROM API:", contracts);
+      const found = contracts.find((c) => c.userId === u.userId);
+      setContract(found ?? null);
+    } catch {
+      setContract(null);
+    }
+  };
 
 
   const handleSaveRoyalty = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser?.userId) return;
 
-    let documentUrl = contract?.documentUrl;
-
-    if (contractFile) {
-      documentUrl = await UploadService.uploadImageToFirebase(
-        contractFile,
-        "contracts"
-      );
+    if (royaltyValue < 0 || royaltyValue > 100) {
+      toast.error("Royalty phải từ 0 - 100%");
+      return;
     }
 
     try {
-      if (contract?.contractId) {
-        await ContractService.update(contract.contractId, {
-          userId: selectedUser.userId,
-          documentUrl,
-          title: contract.title,
-          status: "DRAFT",
-        });
-      } else {
-        await ContractService.create({
-          contractNumber: `CT-${Date.now()}`,
-          title: `Hợp đồng tác giả ${selectedUser.fullName}`,
-          documentUrl,
-          userId: selectedUser.userId,
-        });
+      setSavingRoyalty(true);
+
+      // ✅ 1. UPDATE ROYALTY USER (GIỮ NGUYÊN CÁCH CŨ)
+      await updateUser(selectedUser.userId, {
+        ...selectedUser,
+        royalty: royaltyValue,
+      });
+
+      // ✅ 2. UPLOAD FILE NẾU CÓ
+      let documentUrl = contract?.documentUrl;
+
+      if (contractFile) {
+        documentUrl = await UploadService.uploadImageToFirebase(
+          contractFile,
+          "contracts"
+        );
       }
 
-      toast.success("Lưu hợp đồng thành công");
+      // ✅ 3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
+      if (documentUrl) {
+        if (contract?.contractId) {
+          await ContractService.update(contract.contractId, {
+            userId: selectedUser.userId,
+            documentUrl,
+            title: contract.title,
+            status: "DRAFT",
+          });
+        } else {
+          await ContractService.create({
+            contractNumber: `CT-${Date.now()}`,
+            title: `Hợp đồng tác giả ${selectedUser.fullName}`,
+            documentUrl,
+            userId: selectedUser.userId,
+          });
+        }
+      }
+
+      // ✅ 4. UPDATE UI LOCAL (KHỎI LOAD LẠI)
+      setUsers(prev =>
+        prev.map(u =>
+          u.userId === selectedUser.userId
+            ? { ...u, royalty: royaltyValue }
+            : u
+        )
+      );
+
+      toast.success("Cập nhật royalty & hợp đồng thành công ✅");
       setOpenRoyaltyModal(false);
     } catch (err) {
       console.error(err);
-      toast.error("Lỗi khi lưu hợp đồng");
+      toast.error("Cập nhật royalty thất bại");
+    } finally {
+      setSavingRoyalty(false);
     }
   };
+
 
   const validateNewUser = () => {
     const newErrors: typeof errors = {};
@@ -515,11 +547,10 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`font-semibold ${
-                            u.isActived === "ACTIVE"
-                              ? "text-green-600"
-                              : "text-gray-500"
-                          }`}
+                          className={`font-semibold ${u.isActived === "ACTIVE"
+                            ? "text-green-600"
+                            : "text-gray-500"
+                            }`}
                         >
                           {u.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
                         </span>
@@ -532,7 +563,7 @@ export default function UserManagementPage() {
                               className="bg-yellow-500 hover:bg-yellow-600 text-white"
                               onClick={() => handleRoyaltyUpdate(u)}
                             >
-                              Royalty
+                              Hợp đồng
                             </Button>
                           )}
 
@@ -559,12 +590,12 @@ export default function UserManagementPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Cập nhật Royalty
+              Cập nhật phần trăm tác quyền
             </h2>
 
             <div className="mb-6">
               <label className="block text-sm text-gray-600 mb-2">
-                Royalty (%)
+                Phần trăm tác quyền (%)
               </label>
               <Input
                 type="number"
@@ -593,15 +624,16 @@ export default function UserManagementPage() {
                   <p className="text-sm text-gray-400">Chưa có hợp đồng</p>
                 )}
 
-                <Input
+                <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*,.pdf"
-                  className="mt-2"
+                  className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     setContractFile(file);
 
-                    // ✅ preview ngay nếu là ảnh
+                    // ✅ preview nếu là ảnh
                     if (file && file.type.startsWith("image/")) {
                       setContractPreviewUrl(URL.createObjectURL(file));
                     } else {
@@ -610,7 +642,13 @@ export default function UserManagementPage() {
                   }}
                 />
               </div>
-
+              <Button
+                variant="outline"
+                className="mt-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Cập nhật hợp đồng
+              </Button>
               {/* PREVIEW IMAGE */}
               {contractPreviewUrl && (
                 <div className="mt-3">
@@ -667,9 +705,8 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, fullName: e.target.value });
                   setErrors((prev) => ({ ...prev, fullName: undefined }));
                 }}
-                className={`mt-1 ${
-                  errors.fullName ? "border-red-500 focus:border-red-500" : ""
-                }`}
+                className={`mt-1 ${errors.fullName ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
               {errors.fullName && (
                 <p className="text-sm text-red-500 mt-1">{errors.fullName}</p>
@@ -685,9 +722,8 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, email: e.target.value });
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
-                className={`mt-1 ${
-                  errors.email ? "border-red-500 focus:border-red-500" : ""
-                }`}
+                className={`mt-1 ${errors.email ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
               {errors.email && (
                 <p className="text-sm text-red-500 mt-1">{errors.email}</p>
@@ -704,9 +740,8 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, password: e.target.value });
                   setErrors((prev) => ({ ...prev, password: undefined }));
                 }}
-                className={`mt-1 ${
-                  errors.password ? "border-red-500 focus:border-red-500" : ""
-                }`}
+                className={`mt-1 ${errors.password ? "border-red-500 focus:border-red-500" : ""
+                  }`}
               />
               {errors.password && (
                 <p className="text-sm text-red-500 mt-1">{errors.password}</p>
@@ -722,11 +757,10 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, phoneNumber: e.target.value });
                   setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
                 }}
-                className={`mt-1 ${
-                  errors.phoneNumber
-                    ? "border-red-500 focus:border-red-500"
-                    : ""
-                }`}
+                className={`mt-1 ${errors.phoneNumber
+                  ? "border-red-500 focus:border-red-500"
+                  : ""
+                  }`}
               />
 
               {errors.phoneNumber && (
@@ -778,9 +812,8 @@ export default function UserManagementPage() {
                 }}
               >
                 <SelectTrigger
-                  className={`w-full mt-1 ${
-                    errors.roleId ? "border-red-500" : ""
-                  }`}
+                  className={`w-full mt-1 ${errors.roleId ? "border-red-500" : ""
+                    }`}
                 >
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>

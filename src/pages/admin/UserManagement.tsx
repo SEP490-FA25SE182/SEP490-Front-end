@@ -54,10 +54,10 @@ export default function UserManagementPage() {
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
 
   const [contract, setContract] = useState<any>(null);
-  const [contractFile, setContractFile] = useState<File | null>(null);
-  const [contractHttpUrl, setContractHttpUrl] = useState<string>("");
+  const [contractFiles, setContractFiles] = useState<File[]>([]);
+  const [contractHttpUrl, setContractHttpUrl] = useState<string[]>([]);
 
-  const [contractPreviewUrl, setContractPreviewUrl] = useState<string>("");
+  const [contractPreviewUrls, setContractPreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [newUser, setNewUser] = useState({
@@ -174,28 +174,35 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     (async () => {
-      if (!contract?.documentUrl) {
-        setContractHttpUrl("");
-        setContractPreviewUrl("");
+      if (!contract?.documentUrls || contract.documentUrls.length === 0) {
+        setContractHttpUrl([]);
+        setContractPreviewUrls([]);
         return;
       }
 
       try {
-        const url = await resolveFirebaseUrl(contract.documentUrl);
-        setContractHttpUrl(url);
+        // resolve toàn bộ firebase url
+        const urls = await Promise.all(
+          contract.documentUrls.map((u: string) => resolveFirebaseUrl(u))
+        );
 
-        // ✅ nếu là ảnh thì cho preview
-        if (url.match(/\.(png|jpg|jpeg|webp)$/i)) {
-          setContractPreviewUrl(url);
-        } else {
-          setContractPreviewUrl("");
-        }
-      } catch {
-        setContractHttpUrl("");
-        setContractPreviewUrl("");
+        setContractHttpUrl(urls);
+
+        // chỉ preview những file là ảnh
+        const imagePreviews = urls.filter(url =>
+          url.match(/\.(png|jpg|jpeg|webp)$/i)
+        );
+
+        setContractPreviewUrls(imagePreviews);
+      } catch (err) {
+        console.error("Resolve contract documents failed", err);
+        setContractHttpUrl([]);
+        setContractPreviewUrls([]);
       }
     })();
-  }, [contract?.documentUrl]);
+  }, [contract?.documentUrls]);
+
+
 
   const isAuthor = (roleId?: string) => {
     const roleName = (roleNames[roleId || ""] || "").trim().toLowerCase();
@@ -242,18 +249,18 @@ export default function UserManagementPage() {
     setOpenRoyaltyModal(true);
     setSelectedUser(u);
     setContract(null);
-    setContractPreviewUrl(""); // ✅ thêm dòng này
-    setContractFile(null);
+    setContractPreviewUrls([]); // ✅
+    setContractFiles([]);       // ✅
 
     try {
       const contracts = await ContractService.search();
-      console.log("ALL CONTRACTS FROM API:", contracts);
       const found = contracts.find((c) => c.userId === u.userId);
       setContract(found ?? null);
     } catch {
       setContract(null);
     }
   };
+
 
 
   const handleSaveRoyalty = async () => {
@@ -274,29 +281,35 @@ export default function UserManagementPage() {
       });
 
       // ✅ 2. UPLOAD FILE NẾU CÓ
-      let documentUrl = contract?.documentUrl;
+      let documentUrls: string[] = contract?.documentUrls ?? [];
 
-      if (contractFile) {
-        documentUrl = await UploadService.uploadImageToFirebase(
-          contractFile,
-          "contracts"
+      if (contractFiles.length > 0) {
+        const uploadedUrls = await Promise.all(
+          contractFiles.map(file =>
+            UploadService.uploadImageToFirebase(file, "contracts")
+          )
         );
+
+        documentUrls = [...documentUrls, ...uploadedUrls];
       }
 
+
+
       // ✅ 3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
-      if (documentUrl) {
+      if (documentUrls.length > 0) {
         if (contract?.contractId) {
           await ContractService.update(contract.contractId, {
             userId: selectedUser.userId,
-            documentUrl,
+            documentUrls,
             title: contract.title,
             status: "DRAFT",
           });
+
         } else {
           await ContractService.create({
             contractNumber: `CT-${Date.now()}`,
             title: `Hợp đồng tác giả ${selectedUser.fullName}`,
-            documentUrl,
+            documentUrls,
             userId: selectedUser.userId,
           });
         }
@@ -612,59 +625,74 @@ export default function UserManagementPage() {
                   Hợp đồng
                 </label>
 
-                {contractHttpUrl ? (
-                  <a
-                    href={contractHttpUrl}
-                    target="_blank"
-                    className="text-blue-600 underline text-sm"
-                  >
-                    Xem hợp đồng hiện tại
-                  </a>
+                {contractHttpUrl.length > 0 ? (
+                  <ul className="list-disc pl-4 space-y-1">
+                    {contractHttpUrl.map((url, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={url}
+                          target="_blank"
+                          className="text-blue-600 underline text-sm"
+                        >
+                          Hợp đồng {idx + 1}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <p className="text-sm text-gray-400">Chưa có hợp đồng</p>
                 )}
+
 
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*,.pdf"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setContractFile(file);
+                    const files = Array.from(e.target.files || []);
 
-                    // ✅ preview nếu là ảnh
-                    if (file && file.type.startsWith("image/")) {
-                      setContractPreviewUrl(URL.createObjectURL(file));
-                    } else {
-                      setContractPreviewUrl("");
-                    }
+                    setContractFiles(files);
+
+                    // preview ảnh
+                    const previews = files
+                      .filter(f => f.type.startsWith("image/"))
+                      .map(f => URL.createObjectURL(f));
+
+                    setContractPreviewUrls(previews);
                   }}
                 />
+
               </div>
               <Button
                 variant="outline"
-                className="mt-2"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
                 onClick={() => fileInputRef.current?.click()}
               >
                 Cập nhật hợp đồng
               </Button>
               {/* PREVIEW IMAGE */}
-              {contractPreviewUrl && (
-                <div className="mt-3">
-                  <img
-                    src={contractPreviewUrl}
-                    alt="Contract preview"
-                    className="w-full max-h-[300px] object-contain border rounded-md"
-                  />
+              {contractPreviewUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {contractPreviewUrls.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      className="w-full h-24 object-cover rounded border"
+                      alt={`preview-${idx}`}
+                    />
+                  ))}
                 </div>
               )}
+
             </div>
 
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => setOpenRoyaltyModal(false)}
+                className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={savingRoyalty}
               >
                 Hủy

@@ -472,18 +472,16 @@ export default function TransactionPage() {
           {/* Dot 1 */}
           <div className="flex flex-col items-center">
             <div
-              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
-                step >= 1 ? dotActive : dotInactive
-              }`}
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 1 ? dotActive : dotInactive
+                }`}
             >
               <span className="text-white font-bold">
                 {step >= 1 ? "✓" : ""}
               </span>
             </div>
             <p
-              className={`mt-2 text-sm ${
-                step >= 1 ? activeText : inactiveText
-              }`}
+              className={`mt-2 text-sm ${step >= 1 ? activeText : inactiveText
+                }`}
             >
               Gửi yêu cầu
             </p>
@@ -491,26 +489,23 @@ export default function TransactionPage() {
 
           {/* Line 1 */}
           <div
-            className={`h-1 flex-1 mx-3 rounded ${
-              step >= 2 ? lineActive : lineInactive
-            }`}
+            className={`h-1 flex-1 mx-3 rounded ${step >= 2 ? lineActive : lineInactive
+              }`}
           />
 
           {/* Dot 2 */}
           <div className="flex flex-col items-center">
             <div
-              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
-                step >= 2 ? dotActive : dotInactive
-              }`}
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 2 ? dotActive : dotInactive
+                }`}
             >
               <span className="text-white font-bold">
                 {step >= 2 ? "✓" : ""}
               </span>
             </div>
             <p
-              className={`mt-2 text-sm ${
-                step >= 2 ? activeText : inactiveText
-              }`}
+              className={`mt-2 text-sm ${step >= 2 ? activeText : inactiveText
+                }`}
             >
               Đang hoàn tiền
             </p>
@@ -518,26 +513,23 @@ export default function TransactionPage() {
 
           {/* Line 2 */}
           <div
-            className={`h-1 flex-1 mx-3 rounded ${
-              step >= 3 ? lineActive : lineInactive
-            }`}
+            className={`h-1 flex-1 mx-3 rounded ${step >= 3 ? lineActive : lineInactive
+              }`}
           />
 
           {/* Dot 3 */}
           <div className="flex flex-col items-center">
             <div
-              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
-                step >= 3 ? dotActive : dotInactive
-              }`}
+              className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${step >= 3 ? dotActive : dotInactive
+                }`}
             >
               <span className="text-white font-bold">
                 {step >= 3 ? "✓" : ""}
               </span>
             </div>
             <p
-              className={`mt-2 text-sm ${
-                step >= 3 ? activeText : inactiveText
-              }`}
+              className={`mt-2 text-sm ${step >= 3 ? activeText : inactiveText
+                }`}
             >
               {endLabel}
             </p>
@@ -688,7 +680,12 @@ export default function TransactionPage() {
                   </p>
                 )}
               </div>
-
+              <p className="text-xs text-red-400">
+                Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
+              </p>
+              <p className="text-xs text-red-400">
+              (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp đặc biệt)
+              </p>
               <div className="flex justify-between mt-6 items-center">
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
                 {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
@@ -704,7 +701,7 @@ export default function TransactionPage() {
                   </Button>
                 )}
 
-                {/* 🟥 Nút “Trả hàng” khi status = 4 (Đã giao) */}
+                {/*  Nút “Trả hàng” khi status = 5 (Đã nhận) */}
                 {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
                   <Button
                     variant="destructive"
@@ -801,13 +798,13 @@ export default function TransactionPage() {
                       <span className="font-medium">
                         {refundTrans.updatedAt
                           ? new Date(refundTrans.updatedAt).toLocaleString(
-                              "vi-VN"
-                            )
+                            "vi-VN"
+                          )
                           : refundTrans.createdAt
-                          ? new Date(refundTrans.createdAt).toLocaleString(
+                            ? new Date(refundTrans.createdAt).toLocaleString(
                               "vi-VN"
                             )
-                          : "-"}
+                            : "-"}
                       </span>
                     </div>
 
@@ -857,11 +854,10 @@ export default function TransactionPage() {
                   if (!isEditing && existingFeedback) return; // Chỉ cho chọn khi đang tạo mới hoặc đang edit
                   setRating(String(star));
                 }}
-                className={`w-7 h-7 cursor-pointer transition-all ${
-                  Number(rating) >= star
-                    ? "fill-yellow-500 text-yellow-500 scale-110"
-                    : "text-gray-300 hover:text-yellow-400"
-                }`}
+                className={`w-7 h-7 cursor-pointer transition-all ${Number(rating) >= star
+                  ? "fill-yellow-500 text-yellow-500 scale-110"
+                  : "text-gray-300 hover:text-yellow-400"
+                  }`}
               />
             ))}
             <span className="text-sm text-gray-500 ml-2 select-none">
@@ -945,11 +941,10 @@ export default function TransactionPage() {
             ) : (
               /* ✏️ Nếu đã có feedback → xem hoặc chỉnh sửa */
               <Button
-                className={`${
-                  isEditing
-                    ? "bg-linear-to-l from-[#764BA2] to-[#667EEA]"
-                    : "bg-[#3B2A66]"
-                } text-white hover:opacity-90`}
+                className={`${isEditing
+                  ? "bg-linear-to-l from-[#764BA2] to-[#667EEA]"
+                  : "bg-[#3B2A66]"
+                  } text-white hover:opacity-90`}
                 onClick={async () => {
                   if (!isEditing) {
                     // bật chế độ chỉnh sửa

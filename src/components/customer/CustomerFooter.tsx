@@ -32,7 +32,7 @@ const CustomerFooter = () => {
           <div className="space-y-4">
             <Link to="/">
               <div className="flex items-center gap-3 mb-6">
-                <img src="./rookies-logo.jpg" className="w-10" />
+                <img src="/rookies-logo.jpg" className="w-10" />
                 <span className="text-2xl font-semibold">Rookies</span>
               </div>
             </Link>
@@ -45,13 +45,13 @@ const CustomerFooter = () => {
             <p className="text-sm opacity-90">© Copyright 2025</p>
 
             <div className="flex items-center gap-4 pt-4">
-              <a href="#" className="hover:opacity-80 transition-opacity">
+              <a className="hover:opacity-80 transition-opacity">
                 <Mail className="w-6 h-6" />
               </a>
-              <a href="#" className="hover:opacity-80 transition-opacity">
+              <a className="hover:opacity-80 transition-opacity">
                 <Facebook className="w-6 h-6" />
               </a>
-              <a href="#" className="hover:opacity-80 transition-opacity">
+              <a className="hover:opacity-80 transition-opacity">
                 <Instagram className="w-6 h-6" />
               </a>
             </div>

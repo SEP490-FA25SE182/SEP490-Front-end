@@ -49,7 +49,6 @@ import {
 } from "@/services/OrderDetailService";
 import {
   TransactionService,
-  type TransactionRequest,
 } from "@/services/TransactionService";
 import { getWalletByUserId, updateWallet } from "@/services/WalletService";
 

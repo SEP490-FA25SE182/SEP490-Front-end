@@ -135,7 +135,7 @@ export default function AuthorProfile() {
     AI_MODEL: { label: "Thanh toán tạo model 3D AI", sign: "-" },
     DEPOSIT: { label: "Nạp tiền vào ví", sign: "+" },
     WITHDRAW: { label: "Rút tiền khỏi ví", sign: "-" },
-    SETTLEMENT: { label: "Phí tác quyền", sign: "+" },
+    SETTLEMENT: { label: "Phí tất toán", sign: "+" },
     RETURN: { label: "Hoàn tiền đơn hàng", sign: "+" },
     REFUND: { label: "Hoàn tiền đơn hàng", sign: "+" }, // phòng khi BE dùng REFUND
   };
@@ -465,7 +465,7 @@ export default function AuthorProfile() {
                       )}
 
                       <label className="text-white/70 text-xs">
-                        Phí tác quyền (%)
+                        Phần trăm tác quyền (%)
                       </label>
                       {isEditing ? (
                         <Input

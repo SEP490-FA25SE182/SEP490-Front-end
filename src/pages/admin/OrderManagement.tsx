@@ -18,7 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { OrderService, type OrderResponse } from "@/services/OrderService";
 import { OrderDetailService } from "@/services/OrderDetailService";
@@ -51,7 +56,9 @@ export default function OrderManagementPage() {
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
   const [convertedImageUrl, setConvertedImageUrl] = useState("");
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
-  const [selectedDeleteOrderId, setSelectedDeleteOrderId] = useState<string | null>(null);
+  const [selectedDeleteOrderId, setSelectedDeleteOrderId] = useState<
+    string | null
+  >(null);
   const [openApproveConfirm, setOpenApproveConfirm] = useState(false);
 
   const TRANS_STATUS = {
@@ -74,39 +81,62 @@ export default function OrderManagementPage() {
 
   const mapOrderStatus = (status: number) => {
     switch (status) {
-      case ORDER_STATUS.UNORDERED: return "Chưa đặt hàng";
-      case ORDER_STATUS.PENDING: return "Chờ xác nhận";
-      case ORDER_STATUS.PROCESSING: return "Đang xử lý";
-      case ORDER_STATUS.SHIPPING: return "Đang vận chuyển";
-      case ORDER_STATUS.DELIVERED: return "Đã giao (chờ xác nhận)";
-      case ORDER_STATUS.RECEIVED: return "Đã nhận hàng";
-      case ORDER_STATUS.CANCELLED: return "Đã hủy";
-      case ORDER_STATUS.RETURNED: return "Trả hàng";
-      default: return "Không xác định";
+      case ORDER_STATUS.UNORDERED:
+        return "Chưa đặt hàng";
+      case ORDER_STATUS.PENDING:
+        return "Chờ xác nhận";
+      case ORDER_STATUS.PROCESSING:
+        return "Đang xử lý";
+      case ORDER_STATUS.SHIPPING:
+        return "Đang vận chuyển";
+      case ORDER_STATUS.DELIVERED:
+        return "Đã giao (chờ xác nhận)";
+      case ORDER_STATUS.RECEIVED:
+        return "Đã nhận hàng";
+      case ORDER_STATUS.CANCELLED:
+        return "Đã hủy";
+      case ORDER_STATUS.RETURNED:
+        return "Trả hàng";
+      default:
+        return "Không xác định";
     }
   };
 
   const getStatusColor = (status: number) => {
     switch (status) {
-      case ORDER_STATUS.UNORDERED: return "bg-gray-100 text-gray-600";
-      case ORDER_STATUS.PENDING: return "bg-yellow-100 text-yellow-600";
-      case ORDER_STATUS.PROCESSING: return "bg-blue-100 text-blue-600";
-      case ORDER_STATUS.SHIPPING: return "bg-indigo-100 text-indigo-600";
-      case ORDER_STATUS.DELIVERED: return "bg-emerald-100 text-emerald-600";
-      case ORDER_STATUS.RECEIVED: return "bg-green-100 text-green-600";
-      case ORDER_STATUS.CANCELLED: return "bg-red-100 text-red-600";
-      case ORDER_STATUS.RETURNED: return "bg-purple-100 text-purple-600";
-      default: return "bg-gray-100 text-gray-500";
+      case ORDER_STATUS.UNORDERED:
+        return "bg-gray-100 text-gray-600";
+      case ORDER_STATUS.PENDING:
+        return "bg-yellow-100 text-yellow-600";
+      case ORDER_STATUS.PROCESSING:
+        return "bg-blue-100 text-blue-600";
+      case ORDER_STATUS.SHIPPING:
+        return "bg-indigo-100 text-indigo-600";
+      case ORDER_STATUS.DELIVERED:
+        return "bg-emerald-100 text-emerald-600";
+      case ORDER_STATUS.RECEIVED:
+        return "bg-green-100 text-green-600";
+      case ORDER_STATUS.CANCELLED:
+        return "bg-red-100 text-red-600";
+      case ORDER_STATUS.RETURNED:
+        return "bg-purple-100 text-purple-600";
+      default:
+        return "bg-gray-100 text-gray-500";
     }
   };
 
   const getAllowedStatuses = (current: number) => {
     switch (current) {
-      case ORDER_STATUS.PENDING: return [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED];
-      case ORDER_STATUS.PROCESSING: return [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED];
-      case ORDER_STATUS.SHIPPING: return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED];
-      case ORDER_STATUS.DELIVERED: return [ORDER_STATUS.RECEIVED]; // thường user xác nhận, nhưng admin vẫn có thể set nếu cần
-      default: return []; // 0,5,6,7 không cho đổi
+      case ORDER_STATUS.PENDING:
+        return [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.PROCESSING:
+        return [ORDER_STATUS.SHIPPING, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.SHIPPING:
+        return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED];
+      case ORDER_STATUS.DELIVERED:
+        return [ORDER_STATUS.RECEIVED]; // thường user xác nhận, nhưng admin vẫn có thể set nếu cần
+      default:
+        return []; // 0,5,6,7 không cho đổi
     }
   };
 
@@ -121,6 +151,11 @@ export default function OrderManagementPage() {
     normalizeTransType(refundTrans) === "REFUND" &&
     Number(refundTrans.status) === TRANS_STATUS.PAID;
 
+  const shortOrderCode = (orderId?: string) => {
+    if (!orderId) return "-";
+    return orderId.split("-")[0];
+  };
+
   // ===============================
   //  FETCH ALL ORDERS
   // ===============================
@@ -128,7 +163,7 @@ export default function OrderManagementPage() {
     setLoading(true);
     try {
       const res = await OrderService.getAllOrders();
-      const formatted = res.map(o => ({
+      const formatted = res.map((o) => ({
         ...o,
         status: Number(o.status),
       }));
@@ -151,7 +186,6 @@ export default function OrderManagementPage() {
       });
     }
   }, [refundOrder]);
-
 
   // ===============================
   //  OPEN REFUND DIALOG
@@ -186,14 +220,15 @@ export default function OrderManagementPage() {
     }
   };
 
-
   // ===============================
   //  GET REFUND TRANSACTION
   // ===============================
   async function getRefundTransaction(orderId: string) {
     const res = await TransactionService.search({ orderId });
 
-    const list = Array.isArray((res as any)?.content) ? (res as any).content : [];
+    const list = Array.isArray((res as any)?.content)
+      ? (res as any).content
+      : [];
 
     const normalizeType = (t: any) =>
       String(t?.transType ?? t?.trans_type ?? t?.type ?? "").toUpperCase();
@@ -202,7 +237,6 @@ export default function OrderManagementPage() {
 
     return found;
   }
-
 
   // ===============================
   //  APPROVE REFUND
@@ -224,18 +258,18 @@ export default function OrderManagementPage() {
       // 2️⃣ Cập nhật REFUND → SETTLEMENT + PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
         totalPrice: refundTrans.totalPrice,
-        status: TRANS_STATUS.PAID,          // 3
+        status: TRANS_STATUS.PAID, // 3
         orderId: refundTrans.orderId,
         paymentMethodId: refundTrans.paymentMethodId,
-        walletId: refundTrans.walletId,
-        transType: "REFUND",                // ✅ ép giữ REFUND
+        walletId: refundTrans.walletId ?? refundOrder.walletId,
+        transType: "REFUND", // ✅ ép giữ REFUND
         isActived: refundTrans.isActived ?? "ACTIVE",
       });
 
       console.log("refundTrans:", refundTrans);
 
       // 3️⃣ Lấy ví user
-      const walletId = refundOrder.walletId;  // CHUẨN NHẤT
+      const walletId = refundOrder.walletId; // CHUẨN NHẤT
 
       const wallet = await getWalletById(walletId);
 
@@ -244,7 +278,9 @@ export default function OrderManagementPage() {
         balance: wallet.balance + refundOrder.totalPrice,
       });
 
-      await OrderService.updateOrder(refundOrder.orderId, { status: ORDER_STATUS.RETURNED });
+      await OrderService.updateOrder(refundOrder.orderId, {
+        status: ORDER_STATUS.RETURNED,
+      });
 
       setOrders((prev) =>
         prev.map((o) =>
@@ -260,7 +296,6 @@ export default function OrderManagementPage() {
       setRefundOpen(false);
       setRefundOrder(null);
       setRefundTrans(null);
-
     } catch (error) {
       console.error("❌ Lỗi duyệt hoàn tiền:", error);
       toast.error("Không thể duyệt hoàn tiền.");
@@ -268,8 +303,6 @@ export default function OrderManagementPage() {
       toast.dismiss();
     }
   }
-
-
 
   // ===============================
   //  FILTERED LIST
@@ -287,23 +320,26 @@ export default function OrderManagementPage() {
 
       const matchSearch =
         !searchQuery ||
-        order.orderId.toLowerCase().includes(searchQuery.toLowerCase());
+        order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        shortOrderCode(order.orderId)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
 
       return matchStatus && matchSearch;
     });
 
-
   // ===============================
   //  UPDATE STATUS
   // ===============================
-  const handleUpdateStatus = async (order: OrderResponse, newStatus: number) => {
+  const handleUpdateStatus = async (
+    order: OrderResponse,
+    newStatus: number
+  ) => {
     try {
       await OrderService.updateOrder(order.orderId, { status: newStatus });
       setOrders((prev) =>
         prev.map((o) =>
-          o.orderId === order.orderId
-            ? { ...o, status: newStatus }
-            : o
+          o.orderId === order.orderId ? { ...o, status: newStatus } : o
         )
       );
       toast.success("Đã cập nhật trạng thái");
@@ -344,8 +380,6 @@ export default function OrderManagementPage() {
             >
               {sidebarOpen ? <X /> : <Menu />}
             </Button>
-
-
           </div>
         </header>
 
@@ -399,7 +433,10 @@ export default function OrderManagementPage() {
                   <TableBody>
                     {filteredOrders.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-600 py-8">
+                        <TableCell
+                          colSpan={5}
+                          className="text-center text-gray-600 py-8"
+                        >
                           Không có đơn hàng nào
                         </TableCell>
                       </TableRow>
@@ -409,21 +446,35 @@ export default function OrderManagementPage() {
                         const allowed = getAllowedStatuses(statusNum);
 
                         return (
-                          <TableRow key={order.orderId} className="hover:bg-gray-50 text-gray-800">
-                            <TableCell>{order.orderId}</TableCell>
+                          <TableRow
+                            key={order.orderId}
+                            className="hover:bg-gray-50 text-gray-800"
+                          >
+                            <TableCell className="font-bold text-sm">
+                              <span title={order.orderId}>
+                                {shortOrderCode(order.orderId)}
+                              </span>
+                            </TableCell>
 
-                            <TableCell>{order.totalPrice.toLocaleString("vi-VN")}₫</TableCell>
+                            <TableCell>
+                              {order.totalPrice.toLocaleString("vi-VN")}₫
+                            </TableCell>
 
                             <TableCell>
                               <Select
                                 disabled={allowed.length === 0}
                                 value={String(statusNum)}
-                                onValueChange={(v) => handleUpdateStatus(order, parseInt(v))}
+                                onValueChange={(v) =>
+                                  handleUpdateStatus(order, parseInt(v))
+                                }
                               >
                                 <SelectTrigger className="w-[200px] bg-white/10 border-gray-300">
                                   <SelectValue>
                                     <span
-                                      className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(statusNum)}`}>
+                                      className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(
+                                        statusNum
+                                      )}`}
+                                    >
                                       {mapOrderStatus(statusNum)}
                                     </span>
                                   </SelectValue>
@@ -441,12 +492,15 @@ export default function OrderManagementPage() {
 
                             <TableCell>
                               {order.createdAt
-                                ? new Date(order.createdAt).toLocaleString("vi-VN")
+                                ? new Date(order.createdAt).toLocaleString(
+                                    "vi-VN"
+                                  )
                                 : "-"}
                             </TableCell>
 
                             <TableCell className="text-right flex gap-2 justify-end">
-                              {Number(order.status) === ORDER_STATUS.RETURNED && (
+                              {Number(order.status) ===
+                                ORDER_STATUS.RETURNED && (
                                 <Button
                                   size="sm"
                                   className="bg-purple-600 text-white"
@@ -457,7 +511,10 @@ export default function OrderManagementPage() {
                               )}
 
                               <AlertDialog
-                                open={openDeleteConfirm && selectedDeleteOrderId === order.orderId}
+                                open={
+                                  openDeleteConfirm &&
+                                  selectedDeleteOrderId === order.orderId
+                                }
                                 onOpenChange={(open) => {
                                   setOpenDeleteConfirm(open);
                                   if (!open) setSelectedDeleteOrderId(null);
@@ -467,7 +524,9 @@ export default function OrderManagementPage() {
                                   <Button
                                     variant="destructive"
                                     size="icon"
-                                    disabled={statusNum === 4 || statusNum === 5}
+                                    disabled={
+                                      statusNum === 4 || statusNum === 5
+                                    }
                                     onClick={() => {
                                       setSelectedDeleteOrderId(order.orderId);
                                       setOpenDeleteConfirm(true);
@@ -480,7 +539,9 @@ export default function OrderManagementPage() {
 
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Xác nhận xoá đơn hàng</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                      Xác nhận xoá đơn hàng
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
                                       Bạn có chắc chắn muốn xoá đơn hàng{" "}
                                       <b>{order.orderId}</b>?
@@ -498,7 +559,9 @@ export default function OrderManagementPage() {
                                       className="bg-red-600 hover:bg-red-700 text-white"
                                       onClick={async () => {
                                         if (!selectedDeleteOrderId) return;
-                                        await handleDelete(selectedDeleteOrderId);
+                                        await handleDelete(
+                                          selectedDeleteOrderId
+                                        );
                                         setOpenDeleteConfirm(false);
                                         setSelectedDeleteOrderId(null);
                                       }}
@@ -532,8 +595,12 @@ export default function OrderManagementPage() {
 
           {refundOrder && (
             <div className="space-y-4">
-              <p><b>Mã đơn:</b> {refundOrder.orderId}</p>
-              <p><b>Số tiền hoàn:</b> {formatVND(refundOrder.totalPrice)}</p>
+              <p>
+                <b>Mã đơn:</b> {shortOrderCode(refundOrder.orderId)}
+              </p>
+              <p>
+                <b>Số tiền hoàn:</b> {formatVND(refundOrder.totalPrice)}
+              </p>
 
               {/* ⭐ HIỂN THỊ LÝ DO TRẢ HÀNG */}
               {refundOrder.reason && (
@@ -548,7 +615,9 @@ export default function OrderManagementPage() {
               {/* ⭐ HIỂN THỊ ẢNH TRẢ HÀNG */}
               {refundOrder.imageUrl && (
                 <div>
-                  <p className="font-semibold text-gray-700 mb-2">Ảnh minh chứng:</p>
+                  <p className="font-semibold text-gray-700 mb-2">
+                    Ảnh minh chứng:
+                  </p>
                   <img
                     src={convertedImageUrl}
                     alt="Ảnh trả hàng"
@@ -561,9 +630,14 @@ export default function OrderManagementPage() {
 
               <div className="space-y-2">
                 {refundDetails.map((item) => (
-                  <div key={item.orderDetailId} className="flex justify-between text-sm border-b py-3">
+                  <div
+                    key={item.orderDetailId}
+                    className="flex justify-between text-sm border-b py-3"
+                  >
                     <span>{item.book?.bookName ?? item.bookId}</span>
-                    <span>{item.quantity} × {formatVND(item.price)}</span>
+                    <span>
+                      {item.quantity} × {formatVND(item.price)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -578,7 +652,10 @@ export default function OrderManagementPage() {
                   <>
                     {/* ✅ Nếu REFUND đã PAID thì ẩn nút Chấp nhận hoàn tiền */}
                     {!isRefundAlreadyPaid ? (
-                      <AlertDialog open={openApproveConfirm} onOpenChange={setOpenApproveConfirm}>
+                      <AlertDialog
+                        open={openApproveConfirm}
+                        onOpenChange={setOpenApproveConfirm}
+                      >
                         <AlertDialogTrigger asChild>
                           <Button className="bg-purple-600 text-white">
                             Chấp nhận hoàn tiền
@@ -587,13 +664,16 @@ export default function OrderManagementPage() {
 
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Xác nhận duyệt hoàn tiền</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Xác nhận duyệt hoàn tiền
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
                               Bạn có chắc chắn muốn duyệt hoàn tiền cho đơn hàng{" "}
                               <b>{refundOrder?.orderId}</b>?
                               <br />
                               <span className="text-red-600 font-medium">
-                                Thao tác này sẽ cộng tiền vào ví người dùng và không thể hoàn tác.
+                                Thao tác này sẽ cộng tiền vào ví người dùng và
+                                không thể hoàn tác.
                               </span>
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -620,7 +700,6 @@ export default function OrderManagementPage() {
                   </>
                 )}
               </div>
-
             </div>
           )}
         </DialogContent>

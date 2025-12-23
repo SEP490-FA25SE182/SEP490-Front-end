@@ -8,16 +8,16 @@ import CustomerFooter from "@/components/customer/CustomerFooter";
 import { OrderService } from "@/services/OrderService";
 import { useCart } from "@/context/CartContext";
 
-
 export default function PaymentStatusPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
   const success = query.get("success"); // ?success=true / false
-  const [status, setStatus] = useState<"pending" | "success" | "failed">("pending");
+  const [status, setStatus] = useState<"pending" | "success" | "failed">(
+    "pending"
+  );
   const [, setOrder] = useState<any>(null);
   const { clearUI } = useCart();
-
 
   const fetchOrder = async (orderId: string) => {
     try {
@@ -28,7 +28,6 @@ export default function PaymentStatusPage() {
     }
   };
 
-
   useEffect(() => {
     const saved = localStorage.getItem("lastOrder");
     if (saved) {
@@ -38,7 +37,6 @@ export default function PaymentStatusPage() {
       }
     }
   }, []);
-
 
   // Gán trạng thái dựa vào query param
   useEffect(() => {
@@ -58,11 +56,9 @@ export default function PaymentStatusPage() {
   }, [status]);
 
   useEffect(() => {
-
     clearUI();
     localStorage.removeItem("lastOrder");
     console.log("🧹 Giỏ hàng đã được xoá sau thanh toán thành công");
-
   }, [status]);
 
   return (
@@ -71,14 +67,23 @@ export default function PaymentStatusPage() {
       <div className="flex items-center justify-center py-20 px-4">
         <Card className="w-full max-w-md bg-white/10 border-white/20 backdrop-blur text-white">
           <CardHeader>
-            <CardTitle className="text-center text-lg">Trạng thái thanh toán</CardTitle>
+            <CardTitle className="text-center text-lg">
+              Trạng thái thanh toán
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-6">
             {status === "pending" && (
               <>
-                <p className="text-sm opacity-80">Đang xác nhận thanh toán...</p>
-                <div className="animate-pulse text-yellow-400 font-semibold">
-                  Vui lòng đợi trong giây lát ⏳
+                <p className="text-sm opacity-80">
+                  Vui lòng chờ xác nhận thanh toán
+                </p>
+                <div className="w-full flex justify-center mt-4">
+                  <Button
+                    onClick={() => navigate("/")}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    Về trang chủ
+                  </Button>
                 </div>
               </>
             )}

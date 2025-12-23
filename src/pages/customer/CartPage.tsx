@@ -12,7 +12,6 @@ import { getUserByEmail } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
 import { Switch } from "@/components/ui/switch";
 
-
 export default function CartPage() {
   const { state, setQty, remove, clear } = useCart();
   const navigate = useNavigate();
@@ -22,8 +21,7 @@ export default function CartPage() {
   const [useCoin, setUseCoin] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-
-  const selectedLines = state.lines.filter(line =>
+  const selectedLines = state.lines.filter((line) =>
     selectedIds.includes(line.book.bookId)
   );
 
@@ -36,7 +34,6 @@ export default function CartPage() {
   const displaySubtotal = useCoin
     ? selectedSubtotal - discount
     : selectedSubtotal;
-
 
   useEffect(() => {
     async function loadCoin() {
@@ -60,6 +57,21 @@ export default function CartPage() {
     loadCoin();
   }, [user?.email]);
 
+  useEffect(() => {
+    const validIds = state.lines
+      .filter((line) => line.book.quantity > 0)
+      .map((line) => line.book.bookId);
+
+    setSelectedIds((prev) => prev.filter((id) => validIds.includes(id)));
+  }, [state.lines]);
+
+  useEffect(() => {
+    state.lines.forEach((line) => {
+      if (line.book.quantity === 0 && line.qty !== 0) {
+        setQty(line.book.bookId, 0, line.book.price);
+      }
+    });
+  }, [state.lines]);
 
   const handleCheckout = async () => {
     try {
@@ -70,15 +82,16 @@ export default function CartPage() {
       }
 
       // Kiểm tra số lượng sách trong giỏ
-      const invalidQtyItem = selectedLines.find(
-        line => line.qty <= 0 || !Number.isInteger(line.qty)
+      const outOfStockItem = selectedLines.find(
+        (line) => line.book.quantity === 0 || line.qty > line.book.quantity
       );
 
-      if (invalidQtyItem) {
-        toast.error("Sản phẩm hiện tại đã hết hàng hoặc không khả dụng");
+      if (outOfStockItem) {
+        toast.error(
+          `Sách "${outOfStockItem.book.bookName}" không đủ số lượng trong kho`
+        );
         return;
       }
-
 
       // 🔹 2. Kiểm tra người dùng
       if (!user?.email) {
@@ -103,19 +116,16 @@ export default function CartPage() {
         return;
       }
 
-
       // 🚀 6. Gọi API tạo order từ cart
       const selectedCartItemIds = state.lines
-        .filter(line => selectedIds.includes(line.book.bookId))
-        .map(line => line.cartItemId)
+        .filter((line) => selectedIds.includes(line.book.bookId))
+        .map((line) => line.cartItemId)
         .filter(Boolean) as string[];
-
 
       if (selectedCartItemIds.length === 0) {
         toast.error("Vui lòng chọn ít nhất 1 sản phẩm");
         return;
       }
-
 
       const order = await OrderService.createOrderFromCart(
         state.cartId,
@@ -127,8 +137,6 @@ export default function CartPage() {
       if (!order?.orderId) {
         throw new Error("Không nhận được orderId từ backend.");
       }
-
-    
 
       console.log("✅ Order tạo thành công:", order);
       toast.success("Đơn hàng đã được tạo thành công!");
@@ -145,11 +153,11 @@ export default function CartPage() {
       });
     } catch (error: any) {
       console.error("❌ Lỗi khi tạo order:", error);
-      toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
+      toast.error(
+        error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại."
+      );
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
@@ -177,6 +185,10 @@ export default function CartPage() {
               {state.lines.map((line) => {
                 const unit = line.price;
                 const id = line.book.bookId;
+
+                const isMaxStock = line.qty >= line.book.quantity;
+                const isOutOfStock = line.book.quantity === 0;
+
                 return (
                   <div
                     key={line.cartItemId}
@@ -187,29 +199,35 @@ export default function CartPage() {
                     <div className="flex items-center justify-center">
                       <button
                         type="button"
+                        disabled={isOutOfStock}
                         onClick={() => {
                           if (selectedIds.includes(id)) {
-                            setSelectedIds(prev => prev.filter(x => x !== id));
+                            setSelectedIds((prev) =>
+                              prev.filter((x) => x !== id)
+                            );
                           } else {
-                            setSelectedIds(prev => [...prev, id]);
+                            setSelectedIds((prev) => [...prev, id]);
                           }
                         }}
                         className={`
-        w-6 h-6 rounded-md flex items-center justify-center
-        border transition-all duration-300
-
-        ${selectedIds.includes(id)
-                            ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
-                            : "bg-white/5 border-white/30"}
-      `}
+  w-6 h-6 rounded-md flex items-center justify-center
+  transition-all duration-300
+  ${
+    isOutOfStock
+      ? "opacity-40 cursor-not-allowed bg-slate-700 border border-slate-600"
+      : selectedIds.includes(id)
+      ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border border-transparent shadow-md"
+      : "bg-slate-700 border border-slate-400 hover:border-slate-200 hover:bg-slate-600"
+  }
+`}
                       >
-                        {selectedIds.includes(id) && (
-                          <span className="text-white text-sm font-bold">✓</span>
+                        {!isOutOfStock && selectedIds.includes(id) && (
+                          <span className="text-white text-sm font-bold">
+                            ✓
+                          </span>
                         )}
                       </button>
                     </div>
-
-
 
                     <div className="w-20 h-28 overflow-hidden rounded-lg shrink-0">
                       <img
@@ -243,30 +261,82 @@ export default function CartPage() {
 
                         <div className="ml-auto flex items-center gap-2">
                           <button
-                            className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
+                            disabled={isOutOfStock || line.qty <= 1}
                             onClick={() =>
-                              setQty(line.book.bookId, Math.max(1, line.qty - 1), line.book.price)
-                            }
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <input
-                            className="w-14 text-center rounded-lg bg-black/20 text-white border border-white/10 py-1"
-                            type="number"
-                            min={1}
-                            value={line.qty}
-                            onChange={(e) =>
                               setQty(
                                 line.book.bookId,
-                                Math.max(1, Number(e.target.value) || 1
-                                ),
+                                line.qty - 1,
                                 line.book.price
                               )
                             }
+                            className={`
+    w-8 h-8 grid place-items-center rounded-lg transition
+    ${
+      isOutOfStock || line.qty <= 1
+        ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }
+  `}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+
+                          <input
+                            type="number"
+                            min={0}
+                            max={line.book.quantity}
+                            value={isOutOfStock ? 0 : line.qty}
+                            disabled={isOutOfStock}
+                            className={`
+    w-14 text-center rounded-lg py-1 border
+    ${
+      isOutOfStock
+        ? "bg-gray-500/20 text-gray-400 cursor-not-allowed border-white/10"
+        : "bg-black/20 text-white border-white/10"
+    }
+  `}
+                            onChange={(e) => {
+                              if (isOutOfStock) return;
+
+                              const value = Number(e.target.value);
+
+                              if (value > line.book.quantity) {
+                                toast.warning(
+                                  `Kho chỉ còn ${line.book.quantity} sản phẩm`
+                                );
+                                setQty(
+                                  line.book.bookId,
+                                  line.book.quantity,
+                                  line.book.price
+                                );
+                                return;
+                              }
+
+                              setQty(
+                                line.book.bookId,
+                                Math.max(1, value || 1),
+                                line.book.price
+                              );
+                            }}
                           />
+
                           <button
-                            className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
-                            onClick={() => setQty(line.book.bookId, line.qty + 1, line.book.price)}
+                            disabled={isMaxStock || isOutOfStock}
+                            onClick={() =>
+                              setQty(
+                                line.book.bookId,
+                                line.qty + 1,
+                                line.book.price
+                              )
+                            }
+                            className={`
+    w-8 h-8 grid place-items-center rounded-lg transition
+    ${
+      isMaxStock || isOutOfStock
+        ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }
+  `}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -285,6 +355,15 @@ export default function CartPage() {
                         <span className="font-bold">
                           {formatVND(unit * line.qty)}
                         </span>
+                        {line.book.quantity === 0 ? (
+                          <p className="text-red-500 text-sm mt-1 font-semibold">
+                            Hết hàng
+                          </p>
+                        ) : line.qty >= line.book.quantity ? (
+                          <p className="text-red-400 text-sm mt-1">
+                            Đã đạt số lượng tối đa trong kho
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -341,7 +420,6 @@ export default function CartPage() {
                 )}
               </div>
 
-
               <div className="h-px bg-white/10 my-3" />
               <div className="flex items-center justify-between text-white mb-4">
                 <span className="font-semibold">Thành tiền</span>
@@ -351,9 +429,11 @@ export default function CartPage() {
               <button
                 disabled={selectedIds.length === 0}
                 className={`w-full rounded-lg py-2 font-semibold transition-all
-    ${selectedIds.length === 0
-                    ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-                    : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"}
+    ${
+      selectedIds.length === 0
+        ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+        : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+    }
   `}
                 onClick={handleCheckout}
               >

@@ -107,7 +107,8 @@ export default function AuthorManagementPage() {
 
   const [contractViewOpen, setContractViewOpen] = useState(false);
   const [contractView, setContractView] = useState<any>(null);
-  const [contractViewUrl, setContractViewUrl] = useState("");
+  const [contractViewUrls, setContractViewUrls] = useState<string[]>([]);
+
 
   // ===============================
   //  FETCH AUTHORS + STATS
@@ -324,6 +325,14 @@ export default function AuthorManagementPage() {
     fetchAuthors();
   }, []);
 
+  useEffect(() => {
+    if (!contractViewOpen) {
+      setContractViewUrls([]);
+      setContractView(null);
+    }
+  }, [contractViewOpen]);
+
+
   // ===============================
   //  FILTERED LIST
   // ===============================
@@ -346,35 +355,46 @@ export default function AuthorManagementPage() {
   //  VIEW DETAIL
   // ===============================
   const openDetailDialog = async (author: AuthorRow) => {
-  setSelectedAuthor(author);
-  setDetailOpen(true);
+    setSelectedAuthor(author);
+    setDetailOpen(true);
 
-  try {
-    const c = await getContractByUserId(author.userId);
-    setContract(c);
-  } catch {
-    setContract(null);
-  }
-};
+    try {
+      const c = await getContractByUserId(author.userId);
+      setContract(c);
+    } catch {
+      setContract(null);
+    }
+  };
 
 
   const openContractView = async (authorId: string) => {
-  setContractViewOpen(true);
-  setContractView(null);
-  setContractViewUrl("");
-
-  try {
-    const c = await getContractByUserId(authorId);
-    setContractView(c);
-
-    if (c?.documentUrl) {
-      const url = await resolveFirebaseUrl(c.documentUrl);
-      setContractViewUrl(url);
-    }
-  } catch {
+    setContractViewOpen(true);
     setContractView(null);
-  }
-};
+    setContractViewUrls([]);
+
+    try {
+      const c = (await getContractByUserId(authorId)) as {
+        documentUrls?: string[];
+      } | null;
+
+      setContractView(c);
+
+      if (Array.isArray(c?.documentUrls) && c.documentUrls.length > 0) {
+        const urls = await Promise.all(
+          c.documentUrls.map((u) => resolveFirebaseUrl(u))
+        );
+        setContractViewUrls(urls);
+      } else {
+        setContractViewUrls([]);
+      }
+    } catch (err) {
+      console.error("❌ Load contract failed", err);
+      setContractView(null);
+      setContractViewUrls([]);
+    }
+
+  };
+
 
 
   // ===============================
@@ -440,11 +460,11 @@ export default function AuthorManagementPage() {
         prev.map((a) =>
           a.userId === author.userId
             ? {
-                ...a,
-                totalRevenue: 0,
-                canSettle: false,
-                lastSettlementAt: nowIso,
-              }
+              ...a,
+              totalRevenue: 0,
+              canSettle: false,
+              lastSettlementAt: nowIso,
+            }
             : a
         )
       );
@@ -726,29 +746,45 @@ export default function AuthorManagementPage() {
                 </div>
               </div>
 
-              {contractViewUrl ? (
-                <div className="border rounded-md overflow-hidden">
-                  {/* nếu là ảnh */}
-                  <img
-                    src={contractViewUrl}
-                    alt="contract"
-                    className="w-full max-h-[70vh] object-contain bg-gray-50"
-                  />
+              {contractViewUrls.length > 0 ? (
+                <div className="space-y-3">
+                  {contractViewUrls.map((url, idx) => {
+                    const isImage = url.match(/\.(png|jpg|jpeg|webp)$/i);
+                    const isPdf = url.endsWith(".pdf");
+
+                    return (
+                      <div key={idx} className="border rounded-md p-2">
+                        {isImage && (
+                          <img
+                            src={url}
+                            alt={`contract-${idx}`}
+                            className="w-full max-h-[70vh] object-contain bg-gray-50"
+                          />
+                        )}
+
+                        {isPdf && (
+                          <iframe
+                            src={url}
+                            className="w-full h-[70vh] border"
+                            title={`pdf-${idx}`}
+                          />
+                        )}
+
+                        <a
+                          href={url}
+                          target="_blank"
+                          className="text-blue-600 underline text-sm mt-1 inline-block"
+                        >
+                          Mở file {idx + 1} trong tab mới
+                        </a>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-sm text-gray-500">
                   Hợp đồng chưa có file hoặc không resolve được link.
                 </div>
-              )}
-
-              {contractViewUrl && (
-                <a
-                  className="text-blue-600 underline text-sm"
-                  href={contractViewUrl}
-                  target="_blank"
-                >
-                  Mở trong tab mới
-                </a>
               )}
             </div>
           )}

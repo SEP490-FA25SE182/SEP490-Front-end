@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Loader2 } from "lucide-react";
+import { Menu, X, Loader2, FileText } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
-
 import { toast } from "sonner";
 import { formatVND } from "@/lib/money";
 
@@ -47,10 +46,11 @@ import {
   OrderDetailService,
   type OrderDetailResponse,
 } from "@/services/OrderDetailService";
-import {
-  TransactionService,
-} from "@/services/TransactionService";
+import { TransactionService } from "@/services/TransactionService";
 import { getWalletByUserId, updateWallet } from "@/services/WalletService";
+import { ContractService } from "@/services/ContractService";
+
+import { resolveFirebaseUrl } from "@/firebase";
 
 import axios from "axios";
 import { API_RK } from "@/config";
@@ -93,6 +93,13 @@ export default function AuthorManagementPage() {
 
   const [settleOpen, setSettleOpen] = useState(false);
   const [settleAuthor, setSettleAuthor] = useState<AuthorRow | null>(null);
+
+  const [contractOpen, setContractOpen] = useState(false);
+  const [contract, setContract] = useState<any>(null);
+
+  const [contractViewOpen, setContractViewOpen] = useState(false);
+  const [contractView, setContractView] = useState<any>(null);
+  const [contractViewUrl, setContractViewUrl] = useState("");
 
   // ===============================
   //  FETCH AUTHORS + STATS
@@ -330,93 +337,114 @@ export default function AuthorManagementPage() {
   // ===============================
   //  VIEW DETAIL
   // ===============================
-  const openDetailDialog = (author: AuthorRow) => {
+  const openDetailDialog = async (author: AuthorRow) => {
     setSelectedAuthor(author);
+
+    const c = await ContractService.searchByAuthor(author.userId);
+    setContract(c);
+
     setDetailOpen(true);
+  };
+
+  const openContractView = async (authorId: string) => {
+    setContractViewOpen(true);
+    setContractView(null);
+    setContractViewUrl("");
+
+    try {
+      const c = await ContractService.findByUserId(authorId);
+      setContractView(c);
+
+      if (c?.documentUrl) {
+        const url = await resolveFirebaseUrl(c.documentUrl);
+        setContractViewUrl(url);
+      }
+    } catch {
+      setContractView(null);
+    }
   };
 
   // ===============================
   //  SETTLEMENT (TẤT TOÁN)
   // ===============================
   const handleSettleConfirm = async () => {
-  if (!settleAuthor) return;
+    if (!settleAuthor) return;
 
-  const author = settleAuthor;
+    const author = settleAuthor;
 
-  const settlementAmount = calcRoyaltyAmount(
-    author.totalRevenue,
-    author.royalty
-  );
+    const settlementAmount = calcRoyaltyAmount(
+      author.totalRevenue,
+      author.royalty
+    );
 
-  if (settlementAmount <= 0) {
-    toast.error("Tác giả này chưa có doanh thu để tất toán");
-    return;
-  }
-
-  try {
-    toast.loading("Đang tất toán cho tác giả...");
-
-    const wallet = await getWalletByUserId(author.userId);
-    if (!wallet?.walletId) {
-      toast.error("Không tìm thấy ví của tác giả");
+    if (settlementAmount <= 0) {
+      toast.error("Tác giả này chưa có doanh thu để tất toán");
       return;
     }
 
-    // payment method
-    const pmRes = await axios.get(`${API_RK}/payment-methods/search`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
+    try {
+      toast.loading("Đang tất toán cho tác giả...");
 
-    const paymentMethods = pmRes.data?.content ?? [];
-    const rookiesMethod = paymentMethods.find(
-      (m: any) => (m.methodName || "").toLowerCase() === "rookies"
-    );
+      const wallet = await getWalletByUserId(author.userId);
+      if (!wallet?.walletId) {
+        toast.error("Không tìm thấy ví của tác giả");
+        return;
+      }
 
-    if (!rookiesMethod) {
-      toast.error("Không tìm thấy phương thức thanh toán 'Rookies'");
-      return;
+      // payment method
+      const pmRes = await axios.get(`${API_RK}/payment-methods/search`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const paymentMethods = pmRes.data?.content ?? [];
+      const rookiesMethod = paymentMethods.find(
+        (m: any) => (m.methodName || "").toLowerCase() === "rookies"
+      );
+
+      if (!rookiesMethod) {
+        toast.error("Không tìm thấy phương thức thanh toán 'Rookies'");
+        return;
+      }
+
+      await TransactionService.create({
+        totalPrice: settlementAmount,
+        status: 3,
+        paymentMethodId: rookiesMethod.paymentMethodId,
+        walletId: wallet.walletId,
+        transType: "SETTLEMENT",
+        isActived: "ACTIVE",
+      });
+
+      await updateWallet(wallet.walletId, {
+        balance: wallet.balance + settlementAmount,
+      });
+
+      const nowIso = new Date().toISOString();
+
+      setAuthors((prev) =>
+        prev.map((a) =>
+          a.userId === author.userId
+            ? {
+                ...a,
+                totalRevenue: 0,
+                canSettle: false,
+                lastSettlementAt: nowIso,
+              }
+            : a
+        )
+      );
+
+      toast.success("Tất toán tiền cho tác giả thành công!");
+      setSettleOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Không thể tất toán cho tác giả");
+    } finally {
+      toast.dismiss();
     }
-
-    await TransactionService.create({
-      totalPrice: settlementAmount,
-      status: 3,
-      paymentMethodId: rookiesMethod.paymentMethodId,
-      walletId: wallet.walletId,
-      transType: "SETTLEMENT",
-      isActived: "ACTIVE",
-    });
-
-    await updateWallet(wallet.walletId, {
-      balance: wallet.balance + settlementAmount,
-    });
-
-    const nowIso = new Date().toISOString();
-
-    setAuthors((prev) =>
-      prev.map((a) =>
-        a.userId === author.userId
-          ? {
-              ...a,
-              totalRevenue: 0,
-              canSettle: false,
-              lastSettlementAt: nowIso,
-            }
-          : a
-      )
-    );
-
-    toast.success("Tất toán tiền cho tác giả thành công!");
-    setSettleOpen(false);
-  } catch (err) {
-    console.error(err);
-    toast.error("Không thể tất toán cho tác giả");
-  } finally {
-    toast.dismiss();
-  }
-};
-
+  };
 
   const calcRoyaltyAmount = (total?: any, royalty?: any) => {
     const safeTotal = Number(total ?? 0);
@@ -626,9 +654,21 @@ export default function AuthorManagementPage() {
                 <b>Doanh thu tạm tính:</b>{" "}
                 {formatVND(selectedAuthor.totalRevenue)}
               </p>
-              <p>
+
+              <p className="flex items-center gap-2">
                 <b>Phần trăm hoa hồng:</b> {selectedAuthor.royalty ?? 0}%
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => openContractView(selectedAuthor.userId)}
+                  title="Xem hợp đồng"
+                >
+                  {/* dùng icon lucide */}
+                  <FileText className="w-4 h-4" />
+                </Button>
               </p>
+
               <p>
                 <b>Tiền tác quyền:</b>{" "}
                 {formatVND(
@@ -649,40 +689,92 @@ export default function AuthorManagementPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={settleOpen} onOpenChange={setSettleOpen}>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Xác nhận tất toán</AlertDialogTitle>
-      <AlertDialogDescription>
-        {settleAuthor && (
-          <>
-            Bạn có chắc muốn tất toán{" "}
-            <b className="text-purple-600">
-              {formatVND(
-                calcRoyaltyAmount(
-                  settleAuthor.totalRevenue,
-                  settleAuthor.royalty
-                )
+      <Dialog open={contractViewOpen} onOpenChange={setContractViewOpen}>
+        <DialogContent className="max-w-2xl bg-white text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Hợp đồng tác giả</DialogTitle>
+          </DialogHeader>
+
+          {!contractView ? (
+            <div className="text-sm text-gray-500">
+              Không tìm thấy hợp đồng.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-sm">
+                <div>
+                  <b>Mã HĐ:</b> {contractView.contractNumber || "—"}
+                </div>
+                <div>
+                  <b>Tiêu đề:</b> {contractView.title || "—"}
+                </div>
+                <div>
+                  <b>Trạng thái:</b> {contractView.status || "—"}
+                </div>
+              </div>
+
+              {contractViewUrl ? (
+                <div className="border rounded-md overflow-hidden">
+                  {/* nếu là ảnh */}
+                  <img
+                    src={contractViewUrl}
+                    alt="contract"
+                    className="w-full max-h-[70vh] object-contain bg-gray-50"
+                  />
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  Hợp đồng chưa có file hoặc không resolve được link.
+                </div>
               )}
-            </b>{" "}
-            cho tác giả <b>{settleAuthor.fullName}</b>?
-          </>
-        )}
-      </AlertDialogDescription>
-    </AlertDialogHeader>
 
-    <AlertDialogFooter>
-      <AlertDialogCancel>Huỷ</AlertDialogCancel>
-      <AlertDialogAction
-        className="bg-purple-600 hover:bg-purple-700"
-        onClick={handleSettleConfirm}
-      >
-        Xác nhận tất toán
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+              {contractViewUrl && (
+                <a
+                  className="text-blue-600 underline text-sm"
+                  href={contractViewUrl}
+                  target="_blank"
+                >
+                  Mở trong tab mới
+                </a>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
+      <AlertDialog open={settleOpen} onOpenChange={setSettleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận tất toán</AlertDialogTitle>
+            <AlertDialogDescription>
+              {settleAuthor && (
+                <>
+                  Bạn có chắc muốn tất toán{" "}
+                  <b className="text-purple-600">
+                    {formatVND(
+                      calcRoyaltyAmount(
+                        settleAuthor.totalRevenue,
+                        settleAuthor.royalty
+                      )
+                    )}
+                  </b>{" "}
+                  cho tác giả <b>{settleAuthor.fullName}</b>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={handleSettleConfirm}
+            >
+              Xác nhận tất toán
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -21,17 +21,17 @@ import {
 import {
   getAllUsers,
   createUser,
-  updateUser,
   deleteUser,
   getRoleById,
   type User,
 } from "@/services/UserService";
 import { useGetAllRoles } from "@/services/RoleService";
+import { ContractService } from "@/services/ContractService";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import { resolveFirebaseUrl } from "@/firebase";
-
+import { UploadService } from "@/services/FirebaseService";
 
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -50,6 +50,12 @@ export default function UserManagementPage() {
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
+
+  const [contract, setContract] = useState<any>(null);
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [contractHttpUrl, setContractHttpUrl] = useState<string>("");
+
+  const [contractPreviewUrl, setContractPreviewUrl] = useState<string>("");
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -71,13 +77,9 @@ export default function UserManagementPage() {
     roleId?: string;
   }>({});
 
-
   const [creating, setCreating] = useState(false);
 
   const { data: roleList } = useGetAllRoles();
-
-
-
 
   const { user } = useAuth();
 
@@ -88,7 +90,7 @@ export default function UserManagementPage() {
       try {
         // 1. Tìm user theo email
         const allUsers = await getAllUsers();
-        const currentUser = allUsers.find(u => u.email === user.email);
+        const currentUser = allUsers.find((u) => u.email === user.email);
 
         if (!currentUser?.roleId) return;
 
@@ -103,15 +105,14 @@ export default function UserManagementPage() {
     fetchRole();
   }, [user?.email]);
 
-
   // 🔹 Lấy toàn bộ user
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
         const res = await getAllUsers();
-        setAllUsers(res);   // ✅ thêm
-        setUsers(res);      // ✅ thêm (list đang hiển thị)
+        setAllUsers(res); // ✅ thêm
+        setUsers(res); // ✅ thêm (list đang hiển thị)
       } catch (err) {
         console.error("❌ Lỗi khi tải user:", err);
         toast.error("Không thể tải danh sách người dùng");
@@ -146,8 +147,6 @@ export default function UserManagementPage() {
     }
   }, [allUsers]);
 
-
-
   // 🔹 Lấy tên role tương ứng cho từng user
   useEffect(() => {
     async function fetchRoleNames() {
@@ -168,20 +167,39 @@ export default function UserManagementPage() {
     }
     if (allUsers.length > 0) fetchRoleNames();
   }, [allUsers]);
-  ;
-
-
   //hepler
 
+  useEffect(() => {
+    (async () => {
+      if (!contract?.documentUrl) {
+        setContractHttpUrl("");
+        setContractPreviewUrl("");
+        return;
+      }
+
+      try {
+        const url = await resolveFirebaseUrl(contract.documentUrl);
+        setContractHttpUrl(url);
+
+        // ✅ nếu là ảnh thì cho preview
+        if (url.match(/\.(png|jpg|jpeg|webp)$/i)) {
+          setContractPreviewUrl(url);
+        } else {
+          setContractPreviewUrl("");
+        }
+      } catch {
+        setContractHttpUrl("");
+        setContractPreviewUrl("");
+      }
+    })();
+  }, [contract?.documentUrl]);
+
   const isAuthor = (roleId?: string) => {
-    const roleName = (roleNames[roleId || ""] || "")
-      .trim()
-      .toLowerCase();
+    const roleName = (roleNames[roleId || ""] || "").trim().toLowerCase();
 
     return roleName === "author" || roleName === "role_author";
-
   };
-  console.log(roleNames)
+  console.log(roleNames);
 
   const isCurrentUserAdmin = currentRoleName === "admin";
 
@@ -212,52 +230,63 @@ export default function UserManagementPage() {
       filterRole === "all" ||
       roleName.toLowerCase().includes(filterRole.toLowerCase());
 
-    const matchStatus =
-      filterStatus === "all" || u.isActived === filterStatus;
+    const matchStatus = filterStatus === "all" || u.isActived === filterStatus;
 
     return matchSearch && matchRole && matchStatus;
   });
 
+  const handleRoyaltyUpdate = async (u: User) => {
+  setOpenRoyaltyModal(true);
+  setSelectedUser(u);
+  setContract(null);
+  setContractPreviewUrl(""); // ✅ thêm dòng này
+  setContractFile(null);
 
-  const handleRoyaltyUpdate = (user: User) => {
-    setSelectedUser(user);
-    setRoyaltyValue(user.royalty ?? 0); // nếu backend có field royalty
-    setOpenRoyaltyModal(true);
-  };
+  try {
+    const contracts = await ContractService.search();
+    console.log("ALL CONTRACTS FROM API:", contracts);
+    const found = contracts.find((c) => c.userId === u.userId);
+    setContract(found ?? null);
+  } catch {
+    setContract(null);
+  }
+};
+
 
   const handleSaveRoyalty = async () => {
-    if (!selectedUser?.userId) return;
+    if (!selectedUser) return;
 
-    if (royaltyValue < 0 || royaltyValue > 100) {
-      toast.error("Royalty phải từ 0 - 100%");
-      return;
+    let documentUrl = contract?.documentUrl;
+
+    if (contractFile) {
+      documentUrl = await UploadService.uploadImageToFirebase(
+        contractFile,
+        "contracts"
+      );
     }
 
     try {
-      setSavingRoyalty(true);
+      if (contract?.contractId) {
+        await ContractService.update(contract.contractId, {
+          userId: selectedUser.userId,
+          documentUrl,
+          title: contract.title,
+          status: "DRAFT",
+        });
+      } else {
+        await ContractService.create({
+          contractNumber: `CT-${Date.now()}`,
+          title: `Hợp đồng tác giả ${selectedUser.fullName}`,
+          documentUrl,
+          userId: selectedUser.userId,
+        });
+      }
 
-      await updateUser(selectedUser.userId, {
-        ...selectedUser,
-        royalty: royaltyValue,
-      });
-
-      toast.success("Cập nhật royalty thành công ✅");
-
-      // cập nhật lại danh sách user UI
-      setUsers(prev =>
-        prev.map(u =>
-          u.userId === selectedUser.userId
-            ? { ...u, royalty: royaltyValue }
-            : u
-        )
-      );
-
+      toast.success("Lưu hợp đồng thành công");
       setOpenRoyaltyModal(false);
     } catch (err) {
       console.error(err);
-      toast.error("Cập nhật royalty thất bại");
-    } finally {
-      setSavingRoyalty(false);
+      toast.error("Lỗi khi lưu hợp đồng");
     }
   };
 
@@ -287,10 +316,7 @@ export default function UserManagementPage() {
       newErrors.phoneNumber = "Số điện thoại không hợp lệ";
     }
 
-    if (
-      newUser.birthDate &&
-      new Date(newUser.birthDate) > new Date()
-    ) {
+    if (newUser.birthDate && new Date(newUser.birthDate) > new Date()) {
       newErrors.birthDate = "Ngày sinh không hợp lệ";
     }
 
@@ -302,8 +328,6 @@ export default function UserManagementPage() {
 
     return Object.keys(newErrors).length === 0;
   };
-
-
 
   const handleCreateUser = async () => {
     const isValid = validateNewUser();
@@ -340,7 +364,6 @@ export default function UserManagementPage() {
         gender: "",
         birthDate: "",
       });
-
     } catch (err) {
       console.error(err);
       toast.error("Tạo tài khoản thất bại");
@@ -348,7 +371,6 @@ export default function UserManagementPage() {
       setCreating(false);
     }
   };
-
 
   //--------------------------------RENDER--------------------------------
   return (
@@ -365,7 +387,11 @@ export default function UserManagementPage() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </Button>
           </div>
         </header>
@@ -400,7 +426,6 @@ export default function UserManagementPage() {
             </Button>
           )}
 
-
           <Select value={filterRole} onValueChange={setFilterRole}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
               <SelectValue placeholder="Vai trò" />
@@ -414,7 +439,6 @@ export default function UserManagementPage() {
               <SelectItem value="customer">Customer</SelectItem>
             </SelectContent>
           </Select>
-
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
@@ -439,19 +463,27 @@ export default function UserManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                    <TableHead className="text-white font-medium">Ảnh</TableHead>
-                    <TableHead className="text-white font-medium">Họ tên</TableHead>
-                    <TableHead className="text-white font-medium">Email</TableHead>
-                    <TableHead className="text-white font-medium">Vai trò</TableHead>
-                    <TableHead className="text-white font-medium">Trạng thái</TableHead>
+                    <TableHead className="text-white font-medium">
+                      Ảnh
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Họ tên
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Email
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Vai trò
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Trạng thái
+                    </TableHead>
 
                     {isCurrentUserAdmin && (
                       <TableHead className="text-white font-medium text-right">
                         Hành động
                       </TableHead>
                     )}
-
-
                   </TableRow>
                 </TableHeader>
 
@@ -460,15 +492,21 @@ export default function UserManagementPage() {
                     <TableRow key={u.userId} className="hover:bg-gray-50">
                       <TableCell>
                         <img
-                          src={avatarMap[u.userId] || "https://avatar.iran.liara.run/public/boy"}
+                          src={
+                            avatarMap[u.userId] ||
+                            "https://avatar.iran.liara.run/public/boy"
+                          }
                           alt={u.fullName}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = "https://avatar.iran.liara.run/public/boy";
+                            e.currentTarget.src =
+                              "https://avatar.iran.liara.run/public/boy";
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-gray-900 font-medium">{u.fullName}</TableCell>
+                      <TableCell className="text-gray-900 font-medium">
+                        {u.fullName}
+                      </TableCell>
                       <TableCell className="text-gray-600">{u.email}</TableCell>
                       <TableCell>
                         <span className="text-purple-600 font-semibold">
@@ -477,8 +515,11 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`font-semibold ${u.isActived === "ACTIVE" ? "text-green-600" : "text-gray-500"
-                            }`}
+                          className={`font-semibold ${
+                            u.isActived === "ACTIVE"
+                              ? "text-green-600"
+                              : "text-gray-500"
+                          }`}
                         >
                           {u.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
                         </span>
@@ -504,8 +545,6 @@ export default function UserManagementPage() {
                           </Button>
                         </TableCell>
                       )}
-
-
                     </TableRow>
                   ))}
                 </TableBody>
@@ -536,8 +575,52 @@ export default function UserManagementPage() {
                 className="text-black bg-white"
                 disabled={false}
               />
+              {/* CONTRACT */}
+              <div className="mb-4">
+                <label className="text-sm text-gray-600 mb-2 block">
+                  Hợp đồng
+                </label>
 
+                {contractHttpUrl ? (
+                  <a
+                    href={contractHttpUrl}
+                    target="_blank"
+                    className="text-blue-600 underline text-sm"
+                  >
+                    Xem hợp đồng hiện tại
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-400">Chưa có hợp đồng</p>
+                )}
 
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="mt-2"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setContractFile(file);
+
+                    // ✅ preview ngay nếu là ảnh
+                    if (file && file.type.startsWith("image/")) {
+                      setContractPreviewUrl(URL.createObjectURL(file));
+                    } else {
+                      setContractPreviewUrl("");
+                    }
+                  }}
+                />
+              </div>
+
+              {/* PREVIEW IMAGE */}
+              {contractPreviewUrl && (
+                <div className="mt-3">
+                  <img
+                    src={contractPreviewUrl}
+                    alt="Contract preview"
+                    className="w-full max-h-[300px] object-contain border rounded-md"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2">
@@ -565,7 +648,6 @@ export default function UserManagementPage() {
       {openCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6 relative text-gray-900">
-
             {/* Close button */}
             <button
               className="absolute right-4 top-4 text-gray-600 hover:text-black"
@@ -585,13 +667,12 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, fullName: e.target.value });
                   setErrors((prev) => ({ ...prev, fullName: undefined }));
                 }}
-                className={`mt-1 ${errors.fullName ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.fullName ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.fullName && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.fullName}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.fullName}</p>
               )}
             </div>
 
@@ -604,13 +685,12 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, email: e.target.value });
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
-                className={`mt-1 ${errors.email ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.email ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.email && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.email}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.email}</p>
               )}
             </div>
 
@@ -624,13 +704,12 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, password: e.target.value });
                   setErrors((prev) => ({ ...prev, password: undefined }));
                 }}
-                className={`mt-1 ${errors.password ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.password ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.password && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.password}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.password}</p>
               )}
             </div>
 
@@ -643,8 +722,11 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, phoneNumber: e.target.value });
                   setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
                 }}
-                className={`mt-1 ${errors.phoneNumber ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.phoneNumber
+                    ? "border-red-500 focus:border-red-500"
+                    : ""
+                }`}
               />
 
               {errors.phoneNumber && (
@@ -685,7 +767,6 @@ export default function UserManagementPage() {
               />
             </div>
 
-
             {/* Role dropdown */}
             <div className="mb-4">
               <label className="text-sm text-gray-600">Vai trò</label>
@@ -697,8 +778,9 @@ export default function UserManagementPage() {
                 }}
               >
                 <SelectTrigger
-                  className={`w-full mt-1 ${errors.roleId ? "border-red-500" : ""
-                    }`}
+                  className={`w-full mt-1 ${
+                    errors.roleId ? "border-red-500" : ""
+                  }`}
                 >
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
@@ -711,15 +793,16 @@ export default function UserManagementPage() {
                 </SelectContent>
               </Select>
               {errors.roleId && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.roleId}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.roleId}</p>
               )}
             </div>
 
             {/* Buttons */}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setOpenCreateModal(false)}
+              >
                 Hủy
               </Button>
 
@@ -734,13 +817,6 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
-
-
     </div>
-
-
-
   );
-
-
 }

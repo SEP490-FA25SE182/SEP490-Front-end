@@ -32,6 +32,7 @@ export interface MoveCartToOrderExtra {
   totalPrice?: number;
   status?: number;
   userAddressId?: string;
+  shippingFee?: number | null;
 }
 
 export const OrderService = {

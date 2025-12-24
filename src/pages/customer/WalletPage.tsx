@@ -10,11 +10,11 @@ import {
 } from "@/services/TransactionService";
 
 const TRANSACTION_LABEL: Record<string, string> = {
-  PAYMENT: "Thanh toán",
-  REFUND: "Hoàn tiền",
+  PAYMENT: "Thanh toán đơn hàng",
+  REFUND: "Hoàn tiền đơn hàng",
   SETTLEMENT: "Doanh thu tác giả",
-  DEPOSIT: "Nạp tiền",
-  WITHDRAW: "Rút tiền",
+  DEPOSIT: "Nạp tiền vào ví",
+  WITHDRAW: "Rút tiền từ ví",
   AI_IMAGE: "Tạo ảnh AI",
   AI_MODEL: "Dùng AI Model",
 };

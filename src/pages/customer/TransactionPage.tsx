@@ -700,12 +700,18 @@ export default function TransactionPage() {
                   </p>
                 )}
               </div>
-              <p className="text-xs text-red-400">
-                Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
-              </p>
-              <p className="text-xs text-red-400">
-              (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp đặc biệt)
-              </p>
+              {/*Chỉ hiện cảnh báo trả hàng khi đơn ĐÃ NHẬN (RECEIVED = 5) */}
+              {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-xs text-red-400 leading-tight">
+                    Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
+                  </p>
+                  <p className="text-xs text-red-400 leading-tight">
+                    (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp
+                    đặc biệt)
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between mt-6 items-center">
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
                 {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
@@ -818,13 +824,13 @@ export default function TransactionPage() {
                       <span className="font-medium">
                         {refundTrans.updatedAt
                           ? new Date(refundTrans.updatedAt).toLocaleString(
-                            "vi-VN"
-                          )
-                          : refundTrans.createdAt
-                            ? new Date(refundTrans.createdAt).toLocaleString(
                               "vi-VN"
                             )
-                            : "-"}
+                          : refundTrans.createdAt
+                          ? new Date(refundTrans.createdAt).toLocaleString(
+                              "vi-VN"
+                            )
+                          : "-"}
                       </span>
                     </div>
 

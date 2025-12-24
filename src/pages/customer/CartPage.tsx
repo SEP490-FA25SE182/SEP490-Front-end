@@ -141,6 +141,10 @@ export default function CartPage() {
               {state.lines.map((line) => {
                 const unit = line.price;
                 const id = line.book.bookId;
+
+                const isMaxStock = line.qty >= line.book.quantity;
+                const isOutOfStock = line.book.quantity === 0;
+
                 return (
                   <div
                     key={line.cartItemId}
@@ -151,6 +155,7 @@ export default function CartPage() {
                     <div className="flex items-center justify-center">
                       <button
                         type="button"
+                        disabled={isOutOfStock}
                         onClick={() => {
                           if (selectedIds.includes(id)) {
                             setSelectedIds((prev) =>
@@ -161,15 +166,15 @@ export default function CartPage() {
                           }
                         }}
                         className={`
-        w-6 h-6 rounded-md flex items-center justify-center
-        border transition-all duration-300
+                          w-6 h-6 rounded-md flex items-center justify-center
+                          border transition-all duration-300
 
-        ${
-          selectedIds.includes(id)
-            ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
-            : "bg-white/5 border-white/30"
-        }
-      `}
+                          ${
+                            selectedIds.includes(id)
+                              ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
+                              : "bg-white/5 border-white/30"
+                          }
+                        `}
                       >
                         {selectedIds.includes(id) && (
                           <span className="text-white text-sm font-bold">
@@ -211,7 +216,7 @@ export default function CartPage() {
 
                         <div className="ml-auto flex items-center gap-2">
                           <button
-                            className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
+                            disabled={isOutOfStock || line.qty <= 1}
                             onClick={() =>
                               setQty(
                                 line.book.bookId,
@@ -219,15 +224,60 @@ export default function CartPage() {
                                 line.book.price
                               )
                             }
+                            className={`
+                              w-8 h-8 grid place-items-center rounded-lg transition
+                              ${
+                                isOutOfStock || line.qty <= 1
+                                  ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                                  : "bg-white/10 text-white hover:bg-white/20"
+                              }
+                            `}
                           >
                             <Minus className="w-4 h-4" />
                           </button>
+
                           <input
-                            className="w-14 text-center rounded-lg bg-black/20 text-white border border-white/10 py-1"
                             type="number"
-                            min={1}
-                            value={line.qty}
-                            onChange={(e) =>
+                            min={0}
+                            max={line.book.quantity}
+                            value={isOutOfStock ? 0 : line.qty}
+                            disabled={isOutOfStock}
+                            className={`
+                              w-14 text-center rounded-lg py-1 border
+                              ${
+                                isOutOfStock
+                                  ? "bg-gray-500/20 text-gray-400 cursor-not-allowed border-white/10"
+                                  : "bg-black/20 text-white border-white/10"
+                              }
+                            `}
+                            onChange={(e) => {
+                              if (isOutOfStock) return;
+
+                              const value = Number(e.target.value);
+
+                              if (value > line.book.quantity) {
+                                toast.warning(
+                                  `Kho chỉ còn ${line.book.quantity} sản phẩm`
+                                );
+                                setQty(
+                                  line.book.bookId,
+                                  line.book.quantity,
+                                  line.book.price
+                                );
+                                return;
+                              }
+
+                              setQty(
+                                line.book.bookId,
+                                Math.max(1, value || 1),
+                                line.book.price
+                              );
+                            }}
+                          />
+
+                          <button
+                            disabled={isMaxStock || isOutOfStock}
+                            onClick={() =>
                               setQty(
                                 line.book.bookId,
                                 Math.max(1, Number(e.target.value) || 1),
@@ -262,6 +312,15 @@ export default function CartPage() {
                         <span className="font-bold">
                           {formatVND(unit * line.qty)}
                         </span>
+                        {line.book.quantity === 0 ? (
+                          <p className="text-red-500 text-sm mt-1 font-semibold">
+                            Hết hàng
+                          </p>
+                        ) : line.qty >= line.book.quantity ? (
+                          <p className="text-red-400 text-sm mt-1">
+                            Đã đạt số lượng tối đa trong kho
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -287,22 +346,22 @@ export default function CartPage() {
                     onCheckedChange={setUseCoin}
                     disabled={coin === 0}
                     className="
-      border border-white/40
-      bg-white/10
-      transition-all duration-300
+                      border border-white/40
+                      bg-white/10
+                      transition-all duration-300
 
-      data-[state=checked]:bg-gradient-to-r
-      data-[state=checked]:from-[#764BA2]
-      data-[state=checked]:to-[#667EEA]
+                      data-[state=checked]:bg-gradient-to-r
+                      data-[state=checked]:from-[#764BA2]
+                      data-[state=checked]:to-[#667EEA]
 
-      [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
+                      [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
 
-      [&[data-state=unchecked]>span]:bg-gradient-to-r
-      [&[data-state=unchecked]>span]:from-[#764BA2]
-      [&[data-state=unchecked]>span]:to-[#667EEA]
+                      [&[data-state=unchecked]>span]:bg-gradient-to-r
+                      [&[data-state=unchecked]>span]:from-[#764BA2]
+                      [&[data-state=unchecked]>span]:to-[#667EEA]
 
-      [&[data-state=checked]>span]:bg-white
-    "
+                      [&[data-state=checked]>span]:bg-white
+                    "
                   />
 
                   <span>Sử dụng xu</span>
@@ -327,12 +386,12 @@ export default function CartPage() {
               <button
                 disabled={selectedIds.length === 0}
                 className={`w-full rounded-lg py-2 font-semibold transition-all
-    ${
-      selectedIds.length === 0
-        ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-        : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
-    }
-  `}
+                  ${
+                    selectedIds.length === 0
+                      ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                      : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                  }
+                `}
                 onClick={handleCheckout}
               >
                 Thanh toán

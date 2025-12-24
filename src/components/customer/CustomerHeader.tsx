@@ -154,7 +154,7 @@ export default function CustomerHeader() {
           <div className="flex items-center gap-6 flex-1 min-w-0">
             <Link to="/" className="shrink-0">
               <div className="flex items-center gap-3">
-                <img src="./rookies-logo.jpg" className="w-10" />
+                <img src="/rookies-logo.jpg" className="w-10" />
                 <span className="text-xl font-semibold">Rookies</span>
               </div>
             </Link>
@@ -287,7 +287,7 @@ export default function CustomerHeader() {
                         to="/transactions"
                         className="px-4 py-2 hover:bg-[#2a3857] rounded-md transition-colors text-white/80 hover:text-white"
                       >
-                        Lịch sử giao dịch
+                        Lịch sử mua hàng
                       </Link>
                       <Link
                         to="/wallet"

@@ -21,7 +21,6 @@ import { getUserById } from "@/services/UserService";
 import { getAllGenres, type Genre } from "@/services/GenreService";
 import { useAuth } from "@/context/AuthContext";
 
-
 /* ---------------------------
  🧩 Review và StarRating
 --------------------------- */
@@ -30,8 +29,9 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
     {[1, 2, 3, 4, 5].map((star) => (
       <Star
         key={star}
-        className={`w-5 h-5 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-          }`}
+        className={`w-5 h-5 ${
+          star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+        }`}
       />
     ))}
   </div>
@@ -76,12 +76,12 @@ export const BookDetail = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [genres, setGenres] = useState<Genre[]>([]);
 
-
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const isAuthenticated = !!user;
+  const isOutOfStock = book?.quantity === 0;
 
   // 🩵 Feedback state
   interface FeedbackWithUser extends Feedback {
@@ -105,7 +105,6 @@ export const BookDetail = () => {
         // 🔹 Lấy danh sách thể loại theo bookId
         const genresData = await getAllGenres(bookId);
         setGenres(genresData ?? []);
-
 
         // 2️⃣ Lấy feedback thật từ API
         const allFeedbacks = await FeedbackService.getAll();
@@ -162,10 +161,10 @@ export const BookDetail = () => {
   const formatDate = (dateString?: string | null) =>
     dateString
       ? new Date(dateString).toLocaleDateString("vi-VN", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
       : "Không rõ";
 
   /* ---------------------------
@@ -185,7 +184,6 @@ export const BookDetail = () => {
       ),
     });
   };
-
 
   /* ---------------------------
    🖼 Giao diện chính
@@ -252,7 +250,6 @@ export const BookDetail = () => {
                 </p>
               )}
 
-
               <p>
                 <span className="font-semibold">Ngày xuất bản:</span>{" "}
                 {formatDate(book.publishedDate)}
@@ -269,15 +266,31 @@ export const BookDetail = () => {
 
                 <div className="flex gap-4">
                   {isAuthenticated && (
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white rounded-full cursor-pointer"
-                    onClick={handleAddToCart}
-                  >
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Thêm vào giỏ
-                  </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      disabled={isOutOfStock}
+                      onClick={handleAddToCart}
+                      className={`
+      rounded-full
+      text-white
+      transition-all
+      ${
+        isOutOfStock
+          ? "bg-gray-500/40 cursor-not-allowed opacity-60"
+          : "bg-linear-to-l from-[#764BA2] to-[#667EEA] hover:opacity-90"
+      }
+    `}
+                    >
+                      {isOutOfStock ? (
+                        "Tạm hết hàng"
+                      ) : (
+                        <>
+                          <ShoppingCart className="mr-2 h-5 w-5" />
+                          Thêm vào giỏ
+                        </>
+                      )}
+                    </Button>
                   )}
                 </div>
               </div>

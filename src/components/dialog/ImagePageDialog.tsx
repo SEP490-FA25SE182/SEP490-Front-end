@@ -34,13 +34,13 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
   // load illustrations (only user's)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?.userId;
+
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,desc"], // ✅ mới nhất trước
+    sort: ["updatedAt,desc"], // ✅ mới nhất lên đầu theo createdAt
   });
-
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,6 +51,7 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
   const illustrationsList = useMemo(() => {
     if (!Array.isArray(illustrations)) return [];
 
+    // thiếu createdAt => đẩy xuống cuối khi sort desc
     const toTime = (d?: string) =>
       d ? new Date(d).getTime() : 0; // thiếu updatedAt thì đẩy xuống cuối (vì desc)
 

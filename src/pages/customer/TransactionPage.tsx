@@ -150,6 +150,11 @@ export default function TransactionPage() {
     }
   };
 
+  const shortOrderCode = (orderId?: string) => {
+    if (!orderId) return "-";
+    return orderId.split("-")[0];
+  };
+
   function getRefundStep(status: number) {
     // 0 NOT_PAID -> step 1 (mới gửi)
     // 1 PROCESSING -> step 2 (đang hoàn)
@@ -568,7 +573,7 @@ export default function TransactionPage() {
           >
             <div className="flex flex-col">
               <h3 className="font-bold text-gray-800">
-                Đơn hàng #{order.orderId}
+                Đơn hàng #{shortOrderCode(order.orderId)}
               </h3>
               <p className="text-gray-500 text-sm">
                 Tổng tiền: {formatVND(order.totalPrice)}
@@ -611,7 +616,7 @@ export default function TransactionPage() {
             <>
               <div className="space-y-2">
                 <p>
-                  <b>Mã đơn hàng:</b> {selected?.orderId}
+                  <b>Mã đơn hàng:</b> #{shortOrderCode(selected?.orderId)}
                 </p>
                 <p>
                   <b>Trạng thái:</b> {mapOrderStatus(Number(selected?.status))}
@@ -695,7 +700,12 @@ export default function TransactionPage() {
                   </p>
                 )}
               </div>
-
+              <p className="text-xs text-red-400">
+                Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
+              </p>
+              <p className="text-xs text-red-400">
+              (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp đặc biệt)
+              </p>
               <div className="flex justify-between mt-6 items-center">
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
                 {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
@@ -711,7 +721,7 @@ export default function TransactionPage() {
                   </Button>
                 )}
 
-                {/* 🟥 Nút “Trả hàng” khi status = 4 (Đã giao) */}
+                {/*  Nút “Trả hàng” khi status = 5 (Đã nhận) */}
                 {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
                   <Button
                     variant="destructive"
@@ -808,13 +818,13 @@ export default function TransactionPage() {
                       <span className="font-medium">
                         {refundTrans.updatedAt
                           ? new Date(refundTrans.updatedAt).toLocaleString(
-                              "vi-VN"
-                            )
+                            "vi-VN"
+                          )
                           : refundTrans.createdAt
-                          ? new Date(refundTrans.createdAt).toLocaleString(
+                            ? new Date(refundTrans.createdAt).toLocaleString(
                               "vi-VN"
                             )
-                          : "-"}
+                            : "-"}
                       </span>
                     </div>
 

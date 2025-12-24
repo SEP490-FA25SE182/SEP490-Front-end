@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 type SnowCanvasProps = {
   className?: string;
@@ -245,8 +245,8 @@ function drawCuteSnowman(
     ctx.restore();
   };
 
-  mitten(endLX, endLY, -1);
-  mitten(endRX, endRY, 1);
+  mitten(endLX, endLY, -1, ang);
+  mitten(endRX, endRY, 1, ang);
 
   // ===== Santa hat (neo theo headTopY, không lệch) =====
   // brim

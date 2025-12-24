@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import GLBThumbnail from "./GLBThumbnail";
 import { useGetMarkerById } from "@/services/ARService";
 import QuizViewDialog from "@/components/dialog/QuizViewDialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react"; // ✅ thêm useMemo
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
 
@@ -27,7 +27,7 @@ type AssetToolPanelProps = {
 
   // quiz callbacks
   onQuizFullyCreated?: (quizId: string) => void;
-  onPreviewQuiz?: (quizId: string) => void; // ⬅️ thêm
+  onPreviewQuiz?: (quizId: string) => void;
 };
 
 export default function AssetToolPanel({
@@ -47,10 +47,8 @@ export default function AssetToolPanel({
   const quizThumbnailUrl =
     "https://media.sketchfab.com/models/2260e525086943c6ab6e23f1330d7a34/thumbnails/cdb21be6f55d409aa616a4ad537cf26b/e1899cfeeaea43ac8bf510b8d25deda4.jpeg";
 
-  // lấy marker detail nếu có markerId
   const { data: marker, isLoading: markerLoading } = useGetMarkerById(markerId);
 
-  // copy từ AuthorPageList: xử lý gs:// và Firebase URLs
   const getDisplayImageUrl = (url?: string): string => {
     if (!url) return "";
     if (url.startsWith("gs://")) {
@@ -68,7 +66,6 @@ export default function AssetToolPanel({
     ) {
       return url;
     }
-    // fallback: return as-is
     return url;
   };
 
@@ -76,16 +73,31 @@ export default function AssetToolPanel({
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // lấy authorId từ storage (tương tự CreateAudioDialog)
   const [authorId, setAuthorId] = useState<string | null>(null);
   useEffect(() => {
     const uid = getCurrentUserId();
     if (uid) setAuthorId(uid);
   }, []);
 
+  // ✅ SORT assets: updatedAt (mới nhất lên đầu), fallback createdAt
+  const sortedAssets = useMemo(() => {
+    return (assets ?? [])
+      .slice()
+      .sort((a: any, b: any) => {
+        const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+        const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+        if (tb !== ta) return tb - ta;
+
+        // tie-breaker cho ổn định (đỡ nhảy thứ tự)
+        const na = String(a.title ?? a.fileName ?? a.asset3DId ?? a.id ?? "");
+        const nb = String(b.title ?? b.fileName ?? b.asset3DId ?? b.id ?? "");
+        return na.localeCompare(nb);
+      });
+  }, [assets]);
+
   return (
-    <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col justify-between">
-      <div>
+    <div className="w-72 bg-[#0f172a] border-r border-white/6 p-4 flex flex-col h-full">
+      <div className="fflex-1 min-h-0 overflow-auto pr-1">
         <div className="flex items-center justify-between mb-3">
           <div className="text-white font-semibold capitalize">
             {panelType === "model"
@@ -98,6 +110,7 @@ export default function AssetToolPanel({
             <X className="w-4 h-4" />
           </button>
         </div>
+
         <div className="text-sm text-gray-300 mb-4">
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
@@ -110,20 +123,21 @@ export default function AssetToolPanel({
           <div className="mt-4 flex flex-col gap-3">
             <div>
               <div className="text-sm text-gray-300 mb-2">Models của bạn</div>
+
               <div className="grid grid-cols-2 gap-2">
                 {assetsLoading ? (
                   <div className="text-sm text-gray-400 col-span-full">
                     Đang tải models...
                   </div>
-                ) : assets.length === 0 ? (
+                ) : sortedAssets.length === 0 ? (
                   <div className="text-sm text-gray-500 col-span-full">
                     Không có model 3D.
                   </div>
                 ) : (
-                  assets.map((a: any) => {
+                  // ✅ dùng sortedAssets thay vì assets
+                  sortedAssets.map((a: any) => {
                     const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
-                    const assetUrl =
-                      typeof rawUrl === "string" ? rawUrl : "";
+                    const assetUrl = typeof rawUrl === "string" ? rawUrl : "";
                     const isGlb = assetUrl.toLowerCase().includes(".glb");
 
                     return (
@@ -148,6 +162,7 @@ export default function AssetToolPanel({
                             </div>
                           )}
                         </div>
+
                         <div className="text-xs mt-2 text-left text-gray-200 truncate">
                           {a.title ?? a.fileName ?? a.asset3DId ?? a.id}
                         </div>
@@ -160,6 +175,7 @@ export default function AssetToolPanel({
           </div>
         )}
 
+        {/* ... phần quiz & image giữ nguyên ... */}
         {panelType === "quiz" && (
           <div className="mt-4">
             <div className="text-sm text-gray-300 mb-2">Quiz của bạn</div>
@@ -212,7 +228,7 @@ export default function AssetToolPanel({
       </div>
 
       {/* BUTTONS bottom */}
-      <div className="flex gap-3 overflow-auto">
+      <div className="mt-4 flex gap-3 shrink-0">
         {panelType === "model" && (
           <>
             <Button

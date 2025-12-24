@@ -33,7 +33,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
 
   const navigationItems = [
     { path: '/profile', icon: User, label: 'Thông tin khách hàng' },
-    { path: '/transactions', icon: Clock, label: 'Lịch sử thanh toán' },
+    { path: '/transactions', icon: Clock, label: 'Lịch sử mua hàng' },
     { path: '/wallet', icon: CreditCard, label: 'Ví của bạn' },
   ];
 

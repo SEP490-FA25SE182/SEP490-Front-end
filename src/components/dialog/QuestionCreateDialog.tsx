@@ -261,21 +261,12 @@ const QuestionCreateDialog: React.FC<Props> = ({
             }
         }
 
-        // validate at least one correct answer (and ideally only one)
+        // validate at least one correct answer (allow multiple)
         const correctCount = q.answers.reduce((s, a) => s + (a.isCorrect ? 1 : 0), 0);
         if (correctCount === 0) {
             toast({
                 title: "Thiếu đáp án đúng",
                 description: "Vui lòng chọn ít nhất 1 đáp án là 'Đúng'.",
-                variant: "destructive",
-            });
-            setActiveIdx(qIdx);
-            return;
-        }
-        if (correctCount > 1) {
-            toast({
-                title: "Nhiều đáp án đúng",
-                description: "Vui lòng chỉ chọn 1 đáp án là 'Đúng' (hiện yêu cầu 1 đáp án đúng).",
                 variant: "destructive",
             });
             setActiveIdx(qIdx);
@@ -543,21 +534,13 @@ const QuestionCreateDialog: React.FC<Props> = ({
                                                 <div className="flex flex-col items-center gap-1 text-xs">
                                                     <div className="flex items-center gap-2">
                                                         <input
-                                                            type="radio"
+                                                            type="checkbox"
                                                             checked={!!a.isCorrect}
                                                             onChange={(e: any) => {
                                                                 if (a.saved) return;
                                                                 const checked = !!e.target.checked;
-                                                                setForms((prev) => {
-                                                                    const next = [...prev];
-                                                                    const q = { ...next[activeIdx] };
-                                                                    q.answers = q.answers ? q.answers.map((ans, idx2) => ({
-                                                                        ...ans,
-                                                                        isCorrect: idx2 === ai ? checked : false,
-                                                                    })) : [];
-                                                                    next[activeIdx] = q;
-                                                                    return next;
-                                                                });
+
+                                                                updateAnswerField(activeIdx, ai, { isCorrect: checked });
                                                             }}
                                                             disabled={a.saved}
                                                             className="w-4 h-4"

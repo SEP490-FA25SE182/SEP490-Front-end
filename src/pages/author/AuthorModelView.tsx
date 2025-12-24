@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ChevronLeft, ChevronRight, Save, UploadCloud } from "lucide-react";
+import { ChevronLeft, ChevronRight, UploadCloud } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useUnityContext } from "react-unity-webgl";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -590,15 +590,6 @@ export default function AuthorModelView() {
                 className="text-white hover:bg-white/10"
               >
                 Quay lại
-              </Button>
-              <Button
-                onClick={() => {
-                  setSceneDialogMode("DRAFT");
-                  setSceneDialogOpen(true);
-                }}
-                className="bg-white hover:bg-gray-200 text-gray-800 flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" /> Lưu
               </Button>
               <Button
                 onClick={() => {

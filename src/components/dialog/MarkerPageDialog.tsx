@@ -23,12 +23,15 @@ interface Props {
 
 export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
   const { toast } = useToast();
+
+  // ✅ server sort theo createdAt desc (mới nhất lên đầu)
   const { data: markersResp } = useSearchMarkers({
     page: 0,
     size: 9999,                 // ✅ lấy tất cả
     sort: ["updatedAt,asc"],   // ✅ gần đây nhất trước
     // isActived: "ACTIVE",      // nếu BE hỗ trợ filter thì bật lên
   });
+
   const markers = markersResp?.content ?? [];
   const attachMarkerMutation = useAttachMarkerToPage();
   const [selectedMarkerId, setSelectedMarkerId] = useState<string>("");
@@ -37,10 +40,12 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
     if (!isOpen) setSelectedMarkerId("");
   }, [isOpen]);
 
+  // ✅ client sort fallback theo createdAt desc
   const markerList = useMemo(() => {
     if (!Array.isArray(markers)) return [];
 
     const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
+
 
     return markers
       .filter((m: any) => m.isActived === "ACTIVE")
@@ -67,22 +72,41 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
 
   const handleSave = async () => {
     if (!pageId) {
-      toast({ title: "Lỗi", description: "Không có pageId.", variant: "destructive" });
+      toast({
+        title: "Lỗi",
+        description: "Không có pageId.",
+        variant: "destructive",
+      });
       return;
     }
     if (!selectedMarkerId) {
-      toast({ title: "Chưa chọn marker", description: "Vui lòng chọn marker.", variant: "destructive" });
+      toast({
+        title: "Chưa chọn marker",
+        description: "Vui lòng chọn marker.",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      await attachMarkerMutation.mutateAsync({ markerId: selectedMarkerId, pageId });
-      toast({ title: "Lưu thành công", description: "Marker đã được gắn vào trang." });
+      await attachMarkerMutation.mutateAsync({
+        markerId: selectedMarkerId,
+        pageId,
+      });
+      toast({
+        title: "Lưu thành công",
+        description: "Marker đã được gắn vào trang.",
+      });
       onSaved?.();
       onClose();
     } catch (err: any) {
       console.error("Lỗi gắn marker:", err);
-      toast({ title: "Lỗi", description: err?.response?.data?.message || "Không thể gắn marker.", variant: "destructive" });
+      toast({
+        title: "Lỗi",
+        description:
+          err?.response?.data?.message || "Không thể gắn marker.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -93,40 +117,64 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
           <DialogTitle>Gắn marker vào trang {pageNumber ?? ""}</DialogTitle>
         </DialogHeader>
 
-        {/* Khuyến nghị dùng ảnh marker giống ảnh đã gắn trên trang để tăng độ nhận diện */}
         <div className="mt-2 text-center">
           <p className="text-xs text-gray-400">
-            Khuyến nghị: sử dụng ảnh marker giống với ảnh đã gắn vào trang để đảm bảo nhận diện AR chính xác.
+            Khuyến nghị: sử dụng ảnh marker giống với ảnh đã gắn vào trang để đảm
+            bảo nhận diện AR chính xác.
           </p>
         </div>
 
         <div className="mt-2">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
-            {markerList.length === 0 && <div className="text-sm text-gray-500 col-span-full">Không có marker.</div>}
+            {markerList.length === 0 && (
+              <div className="text-sm text-gray-500 col-span-full">
+                Không có marker.
+              </div>
+            )}
+
             {markerList.map((m) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => setSelectedMarkerId(m.id)}
-                className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedMarkerId === m.id ? "border-purple-500 ring-2 ring-purple-200" : "border-white/10 hover:border-gray-300"}`}
+                className={`rounded border p-1 overflow-hidden focus:outline-none ${
+                  selectedMarkerId === m.id
+                    ? "border-purple-500 ring-2 ring-purple-200"
+                    : "border-white/10 hover:border-gray-300"
+                }`}
               >
                 <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
                   {m.imageUrl ? (
-                    <img src={gsToHttp(m.imageUrl)} alt={m.code} className="w-full h-full object-cover" />
+                    <img
+                      src={gsToHttp(m.imageUrl)}
+                      alt={m.code}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <div className="p-2 text-xs text-center text-gray-600">{m.code}</div>
+                    <div className="p-2 text-xs text-center text-gray-600">
+                      {m.code}
+                    </div>
                   )}
                 </div>
-                <div className="text-xs mt-2 text-left text-gray-700 truncate">{m.code} ({m.type})</div>
+                <div className="text-xs mt-2 text-left text-gray-700 truncate">
+                  {m.code} ({m.type})
+                </div>
               </button>
             ))}
           </div>
         </div>
 
         <DialogFooter className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
-          <Button onClick={handleSave} disabled={attachMarkerMutation.isPending}>
-            {attachMarkerMutation.isPending ? "Đang lưu..." : "Lưu marker vào trang"}
+          <Button variant="ghost" onClick={onClose}>
+            Huỷ
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={attachMarkerMutation.isPending}
+          >
+            {attachMarkerMutation.isPending
+              ? "Đang lưu..."
+              : "Lưu marker vào trang"}
           </Button>
         </DialogFooter>
       </DialogContent>

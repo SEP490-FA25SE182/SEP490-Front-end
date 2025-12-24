@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Menu, X, Search, Trash2, Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
@@ -21,16 +21,18 @@ import {
 import {
   getAllUsers,
   createUser,
-  updateUser,
   deleteUser,
   getRoleById,
   type User,
 } from "@/services/UserService";
 import { useGetAllRoles } from "@/services/RoleService";
+import { ContractService } from "@/services/ContractService";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import { resolveFirebaseUrl } from "@/firebase";
+import { UploadService } from "@/services/FirebaseService";
+import { updateUser } from "@/services/UserService";
 
 
 export default function UserManagementPage() {
@@ -50,6 +52,13 @@ export default function UserManagementPage() {
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
+
+  const [contract, setContract] = useState<any>(null);
+  const [contractFiles, setContractFiles] = useState<File[]>([]);
+  const [contractHttpUrl, setContractHttpUrl] = useState<string[]>([]);
+
+  const [contractPreviewUrls, setContractPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -71,13 +80,9 @@ export default function UserManagementPage() {
     roleId?: string;
   }>({});
 
-
   const [creating, setCreating] = useState(false);
 
   const { data: roleList } = useGetAllRoles();
-
-
-
 
   const { user } = useAuth();
 
@@ -88,7 +93,7 @@ export default function UserManagementPage() {
       try {
         // 1. Tìm user theo email
         const allUsers = await getAllUsers();
-        const currentUser = allUsers.find(u => u.email === user.email);
+        const currentUser = allUsers.find((u) => u.email === user.email);
 
         if (!currentUser?.roleId) return;
 
@@ -103,15 +108,14 @@ export default function UserManagementPage() {
     fetchRole();
   }, [user?.email]);
 
-
   // 🔹 Lấy toàn bộ user
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
         const res = await getAllUsers();
-        setAllUsers(res);   // ✅ thêm
-        setUsers(res);      // ✅ thêm (list đang hiển thị)
+        setAllUsers(res); // ✅ thêm
+        setUsers(res); // ✅ thêm (list đang hiển thị)
       } catch (err) {
         console.error("❌ Lỗi khi tải user:", err);
         toast.error("Không thể tải danh sách người dùng");
@@ -146,8 +150,6 @@ export default function UserManagementPage() {
     }
   }, [allUsers]);
 
-
-
   // 🔹 Lấy tên role tương ứng cho từng user
   useEffect(() => {
     async function fetchRoleNames() {
@@ -168,20 +170,46 @@ export default function UserManagementPage() {
     }
     if (allUsers.length > 0) fetchRoleNames();
   }, [allUsers]);
-  ;
-
-
   //hepler
 
+  useEffect(() => {
+    (async () => {
+      if (!contract?.documentUrls || contract.documentUrls.length === 0) {
+        setContractHttpUrl([]);
+        setContractPreviewUrls([]);
+        return;
+      }
+
+      try {
+        // resolve toàn bộ firebase url
+        const urls = await Promise.all(
+          contract.documentUrls.map((u: string) => resolveFirebaseUrl(u))
+        );
+
+        setContractHttpUrl(urls);
+
+        // chỉ preview những file là ảnh
+        const imagePreviews = urls.filter(url =>
+          url.match(/\.(png|jpg|jpeg|webp)$/i)
+        );
+
+        setContractPreviewUrls(imagePreviews);
+      } catch (err) {
+        console.error("Resolve contract documents failed", err);
+        setContractHttpUrl([]);
+        setContractPreviewUrls([]);
+      }
+    })();
+  }, [contract?.documentUrls]);
+
+
+
   const isAuthor = (roleId?: string) => {
-    const roleName = (roleNames[roleId || ""] || "")
-      .trim()
-      .toLowerCase();
+    const roleName = (roleNames[roleId || ""] || "").trim().toLowerCase();
 
     return roleName === "author" || roleName === "role_author";
-
   };
-  console.log(roleNames)
+  console.log(roleNames);
 
   const isCurrentUserAdmin = currentRoleName === "admin";
 
@@ -212,18 +240,28 @@ export default function UserManagementPage() {
       filterRole === "all" ||
       roleName.toLowerCase().includes(filterRole.toLowerCase());
 
-    const matchStatus =
-      filterStatus === "all" || u.isActived === filterStatus;
+    const matchStatus = filterStatus === "all" || u.isActived === filterStatus;
 
     return matchSearch && matchRole && matchStatus;
   });
 
-
-  const handleRoyaltyUpdate = (user: User) => {
-    setSelectedUser(user);
-    setRoyaltyValue(user.royalty ?? 0); // nếu backend có field royalty
+  const handleRoyaltyUpdate = async (u: User) => {
     setOpenRoyaltyModal(true);
+    setSelectedUser(u);
+    setContract(null);
+    setContractPreviewUrls([]); // ✅
+    setContractFiles([]);       // ✅
+
+    try {
+      const contracts = await ContractService.search();
+      const found = contracts.find((c) => c.userId === u.userId);
+      setContract(found ?? null);
+    } catch {
+      setContract(null);
+    }
   };
+
+
 
   const handleSaveRoyalty = async () => {
     if (!selectedUser?.userId) return;
@@ -236,14 +274,48 @@ export default function UserManagementPage() {
     try {
       setSavingRoyalty(true);
 
+      // ✅ 1. UPDATE ROYALTY USER (GIỮ NGUYÊN CÁCH CŨ)
       await updateUser(selectedUser.userId, {
         ...selectedUser,
         royalty: royaltyValue,
       });
 
-      toast.success("Cập nhật royalty thành công ✅");
+      // ✅ 2. UPLOAD FILE NẾU CÓ
+      let documentUrls: string[] = contract?.documentUrls ?? [];
 
-      // cập nhật lại danh sách user UI
+      if (contractFiles.length > 0) {
+        const uploadedUrls = await Promise.all(
+          contractFiles.map(file =>
+            UploadService.uploadImageToFirebase(file, "contracts")
+          )
+        );
+
+        documentUrls = [...documentUrls, ...uploadedUrls];
+      }
+
+
+
+      // ✅ 3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
+      if (documentUrls.length > 0) {
+        if (contract?.contractId) {
+          await ContractService.update(contract.contractId, {
+            userId: selectedUser.userId,
+            documentUrls,
+            title: contract.title,
+            status: "DRAFT",
+          });
+
+        } else {
+          await ContractService.create({
+            contractNumber: `CT-${Date.now()}`,
+            title: `Hợp đồng tác giả ${selectedUser.fullName}`,
+            documentUrls,
+            userId: selectedUser.userId,
+          });
+        }
+      }
+
+      // ✅ 4. UPDATE UI LOCAL (KHỎI LOAD LẠI)
       setUsers(prev =>
         prev.map(u =>
           u.userId === selectedUser.userId
@@ -252,6 +324,7 @@ export default function UserManagementPage() {
         )
       );
 
+      toast.success("Cập nhật royalty & hợp đồng thành công ✅");
       setOpenRoyaltyModal(false);
     } catch (err) {
       console.error(err);
@@ -260,6 +333,7 @@ export default function UserManagementPage() {
       setSavingRoyalty(false);
     }
   };
+
 
   const validateNewUser = () => {
     const newErrors: typeof errors = {};
@@ -287,10 +361,7 @@ export default function UserManagementPage() {
       newErrors.phoneNumber = "Số điện thoại không hợp lệ";
     }
 
-    if (
-      newUser.birthDate &&
-      new Date(newUser.birthDate) > new Date()
-    ) {
+    if (newUser.birthDate && new Date(newUser.birthDate) > new Date()) {
       newErrors.birthDate = "Ngày sinh không hợp lệ";
     }
 
@@ -302,8 +373,6 @@ export default function UserManagementPage() {
 
     return Object.keys(newErrors).length === 0;
   };
-
-
 
   const handleCreateUser = async () => {
     const isValid = validateNewUser();
@@ -340,7 +409,6 @@ export default function UserManagementPage() {
         gender: "",
         birthDate: "",
       });
-
     } catch (err) {
       console.error(err);
       toast.error("Tạo tài khoản thất bại");
@@ -348,7 +416,6 @@ export default function UserManagementPage() {
       setCreating(false);
     }
   };
-
 
   //--------------------------------RENDER--------------------------------
   return (
@@ -365,7 +432,11 @@ export default function UserManagementPage() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </Button>
           </div>
         </header>
@@ -400,7 +471,6 @@ export default function UserManagementPage() {
             </Button>
           )}
 
-
           <Select value={filterRole} onValueChange={setFilterRole}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
               <SelectValue placeholder="Vai trò" />
@@ -414,7 +484,6 @@ export default function UserManagementPage() {
               <SelectItem value="customer">Customer</SelectItem>
             </SelectContent>
           </Select>
-
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[160px] border-white/20 text-white bg-transparent">
@@ -439,19 +508,27 @@ export default function UserManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                    <TableHead className="text-white font-medium">Ảnh</TableHead>
-                    <TableHead className="text-white font-medium">Họ tên</TableHead>
-                    <TableHead className="text-white font-medium">Email</TableHead>
-                    <TableHead className="text-white font-medium">Vai trò</TableHead>
-                    <TableHead className="text-white font-medium">Trạng thái</TableHead>
+                    <TableHead className="text-white font-medium">
+                      Ảnh
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Họ tên
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Email
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Vai trò
+                    </TableHead>
+                    <TableHead className="text-white font-medium">
+                      Trạng thái
+                    </TableHead>
 
                     {isCurrentUserAdmin && (
                       <TableHead className="text-white font-medium text-right">
                         Hành động
                       </TableHead>
                     )}
-
-
                   </TableRow>
                 </TableHeader>
 
@@ -460,15 +537,21 @@ export default function UserManagementPage() {
                     <TableRow key={u.userId} className="hover:bg-gray-50">
                       <TableCell>
                         <img
-                          src={avatarMap[u.userId] || "https://avatar.iran.liara.run/public/boy"}
+                          src={
+                            avatarMap[u.userId] ||
+                            "https://avatar.iran.liara.run/public/boy"
+                          }
                           alt={u.fullName}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = "https://avatar.iran.liara.run/public/boy";
+                            e.currentTarget.src =
+                              "https://avatar.iran.liara.run/public/boy";
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-gray-900 font-medium">{u.fullName}</TableCell>
+                      <TableCell className="text-gray-900 font-medium">
+                        {u.fullName}
+                      </TableCell>
                       <TableCell className="text-gray-600">{u.email}</TableCell>
                       <TableCell>
                         <span className="text-purple-600 font-semibold">
@@ -477,7 +560,9 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`font-semibold ${u.isActived === "ACTIVE" ? "text-green-600" : "text-gray-500"
+                          className={`font-semibold ${u.isActived === "ACTIVE"
+                            ? "text-green-600"
+                            : "text-gray-500"
                             }`}
                         >
                           {u.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
@@ -491,7 +576,7 @@ export default function UserManagementPage() {
                               className="bg-yellow-500 hover:bg-yellow-600 text-white"
                               onClick={() => handleRoyaltyUpdate(u)}
                             >
-                              Royalty
+                              Hợp đồng
                             </Button>
                           )}
 
@@ -504,8 +589,6 @@ export default function UserManagementPage() {
                           </Button>
                         </TableCell>
                       )}
-
-
                     </TableRow>
                   ))}
                 </TableBody>
@@ -520,12 +603,12 @@ export default function UserManagementPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Cập nhật Royalty
+              Cập nhật phần trăm tác quyền
             </h2>
 
             <div className="mb-6">
               <label className="block text-sm text-gray-600 mb-2">
-                Royalty (%)
+                Phần trăm tác quyền (%)
               </label>
               <Input
                 type="number"
@@ -536,7 +619,72 @@ export default function UserManagementPage() {
                 className="text-black bg-white"
                 disabled={false}
               />
+              {/* CONTRACT */}
+              <div className="mb-4">
+                <label className="text-sm text-gray-600 mb-2 block">
+                  Hợp đồng
+                </label>
 
+                {contractHttpUrl.length > 0 ? (
+                  <ul className="list-disc pl-4 space-y-1">
+                    {contractHttpUrl.map((url, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={url}
+                          target="_blank"
+                          className="text-blue-600 underline text-sm"
+                        >
+                          Hợp đồng {idx + 1}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-400">Chưa có hợp đồng</p>
+                )}
+
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+
+                    setContractFiles(files);
+
+                    // preview ảnh
+                    const previews = files
+                      .filter(f => f.type.startsWith("image/"))
+                      .map(f => URL.createObjectURL(f));
+
+                    setContractPreviewUrls(previews);
+                  }}
+                />
+
+              </div>
+              <Button
+                variant="outline"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Cập nhật hợp đồng
+              </Button>
+              {/* PREVIEW IMAGE */}
+              {contractPreviewUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {contractPreviewUrls.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      className="w-full h-24 object-cover rounded border"
+                      alt={`preview-${idx}`}
+                    />
+                  ))}
+                </div>
+              )}
 
             </div>
 
@@ -544,6 +692,7 @@ export default function UserManagementPage() {
               <Button
                 variant="outline"
                 onClick={() => setOpenRoyaltyModal(false)}
+                className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={savingRoyalty}
               >
                 Hủy
@@ -565,7 +714,6 @@ export default function UserManagementPage() {
       {openCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6 relative text-gray-900">
-
             {/* Close button */}
             <button
               className="absolute right-4 top-4 text-gray-600 hover:text-black"
@@ -589,9 +737,7 @@ export default function UserManagementPage() {
                   }`}
               />
               {errors.fullName && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.fullName}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.fullName}</p>
               )}
             </div>
 
@@ -608,9 +754,7 @@ export default function UserManagementPage() {
                   }`}
               />
               {errors.email && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.email}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.email}</p>
               )}
             </div>
 
@@ -628,9 +772,7 @@ export default function UserManagementPage() {
                   }`}
               />
               {errors.password && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.password}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.password}</p>
               )}
             </div>
 
@@ -643,7 +785,9 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, phoneNumber: e.target.value });
                   setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
                 }}
-                className={`mt-1 ${errors.phoneNumber ? "border-red-500 focus:border-red-500" : ""
+                className={`mt-1 ${errors.phoneNumber
+                  ? "border-red-500 focus:border-red-500"
+                  : ""
                   }`}
               />
 
@@ -685,7 +829,6 @@ export default function UserManagementPage() {
               />
             </div>
 
-
             {/* Role dropdown */}
             <div className="mb-4">
               <label className="text-sm text-gray-600">Vai trò</label>
@@ -711,15 +854,16 @@ export default function UserManagementPage() {
                 </SelectContent>
               </Select>
               {errors.roleId && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.roleId}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.roleId}</p>
               )}
             </div>
 
             {/* Buttons */}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setOpenCreateModal(false)}
+              >
                 Hủy
               </Button>
 
@@ -734,13 +878,6 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
-
-
     </div>
-
-
-
   );
-
-
 }

@@ -258,7 +258,7 @@ const HeroBookSlide: React.FC<{
               <span
                 aria-hidden
                 className="pointer-events-none absolute -inset-3 blur-2xl opacity-70
-                          bg-gradient-to-tr from-fuchsia-400/70 via-violet-400/55 to-sky-300/60"
+                          bg-linear-to-tr from-fuchsia-400/70 via-violet-400/55 to-sky-300/60"
               />
 
               {/* wrapper có “đệm” ngang để không bị cắt nét italic */}
@@ -268,15 +268,12 @@ const HeroBookSlide: React.FC<{
                     "block",
                     "text-5xl md:text-7xl leading-[1.05]",
                     "font-['Fraunces'] italic tracking-tight",
-                    "bg-gradient-to-tr from-white via-fuchsia-200 to-sky-200",
+                    "bg-linear-to-tr from-white via-fuchsia-200 to-sky-200",
                     "bg-clip-text text-transparent",
                     "drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]",
                     "line-clamp-2", // ✅ clamp ở span trong cùng
                   ].join(" ")}
-                  style={{
-                    fontWeight: 700,
-                    fontVariationSettings: '"opsz" 96, "wght" 700, "ital" 1',
-                  }}
+                  style={{ fontWeight: 700, fontVariationSettings: '"opsz" 96, "wght" 700, "ital" 1' }}
                 >
                   {book.bookName}
                 </span>
@@ -346,23 +343,31 @@ const HeroFullBleed: React.FC<{
 
   useEffect(() => setActive(0), [books.length]);
 
+  useEffect(() => {
+    if (!books || books.length <= 1) return;
+
+    const id = window.setInterval(() => {
+      setActive((prev) => (prev + 1) % books.length);
+    }, 5000);
+
+    return () => window.clearInterval(id);
+  }, [books.length]);
+
   const activeBook = books[active];
   const thumb = useMemo(() => getThumbWindow(books, active, 5), [books, active]);
-
   if (!activeBook) return null;
 
   return (
     <div className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
-      {/* Background layers */}
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,#120A2A_0%,#1B2A6B_38%,#0B3A6D_72%,#071228_100%)]" />
-      <div className="absolute inset-0 opacity-90 bg-[radial-gradient(circle_at_18%_30%,rgba(236,72,153,0.22),transparent_55%),radial-gradient(circle_at_45%_18%,rgba(168,85,247,0.26),transparent_55%),radial-gradient(circle_at_80%_35%,rgba(59,130,246,0.24),transparent_60%),radial-gradient(circle_at_70%_85%,rgba(34,211,238,0.16),transparent_60%)]" />
-      <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:28px_28px]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
+    <div className="absolute inset-0 bg-[linear-gradient(120deg,#120A2A_0%,#1B2A6B_38%,#0B3A6D_72%,#071228_100%)]" />
+    <div className="absolute inset-0 opacity-90 bg-[radial-gradient(circle_at_18%_30%,rgba(236,72,153,0.22),transparent_55%),radial-gradient(circle_at_45%_18%,rgba(168,85,247,0.26),transparent_55%),radial-gradient(circle_at_80%_35%,rgba(59,130,246,0.24),transparent_60%),radial-gradient(circle_at_70%_85%,rgba(34,211,238,0.16),transparent_60%)]" />
+    <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
-      {/* ✅ SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
-      <SnowCanvas className="z-[5]" buildSnowmanAfterMs={3500} density={1.1} />
+    {/* ✅ SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
+      <SnowCanvas className="z-5" buildSnowmanAfterMs={3500} density={1.1} />
 
-      {/* Content */}
+      {/* Content nằm trên background */}
       <div className="relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
@@ -384,7 +389,6 @@ const HeroFullBleed: React.FC<{
             {thumb.items.map((b, i) => {
               const realIndex = thumb.start + i;
               const isActive = realIndex === active;
-
               return (
                 <button
                   key={b.bookId}
@@ -398,14 +402,8 @@ const HeroFullBleed: React.FC<{
                   ].join(" ")}
                   title={b.bookName}
                 >
-                  <img
-                    src={b.coverUrl}
-                    alt={b.bookName}
-                    className="w-full h-full object-cover"
-                  />
-                  {isActive && (
-                    <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />
-                  )}
+                  <img src={b.coverUrl} alt={b.bookName} className="w-full h-full object-cover" />
+                  {isActive && <div className="absolute inset-0 ring-2 ring-white/80 rounded-xl" />}
                 </button>
               );
             })}

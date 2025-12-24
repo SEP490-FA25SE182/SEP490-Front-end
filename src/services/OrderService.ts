@@ -25,6 +25,7 @@ export interface OrderResponse {
   userAddressId: string;
   reason?: string;
   imageUrl?: string;
+  shippingFee?: number | null;
 
 }
 
@@ -32,6 +33,7 @@ export interface MoveCartToOrderExtra {
   totalPrice?: number;
   status?: number;
   userAddressId?: string;
+  shippingFee?: number | null;
 }
 
 export const OrderService = {

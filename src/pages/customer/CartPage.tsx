@@ -280,11 +280,13 @@ export default function CartPage() {
                             onClick={() =>
                               setQty(
                                 line.book.bookId,
-                                Math.max(1, Number(e.target.value) || 1),
+                                line.qty + 1,
                                 line.book.price
                               )
                             }
-                          />
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() =>

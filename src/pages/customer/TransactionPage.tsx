@@ -38,6 +38,7 @@ import {
 } from "@/services/TransactionService";
 import { UploadService } from "@/services/FirebaseService";
 import { resolveFirebaseUrl } from "@/firebase";
+import { getPaymentMethodById } from "@/services/PaymentMethodService";
 
 export default function TransactionPage() {
   const { user } = useAuth();
@@ -70,6 +71,9 @@ export default function TransactionPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundTrans, setRefundTrans] = useState<any | null>(null);
   const [openReturnConfirm, setOpenReturnConfirm] = useState(false);
+  const [paymentMethodDesc, setPaymentMethodDesc] = useState<string | null>(
+    null
+  );
 
   const ORDER_STATUS = {
     UNORDERED: 0,
@@ -404,6 +408,7 @@ export default function TransactionPage() {
     setSelected(payment);
     setIsLoading(true);
     setOrderDetails([]); // reset trước
+    setPaymentMethodDesc(null);
 
     try {
       const details = await OrderDetailService.getOrderDetailsByOrderId(
@@ -438,6 +443,21 @@ export default function TransactionPage() {
           });
 
           setUserFeedbackMap(feedbackMap);
+        }
+
+        const transRes = await TransactionService.search({
+          orderId: payment.orderId,
+        });
+        const list = Array.isArray(transRes?.content) ? transRes.content : [];
+        const paymentTrans = list.find((t: any) => t.transType === "PAYMENT");
+
+        const pmId = paymentTrans?.paymentMethodId;
+        if (pmId) {
+          const pm = await getPaymentMethodById(pmId);
+          const desc = pm?.decription?.trim();
+          setPaymentMethodDesc(desc ? desc : null);
+        } else {
+          setPaymentMethodDesc(null);
         }
       } catch (err) {
         console.error("❌ Lỗi khi tải feedback của user:", err);
@@ -603,117 +623,162 @@ export default function TransactionPage() {
 
       {/* Modal chi tiết */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg bg-white text-gray-800">
-          <DialogHeader>
-            <DialogTitle>Chi tiết đơn hàng</DialogTitle>
+        <DialogContent className="max-w-xl bg-white text-gray-800 p-0 overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="px-6 py-4 border-b pr-14">
+            <DialogTitle className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-bold">Chi tiết đơn hàng</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Mã: #{shortOrderCode(selected?.orderId)}
+                </p>
+              </div>
+
+              <span
+                className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusBadgeClass(
+                  Number(selected?.status)
+                )}`}
+              >
+                {mapOrderStatus(Number(selected?.status))}
+              </span>
+            </DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
-            <p className="text-center text-gray-500 py-4">
+            <div className="px-6 py-10 text-center text-gray-500">
               Đang tải chi tiết...
-            </p>
+            </div>
           ) : (
-            <>
-              <div className="space-y-2">
-                <p>
-                  <b>Mã đơn hàng:</b> #{shortOrderCode(selected?.orderId)}
-                </p>
-                <p>
-                  <b>Trạng thái:</b> {mapOrderStatus(Number(selected?.status))}
-                </p>
+            <div className="px-6 py-5 space-y-5">
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 {selected?.shippingFee != null && (
-                  <p>
-                    <b>Phí giao hàng:</b>{" "}
-                    {formatVND(Number(selected.shippingFee))}
-                  </p>
+                  <>
+                    <div className="text-gray-500">Phí giao hàng</div>
+                    <div className="font-medium text-right">
+                      {formatVND(Number(selected.shippingFee))}
+                    </div>
+                  </>
                 )}
-                <p>
-                  <b>Tổng tiền:</b> {formatVND(selected?.totalPrice)}
-                </p>
-                <p>
-                  <b>Ngày tạo:</b>{" "}
+
+                <div className="text-gray-500">Tổng tiền</div>
+                <div className="font-bold text-right text-base">
+                  {formatVND(selected?.totalPrice)}
+                </div>
+
+                {paymentMethodDesc && (
+                  <>
+                    <div className="text-gray-500">Phương thức thanh toán</div>
+                    <div className="font-medium text-right">
+                      {paymentMethodDesc}
+                    </div>
+                  </>
+                )}
+
+                <div className="text-gray-500">Ngày tạo</div>
+                <div className="font-medium text-right">
                   {new Date(selected?.createdAt).toLocaleString("vi-VN")}
-                </p>
+                </div>
+
                 {selected?.updatedAt && (
-                  <p>
-                    <b>Cập nhật lúc:</b>{" "}
-                    {new Date(selected.updatedAt).toLocaleString("vi-VN")}
-                  </p>
+                  <>
+                    <div className="text-gray-500">Cập nhật lúc</div>
+                    <div className="font-medium text-right">
+                      {new Date(selected.updatedAt).toLocaleString("vi-VN")}
+                    </div>
+                  </>
                 )}
               </div>
 
-              <Separator className="my-4" />
+              <Separator />
 
-              <h4 className="font-semibold text-gray-700 mb-2">
-                Sản phẩm trong đơn hàng
-              </h4>
-              <div className="space-y-2">
-                {orderDetails.length > 0 ? (
-                  orderDetails.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center text-sm border-b py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        {item.book?.coverUrl && (
-                          <img
-                            src={item.book.coverUrl}
-                            alt={item.book.bookName}
-                            className="w-10 h-14 object-cover rounded"
-                          />
-                        )}
-                        <div>
-                          <p className="font-medium">
-                            {item.book?.bookName || `Sách #${item.bookId}`}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            SL: {item.quantity} × {formatVND(item.price)}
-                          </p>
+              {/* Products */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-gray-800">
+                    Sản phẩm trong đơn hàng
+                  </h4>
+                  <span className="text-xs text-gray-500">
+                    {orderDetails?.length || 0} sản phẩm
+                  </span>
+                </div>
 
-                          {/* ✅ Nút đánh giá (chỉ hiện khi đơn đã nhận) */}
-                          {selected?.status === 5 &&
-                            !userFeedbackMap[item.bookId] && (
-                              <Button
-                                className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white cursor-pointer"
-                                onClick={async () => {
-                                  setSelectedBook(item);
-                                  setOpenFeedback(true);
-                                  setIsEditing(false);
-                                  setExistingFeedback(null);
-                                  setContent("");
-                                  setRating("5");
-                                }}
-                              >
-                                ✍️ Đánh giá
-                              </Button>
-                            )}
+                <div className="rounded-xl border bg-gray-50 divide-y">
+                  {orderDetails.length > 0 ? (
+                    orderDetails.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          {item.book?.coverUrl && (
+                            <img
+                              src={item.book.coverUrl}
+                              alt={item.book.bookName}
+                              className="w-12 h-16 object-cover rounded-md border bg-white"
+                            />
+                          )}
+
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {item.book?.bookName || `Sách #${item.bookId}`}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              SL: {item.quantity} × {formatVND(item.price)}
+                            </p>
+
+                            {/* Nút đánh giá */}
+                            {Number(selected?.status) ===
+                              ORDER_STATUS.RECEIVED &&
+                              !userFeedbackMap[item.bookId] && (
+                                <Button
+                                  size="sm"
+                                  className="mt-2 bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:text-white"
+                                  onClick={async () => {
+                                    setSelectedBook(item);
+                                    setOpenFeedback(true);
+                                    setIsEditing(false);
+                                    setExistingFeedback(null);
+                                    setContent("");
+                                    setRating("5");
+                                  }}
+                                >
+                                  ✍️ Đánh giá
+                                </Button>
+                              )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-semibold text-sm">
+                            {formatVND(item.price * item.quantity)}
+                          </p>
                         </div>
                       </div>
-                      <span className="font-semibold">
-                        {formatVND(item.price * item.quantity)}
-                      </span>
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-gray-400 italic">
+                      Không có sản phẩm trong đơn này.
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-400 text-center italic py-4">
-                    Không có sản phẩm trong đơn này.
-                  </p>
-                )}
+                  )}
+                </div>
               </div>
-              {/*Chỉ hiện cảnh báo trả hàng khi đơn ĐÃ NHẬN (RECEIVED = 5) */}
+
+              {/* Warning only when RECEIVED */}
               {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
-                <div className="mt-2 space-y-0.5">
-                  <p className="text-xs text-red-400 leading-tight">
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-sm text-red-600 font-medium leading-snug">
                     Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
                   </p>
-                  <p className="text-xs text-red-400 leading-tight">
+                  <p className="text-xs text-red-500 leading-snug mt-1">
                     (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp
                     đặc biệt)
                   </p>
                 </div>
               )}
-              <div className="flex justify-between mt-6 items-center">
-                {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
+
+              {/* Footer buttons */}
+              <div className="flex justify-end gap-2 pt-2">
                 {Number(selected?.status) === ORDER_STATUS.DELIVERED && (
                   <Button
                     className="bg-green-600 text-white hover:bg-green-700"
@@ -727,7 +792,6 @@ export default function TransactionPage() {
                   </Button>
                 )}
 
-                {/*  Nút “Trả hàng” khi status = 5 (Đã nhận) */}
                 {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
                   <Button
                     variant="destructive"
@@ -755,7 +819,7 @@ export default function TransactionPage() {
                   Đóng
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>

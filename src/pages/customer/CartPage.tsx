@@ -116,7 +116,7 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="container mx-auto px-6 md:px-20 py-12">
@@ -171,7 +171,7 @@ export default function CartPage() {
 
                           ${
                             selectedIds.includes(id)
-                              ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
+                              ? "bg-linear-to-r from-[#764BA2] to-[#667EEA] border-transparent"
                               : "bg-white/5 border-white/30"
                           }
                         `}
@@ -352,13 +352,13 @@ export default function CartPage() {
                       bg-white/10
                       transition-all duration-300
 
-                      data-[state=checked]:bg-gradient-to-r
+                      data-[state=checked]:bg-linear-to-r
                       data-[state=checked]:from-[#764BA2]
                       data-[state=checked]:to-[#667EEA]
 
                       [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
 
-                      [&[data-state=unchecked]>span]:bg-gradient-to-r
+                      [&[data-state=unchecked]>span]:bg-linear-to-r
                       [&[data-state=unchecked]>span]:from-[#764BA2]
                       [&[data-state=unchecked]>span]:to-[#667EEA]
 
@@ -391,7 +391,7 @@ export default function CartPage() {
                   ${
                     selectedIds.length === 0
                       ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-                      : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                      : "bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
                   }
                 `}
                 onClick={handleCheckout}

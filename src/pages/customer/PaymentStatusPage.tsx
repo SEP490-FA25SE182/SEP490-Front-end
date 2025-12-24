@@ -61,6 +61,18 @@ export default function PaymentStatusPage() {
     console.log("🧹 Giỏ hàng đã được xoá sau thanh toán thành công");
   }, [status]);
 
+  useEffect(() => {
+    if (status === "pending") {
+      const timer = setTimeout(() => {
+        navigate("/");
+      }, 5000);
+
+      // cleanup khi component unmount / status đổi
+      return () => clearTimeout(timer);
+    }
+  }, [status, navigate]);
+
+
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e] text-white">
       <CustomerHeader />
@@ -74,8 +86,8 @@ export default function PaymentStatusPage() {
           <CardContent className="text-center space-y-6">
             {status === "pending" && (
               <>
-                <p className="text-sm opacity-80">
-                  Vui lòng chờ xác nhận thanh toán
+                <p className="text-green-400 font-semibold text-lg">
+                  Tạo đơn thành công. Vui lòng chờ xác nhận 🎉
                 </p>
                 <div className="w-full flex justify-center mt-4">
                   <Button

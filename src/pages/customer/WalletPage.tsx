@@ -61,6 +61,7 @@ export default function WalletPage() {
         const txRes = await TransactionService.searchTransactions({
           walletId: w.walletId,
           page: 0,
+          status: 3,
           size: 10,
           sort: ["createdAt,desc"], // mới nhất trước
         });

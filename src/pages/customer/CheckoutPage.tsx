@@ -602,7 +602,7 @@ export default function CheckoutPage() {
 
   /* ============================ 🧾 RENDER ============================ */
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
@@ -830,7 +830,7 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handlePayOS}
                   disabled={paying !== null}
-                  className="w-full bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
+                  className="w-full bg-linear-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
                 >
                   {paying === "PAYOS"
                     ? "Đang xử lý..."

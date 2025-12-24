@@ -160,7 +160,8 @@ export const TransactionService = {
 
   async searchTransactions(params?: {
     walletId?: string;
-    orderId?: string;              // ✅ add
+    orderId?: string;
+    status?:number              // ✅ add
     transType?: TransactionType;   // ✅ add
     page?: number;
     size?: number;

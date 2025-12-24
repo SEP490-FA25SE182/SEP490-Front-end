@@ -6,7 +6,6 @@ import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Trash2, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { OrderService } from "@/services/OrderService";
 import { getWalletByUserId } from "@/services/WalletService";
 import { getUserByEmail } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
@@ -57,49 +56,26 @@ export default function CartPage() {
     loadCoin();
   }, [user?.email]);
 
-  useEffect(() => {
-    const validIds = state.lines
-      .filter((line) => line.book.quantity > 0)
-      .map((line) => line.book.bookId);
-
-    setSelectedIds((prev) => prev.filter((id) => validIds.includes(id)));
-  }, [state.lines]);
-
-  useEffect(() => {
-    state.lines.forEach((line) => {
-      if (line.book.quantity === 0 && line.qty !== 0) {
-        setQty(line.book.bookId, 0, line.book.price);
-      }
-    });
-  }, [state.lines]);
-
   const handleCheckout = async () => {
     try {
-      // 🔹 1. Kiểm tra giỏ hàng hợp lệ
       if (!state?.cartId) {
         toast.error("Không tìm thấy giỏ hàng hiện tại.");
         return;
       }
 
-      // Kiểm tra số lượng sách trong giỏ
-      const outOfStockItem = selectedLines.find(
-        (line) => line.book.quantity === 0 || line.qty > line.book.quantity
+      const invalidQtyItem = selectedLines.find(
+        (line) => line.qty <= 0 || !Number.isInteger(line.qty)
       );
-
-      if (outOfStockItem) {
-        toast.error(
-          `Sách "${outOfStockItem.book.bookName}" không đủ số lượng trong kho`
-        );
+      if (invalidQtyItem) {
+        toast.error("Sản phẩm hiện tại đã hết hàng hoặc không khả dụng");
         return;
       }
 
-      // 🔹 2. Kiểm tra người dùng
       if (!user?.email) {
         toast.error("Không tìm thấy thông tin người dùng.");
         return;
       }
 
-      // 🔹 3. Lấy userId từ email
       const userRes = await getUserByEmail(user.email);
       const userId = userRes?.userId;
       if (!userId) {
@@ -107,16 +83,13 @@ export default function CartPage() {
         return;
       }
 
-      // 🔹 4. Lấy ví người dùng theo userId
       const walletRes = await getWalletByUserId(userId);
       const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
-
       if (!wallet?.walletId) {
         toast.error("Không tìm thấy ví người dùng.");
         return;
       }
 
-      // 🚀 6. Gọi API tạo order từ cart
       const selectedCartItemIds = state.lines
         .filter((line) => selectedIds.includes(line.book.bookId))
         .map((line) => line.cartItemId)
@@ -127,40 +100,23 @@ export default function CartPage() {
         return;
       }
 
-      const order = await OrderService.createOrderFromCart(
-        state.cartId,
-        wallet.walletId,
-        useCoin,
-        selectedCartItemIds
-      );
-
-      if (!order?.orderId) {
-        throw new Error("Không nhận được orderId từ backend.");
-      }
-
-      console.log("✅ Order tạo thành công:", order);
-      toast.success("Đơn hàng đã được tạo thành công!");
-
-      // 🔁 7. Điều hướng sang trang Checkout
+      // ✅ CHỈ ĐẨY STATE SANG CHECKOUT
       navigate("/checkout", {
         state: {
-          orderId: order.orderId,
-          cartId: order.cartId,
-          totalPrice: order.totalPrice,
+          cartId: state.cartId,
           walletId: wallet.walletId,
           usedCoin: useCoin,
+          selectedCartItemIds,
         },
       });
     } catch (error: any) {
-      console.error("❌ Lỗi khi tạo order:", error);
-      toast.error(
-        error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại."
-      );
+      console.error("❌ Lỗi khi chuyển sang checkout:", error);
+      toast.error(error?.message || "Không thể chuyển sang checkout.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="container mx-auto px-6 md:px-20 py-12">
@@ -210,18 +166,17 @@ export default function CartPage() {
                           }
                         }}
                         className={`
-  w-6 h-6 rounded-md flex items-center justify-center
-  transition-all duration-300
-  ${
-    isOutOfStock
-      ? "opacity-40 cursor-not-allowed bg-slate-700 border border-slate-600"
-      : selectedIds.includes(id)
-      ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border border-transparent shadow-md"
-      : "bg-slate-700 border border-slate-400 hover:border-slate-200 hover:bg-slate-600"
-  }
-`}
+                          w-6 h-6 rounded-md flex items-center justify-center
+                          border transition-all duration-300
+
+                          ${
+                            selectedIds.includes(id)
+                              ? "bg-linear-to-r from-[#764BA2] to-[#667EEA] border-transparent"
+                              : "bg-white/5 border-white/30"
+                          }
+                        `}
                       >
-                        {!isOutOfStock && selectedIds.includes(id) && (
+                        {selectedIds.includes(id) && (
                           <span className="text-white text-sm font-bold">
                             ✓
                           </span>
@@ -265,18 +220,18 @@ export default function CartPage() {
                             onClick={() =>
                               setQty(
                                 line.book.bookId,
-                                line.qty - 1,
+                                Math.max(1, line.qty - 1),
                                 line.book.price
                               )
                             }
                             className={`
-    w-8 h-8 grid place-items-center rounded-lg transition
-    ${
-      isOutOfStock || line.qty <= 1
-        ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
-        : "bg-white/10 text-white hover:bg-white/20"
-    }
-  `}
+                              w-8 h-8 grid place-items-center rounded-lg transition
+                              ${
+                                isOutOfStock || line.qty <= 1
+                                  ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                                  : "bg-white/10 text-white hover:bg-white/20"
+                              }
+                            `}
                           >
                             <Minus className="w-4 h-4" />
                           </button>
@@ -288,13 +243,13 @@ export default function CartPage() {
                             value={isOutOfStock ? 0 : line.qty}
                             disabled={isOutOfStock}
                             className={`
-    w-14 text-center rounded-lg py-1 border
-    ${
-      isOutOfStock
-        ? "bg-gray-500/20 text-gray-400 cursor-not-allowed border-white/10"
-        : "bg-black/20 text-white border-white/10"
-    }
-  `}
+                              w-14 text-center rounded-lg py-1 border
+                              ${
+                                isOutOfStock
+                                  ? "bg-gray-500/20 text-gray-400 cursor-not-allowed border-white/10"
+                                  : "bg-black/20 text-white border-white/10"
+                              }
+                            `}
                             onChange={(e) => {
                               if (isOutOfStock) return;
 
@@ -322,6 +277,7 @@ export default function CartPage() {
 
                           <button
                             disabled={isMaxStock || isOutOfStock}
+                            className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() =>
                               setQty(
                                 line.book.bookId,
@@ -329,14 +285,6 @@ export default function CartPage() {
                                 line.book.price
                               )
                             }
-                            className={`
-    w-8 h-8 grid place-items-center rounded-lg transition
-    ${
-      isMaxStock || isOutOfStock
-        ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
-        : "bg-white/10 text-white hover:bg-white/20"
-    }
-  `}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -389,22 +337,22 @@ export default function CartPage() {
                     onCheckedChange={setUseCoin}
                     disabled={coin === 0}
                     className="
-      border border-white/40
-      bg-white/10
-      transition-all duration-300
+                      border border-white/40
+                      bg-white/10
+                      transition-all duration-300
 
-      data-[state=checked]:bg-gradient-to-r
-      data-[state=checked]:from-[#764BA2]
-      data-[state=checked]:to-[#667EEA]
+                      data-[state=checked]:bg-linear-to-r
+                      data-[state=checked]:from-[#764BA2]
+                      data-[state=checked]:to-[#667EEA]
 
-      [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
+                      [&>span]:border [&>span]:border-white/40 [&>span]:transition-all
 
-      [&[data-state=unchecked]>span]:bg-gradient-to-r
-      [&[data-state=unchecked]>span]:from-[#764BA2]
-      [&[data-state=unchecked]>span]:to-[#667EEA]
+                      [&[data-state=unchecked]>span]:bg-linear-to-r
+                      [&[data-state=unchecked]>span]:from-[#764BA2]
+                      [&[data-state=unchecked]>span]:to-[#667EEA]
 
-      [&[data-state=checked]>span]:bg-white
-    "
+                      [&[data-state=checked]>span]:bg-white
+                    "
                   />
 
                   <span>Sử dụng xu</span>
@@ -429,12 +377,12 @@ export default function CartPage() {
               <button
                 disabled={selectedIds.length === 0}
                 className={`w-full rounded-lg py-2 font-semibold transition-all
-    ${
-      selectedIds.length === 0
-        ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-        : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
-    }
-  `}
+                  ${
+                    selectedIds.length === 0
+                      ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                      : "bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+                  }
+                `}
                 onClick={handleCheckout}
               >
                 Thanh toán

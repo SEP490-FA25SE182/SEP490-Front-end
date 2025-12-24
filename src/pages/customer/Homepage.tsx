@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
+import SnowCanvas from "@/pages/customer/SnowCanvas";
 import {
   Carousel,
   CarouselContent,
@@ -24,7 +25,6 @@ import {
   type Variants,
   useReducedMotion,
 } from "framer-motion";
-import SnowCanvas from "@/pages/customer/SnowCanvas";
 
 /* -------------------------
  🖼 Danh sách ảnh quảng cáo
@@ -319,7 +319,6 @@ const HeroBookSlide: React.FC<{
   );
 };
 
-
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -415,6 +414,7 @@ const HeroFullBleed: React.FC<{
   );
 };
 
+
 /* -------------------------
  🧩 Section: Grid sách (có stagger)
 -------------------------- */
@@ -507,7 +507,9 @@ const BookCarouselSection: React.FC<{
           </Carousel>
         </motion.div>
       ) : (
-        <p className="text-center text-white/60">Không có sách nào để hiển thị.</p>
+        <p className="text-center text-white/60">
+          Không có sách nào để hiển thị.
+        </p>
       )}
     </SectionReveal>
   );
@@ -548,7 +550,10 @@ const GenreRowsBlock: React.FC<{
               {/* RIGHT: Books carousel */}
               <div className="col-span-12 md:col-span-9 md:-mt-2">
                 {row.books.length > 0 ? (
-                  <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                  <Carousel
+                    opts={{ align: "start", loop: false }}
+                    className="w-full"
+                  >
                     <CarouselContent className="-ml-3 md:-ml-4">
                       {row.books.map((book) => (
                         <CarouselItem
@@ -565,7 +570,9 @@ const GenreRowsBlock: React.FC<{
                     {/* <CarouselNext /> */}
                   </Carousel>
                 ) : (
-                  <p className="text-white/60">Chưa có sách cho thể loại này.</p>
+                  <p className="text-white/60">
+                    Chưa có sách cho thể loại này.
+                  </p>
                 )}
               </div>
             </div>
@@ -591,15 +598,21 @@ export default function Homepage() {
   const [searchParams] = useSearchParams();
   const q = (searchParams.get("q") ?? "").trim();
 
-  const [genreRows, setGenreRows] = useState<Array<{ genre: Genre; books: Book[] }>>([]);
+  const [genreRows, setGenreRows] = useState<
+    Array<{ genre: Genre; books: Book[] }>
+  >([]);
   const [loadingGenreRows, setLoadingGenreRows] = useState(false);
 
-  const [heroGenresMap, setHeroGenresMap] = useState<Record<string, Genre[]>>({});
+  const [heroGenresMap, setHeroGenresMap] = useState<Record<string, Genre[]>>(
+    {}
+  );
 
   const filteredBooks = useMemo(() => {
     if (!q) return books;
     const needle = q.toLowerCase();
-    return books.filter((b) => (b.bookName ?? "").toLowerCase().includes(needle));
+    return books.filter((b) =>
+      (b.bookName ?? "").toLowerCase().includes(needle)
+    );
   }, [books, q]);
 
   // Fetch books
@@ -613,16 +626,21 @@ export default function Homepage() {
           publicationStatus: 1, // ✅ chỉ lấy sách đã xuất bản
         });
 
-        const publishedActiveBooks = (Array.isArray(data) ? data : []).filter((b: any) => {
-          const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
-          const pubRaw = b.publicationStatus ?? b.publication_status;
-          const pub = typeof pubRaw === "string" ? pubRaw.toUpperCase() : Number(pubRaw);
+        const publishedActiveBooks = (Array.isArray(data) ? data : []).filter(
+          (b: any) => {
+            const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
+            const pubRaw = b.publicationStatus ?? b.publication_status;
+            const pub =
+              typeof pubRaw === "string"
+                ? pubRaw.toUpperCase()
+                : Number(pubRaw);
 
-          const isActive = act === "ACTIVE";
-          const isPublished = pub === 1 || pub === "PUBLISHED";
+            const isActive = act === "ACTIVE";
+            const isPublished = pub === 1 || pub === "PUBLISHED";
 
-          return isActive && isPublished;
-        });
+            return isActive && isPublished;
+          }
+        );
 
         setBooks(publishedActiveBooks);
       } catch (error) {
@@ -639,7 +657,10 @@ export default function Homepage() {
   // heroBooks (đặt TRƯỚC effect dùng heroBooks)
   const heroBooks = useMemo(() => {
     return [...books]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
       .slice(0, 6);
   }, [books]);
 
@@ -714,12 +735,19 @@ export default function Homepage() {
                 publicationStatus: 1,
               });
 
-              const list = (Array.isArray(data) ? data : []).filter((b: any) => {
-                const act = String(b.isActived ?? b.is_actived ?? "").toUpperCase();
-                const pubRaw = b.publicationStatus ?? b.publication_status;
-                const pub = typeof pubRaw === "string" ? pubRaw.toUpperCase() : Number(pubRaw);
-                return act === "ACTIVE" && (pub === 1 || pub === "PUBLISHED");
-              });
+              const list = (Array.isArray(data) ? data : []).filter(
+                (b: any) => {
+                  const act = String(
+                    b.isActived ?? b.is_actived ?? ""
+                  ).toUpperCase();
+                  const pubRaw = b.publicationStatus ?? b.publication_status;
+                  const pub =
+                    typeof pubRaw === "string"
+                      ? pubRaw.toUpperCase()
+                      : Number(pubRaw);
+                  return act === "ACTIVE" && (pub === 1 || pub === "PUBLISHED");
+                }
+              );
 
               return { genre: g, books: list.slice(0, 16) };
             } catch {
@@ -737,10 +765,12 @@ export default function Homepage() {
     fetchGenreRows();
   }, [genres, loadingGenres, genreId]);
 
-
   const newestBooks = useMemo(() => {
     return [...books]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
       .slice(0, 10);
   }, [books]);
 
@@ -762,7 +792,9 @@ export default function Homepage() {
       .sort((a, b) => {
         const diff = score(b) - score(a);
         if (diff !== 0) return diff;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        return (
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
       })
       .slice(0, 10);
   }, [books]);
@@ -782,7 +814,9 @@ export default function Homepage() {
   }, [books]);
 
   const carouselBooks2 = useMemo(() => {
-    const ids = new Set([...carouselBooks1, ...newestBooks].map((b) => b.bookId));
+    const ids = new Set(
+      [...carouselBooks1, ...newestBooks].map((b) => b.bookId)
+    );
     const rest = books.filter((b) => !ids.has(b.bookId));
     const source = rest.length ? rest : books;
     return [...source].slice(0, 16);

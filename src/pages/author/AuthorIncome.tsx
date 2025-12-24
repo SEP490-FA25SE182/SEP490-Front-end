@@ -23,8 +23,8 @@ import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { getUserByEmail } from "@/services/UserService";
 
-// ✅ NEW: lấy phí tác quyền theo searchWallets
-import { searchWallets } from "@/services/WalletService";
+import { getWalletByUserId } from "@/services/WalletService";
+import { TransactionService } from "@/services/TransactionService";
 
 // Recharts
 import {
@@ -75,8 +75,9 @@ export default function AuthorIncome() {
     return `${m}/${y}`;
   }, [selectedMonth]);
 
-  // ✅ NEW: phí tác quyền theo searchWallets (theo tháng)
+  // ✅ CHANGED: phí tác quyền theo Transaction (SETTLEMENT + status=3) theo tháng
   const [settlementThisMonth, setSettlementThisMonth] = useState<number>(0);
+  const [walletId, setWalletId] = useState<string | null>(null);
 
   // ===== helper: giống AuthorBookList, ĐẶT LÊN TRÊN =====
   const isBookActive = (book: any) => {
@@ -182,6 +183,26 @@ export default function AuthorIncome() {
     fetchAuthorId();
   }, [user]);
 
+  // ✅ NEW: lấy walletId theo authorId
+  useEffect(() => {
+    let mounted = true;
+    const fetchWallet = async () => {
+      if (!authorId) return;
+      try {
+        const w = await getWalletByUserId(authorId);
+        if (!mounted) return;
+        setWalletId(w?.walletId ?? null);
+      } catch (err) {
+        console.error("Error fetching wallet by userId:", err);
+        if (mounted) setWalletId(null);
+      }
+    };
+    fetchWallet();
+    return () => {
+      mounted = false;
+    };
+  }, [authorId]);
+
   // ===== fetch books =====
   useEffect(() => {
     let mounted = true;
@@ -222,56 +243,57 @@ export default function AuthorIncome() {
       currency: "VND",
     }).format(amount);
 
-  // ✅ NEW: tính phí tác quyền theo searchWallets (theo tháng)
+  // ✅ CHANGED: tính phí tác quyền = sum(totalPrice) của transType=SETTLEMENT & status=3 theo tháng
   useEffect(() => {
     let mounted = true;
 
-    const computeSettlementByWalletSnapshots = async () => {
-      if (!authorId) return;
+    const computeSettlementByTransactions = async () => {
+      if (!walletId) return;
 
       try {
-        const res = await searchWallets({
-          userId: authorId,
-          page: 0,
-          size: 1000,
-          sort: "updatedAt,asc",
-        } as any);
+        let page = 0;
+        let totalPages = 1;
+        let sum = 0;
 
-        const items = (res?.content ?? []) as any[];
-
-        const inMonth = items
-          .filter((w) => {
-            const t = w?.updatedAt ?? w?.createdAt;
-            if (!t) return false;
-            const d = new Date(t);
-            return d >= monthRange.start && d < monthRange.end;
-          })
-          .sort((a, b) => {
-            const da = new Date(a?.updatedAt ?? a?.createdAt ?? 0).getTime();
-            const db = new Date(b?.updatedAt ?? b?.createdAt ?? 0).getTime();
-            return da - db;
+        while (page < totalPages) {
+          const res: any = await TransactionService.searchTransactions({
+            walletId,
+            transType: "SETTLEMENT",
+            page,
+            size: 1000,
+            sort: ["createdAt,asc"],
           });
 
-        let sum = 0;
-        for (let i = 1; i < inMonth.length; i++) {
-          const prev = Number(inMonth[i - 1]?.balance ?? 0);
-          const curr = Number(inMonth[i]?.balance ?? 0);
-          const delta = curr - prev;
-          if (delta > 0) sum += delta; // chỉ cộng phần tăng (tiền vào ví)
+          const items: any[] = res?.content ?? [];
+          totalPages = Number(res?.totalPages ?? 1);
+
+          items.forEach((tx) => {
+            const status = Number(tx?.status);
+            if (status !== 3) return;
+
+            const t = tx?.updatedAt ?? tx?.createdAt ?? tx?.createdDate ?? tx?.date;
+            if (t) {
+              const d = new Date(t);
+              if (!(d >= monthRange.start && d < monthRange.end)) return;
+            }
+            sum += Number(tx?.totalPrice ?? 0);
+          });
+
+          page += 1;
         }
 
         if (mounted) setSettlementThisMonth(sum);
       } catch (err) {
-        console.error("Error fetching wallet snapshots via searchWallets:", err);
+        console.error("Error fetching settlement transactions:", err);
         if (mounted) setSettlementThisMonth(0);
       }
     };
 
-    computeSettlementByWalletSnapshots();
+    computeSettlementByTransactions();
     return () => {
       mounted = false;
     };
-  }, [authorId, monthRange.start, monthRange.end]);
+  }, [walletId, monthRange.start, monthRange.end]);
 
   // ===== doanh thu thực tế (✅ theo tháng) =====
   useEffect(() => {
@@ -286,11 +308,7 @@ export default function AuthorIncome() {
           size: 1000,
         });
 
-        const orders = Array.isArray(resp)
-          ? resp
-          : resp && resp.content
-          ? resp.content
-          : [];
+        const orders = Array.isArray(resp) ? resp : resp && resp.content ? resp.content : [];
 
         const ordersInMonth = (orders as any[]).filter((ord: any) => {
           const t = ord?.updatedAt ?? ord?.createdAt ?? ord?.createdDate ?? ord?.date;
@@ -312,12 +330,9 @@ export default function AuthorIncome() {
                 details.forEach((d: any) => {
                   const bookId = d.bookId;
                   const book = allBooks.find(
-                    (b) =>
-                      String(b.bookId ?? b.id ?? b.bookID ?? b._id) === String(bookId)
+                    (b) => String(b.bookId ?? b.id ?? b.bookID ?? b._id) === String(bookId)
                   );
-                  const bookAuthorId = book
-                    ? book.authorId ?? book.userId ?? book.author?.id
-                    : null;
+                  const bookAuthorId = book ? book.authorId ?? book.userId ?? book.author?.id : null;
 
                   if (String(bookAuthorId) === String(authorId)) {
                     total += (Number(d.price) || 0) * (Number(d.quantity) || 1);
@@ -342,43 +357,42 @@ export default function AuthorIncome() {
     };
   }, [authorId, allBooks, monthRange.start, monthRange.end]);
 
-  // ✅ CHANGED: Phí tác quyền = số tiền theo ví (KHÔNG tính royaltyRate nữa)
+  // ✅ CHANGED: Phí tác quyền = settlementThisMonth (sum totalPrice)
   const royaltyFee = useMemo(() => Math.round(settlementThisMonth), [settlementThisMonth]);
 
   const cards = [
     {
       title: "Tổng Doanh Thu",
       value: formatCurrency(authorRevenue),
-      desc: `Tổng doanh thu đơn hàng (tháng ${monthLabel})`,
+      desc: `Tổng doanh thu đơn hàng tháng ${monthLabel}`,
       icon: <DollarSign className="w-6 h-6" />,
       accent: "from-[#764BA2] to-[#667EEA]",
     },
     {
       title: "Phí tác quyền",
       value: formatCurrency(royaltyFee),
-      // ✅ CHANGED: bỏ tính royalty / bỏ hiển thị tỉ lệ
-      desc: `Phí tác quyền trong tháng ${monthLabel} (theo ví)`,
+      desc: `Phí tác quyền trong tháng ${monthLabel}`,
       icon: <BookOpen className="w-6 h-6" />,
       accent: "from-[#334155] to-[#475569]",
     },
     {
       title: "Tổng số sách",
       value: String(totalBooks),
-      desc: "Số sách của bạn",
+      desc: "Tổng số sách của bạn",
       icon: <BookOpen className="w-6 h-6" />,
       accent: "from-[#0ea5e9] to-[#667eea]",
     },
     {
       title: "Sách chờ duyệt",
       value: String(pendingBooks),
-      desc: "Cần duyệt xuất bản",
+      desc: "Sách đang trong quá trình duyệt",
       icon: <Clock className="w-6 h-6" />,
       accent: "from-[#f59e0b] to-[#f97316]",
     },
     {
       title: "Sách đã xuất bản",
       value: String(publishedBooks),
-      desc: "Sách đã công khai",
+      desc: "Sách đã được xuất bản",
       icon: <CheckCircle className="w-6 h-6" />,
       accent: "from-[#10b981] to-[#059669]",
     },
@@ -521,7 +535,7 @@ export default function AuthorIncome() {
               <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
 
               <div className="flex gap-2">
-                {/* ✅ NEW: chọn tháng để tính phí theo tháng */}
+                {/* ✅ chọn tháng để tính phí theo tháng */}
                 <input
                   type="month"
                   value={selectedMonth}
@@ -538,13 +552,7 @@ export default function AuthorIncome() {
                         timeframe === tf ? "bg-indigo-600 text-white" : "bg-gray-100"
                       }`}
                     >
-                      {tf === "week"
-                        ? "Tuần"
-                        : tf === "month"
-                        ? "Tháng"
-                        : tf === "quarter"
-                        ? "Quý"
-                        : "Năm"}
+                      {tf === "week" ? "Tuần" : tf === "month" ? "Tháng" : tf === "quarter" ? "Quý" : "Năm"}
                     </button>
                   ))}
                 </div>

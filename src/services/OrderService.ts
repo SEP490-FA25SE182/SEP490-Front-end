@@ -28,6 +28,13 @@ export interface OrderResponse {
 
 }
 
+export interface MoveCartToOrderExtra {
+  totalPrice?: number;
+  status?: number;
+  userAddressId?: string;
+  shippingFee?: number | null;
+}
+
 export const OrderService = {
   // 🆕 Tạo mới Order
   async createOrder(data: CreateOrderRequest): Promise<OrderResponse> {
@@ -43,35 +50,37 @@ export const OrderService = {
     return Array.isArray(res.data) ? res.data[0] : res.data;
   },
 
+
   // ✨ TẠO MỚI: Tạo Order từ Cart và Wallet ✨
   async createOrderFromCart(
     cartId: string,
     walletId: string,
     usePoints: boolean,
-    cartItemIds: string[]
+    cartItemIds: string[],
+    extra?: MoveCartToOrderExtra
   ): Promise<OrderResponse> {
     const url = `${API_RK}/users/orders/from-cart/${cartId}/wallet/${walletId}?usePoints=${usePoints}`;
 
     try {
-      // 🟢 Gọi API (không cần body)
-      const res = await axios.post(
-        url,
-        cartItemIds, // ✅ Body đúng backend
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json"
-          },
-        });
+      // ✅ body mới: không còn là List<string> trực tiếp
+      const body = {
+        cartItemIds,
+        ...extra,
+      };
 
-      console.log("✅ Tạo order từ cart thành công:", res.data);
+      const res = await axios.post(url, body, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+
       return res.data as OrderResponse;
     } catch (error: any) {
       console.error("❌ Lỗi khi tạo order từ cart:", error.response?.data || error.message);
       throw new Error(error.response?.data?.message || "Không thể tạo order từ cart.");
     }
   },
-
 
   // 🔍 Lấy tất cả orders
   async getAllOrders(): Promise<OrderResponse[]> {

@@ -99,7 +99,7 @@ export default function TransactionPage() {
       case ORDER_STATUS.CANCELLED:
         return "Đã hủy";
       case ORDER_STATUS.RETURNED:
-        return "Trả hàng";
+        return "Đã trả hàng";
       default:
         return "Không xác định";
     }
@@ -613,6 +613,12 @@ export default function TransactionPage() {
                 <p>
                   <b>Trạng thái:</b> {mapOrderStatus(Number(selected?.status))}
                 </p>
+                {selected?.shippingFee != null && (
+                  <p>
+                    <b>Phí giao hàng:</b>{" "}
+                    {formatVND(Number(selected.shippingFee))}
+                  </p>
+                )}
                 <p>
                   <b>Tổng tiền:</b> {formatVND(selected?.totalPrice)}
                 </p>
@@ -620,6 +626,12 @@ export default function TransactionPage() {
                   <b>Ngày tạo:</b>{" "}
                   {new Date(selected?.createdAt).toLocaleString("vi-VN")}
                 </p>
+                {selected?.updatedAt && (
+                  <p>
+                    <b>Cập nhật lúc:</b>{" "}
+                    {new Date(selected.updatedAt).toLocaleString("vi-VN")}
+                  </p>
+                )}
               </div>
 
               <Separator className="my-4" />
@@ -680,12 +692,18 @@ export default function TransactionPage() {
                   </p>
                 )}
               </div>
-              <p className="text-xs text-red-400">
-                Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
-              </p>
-              <p className="text-xs text-red-400">
-              (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp đặc biệt)
-              </p>
+              {/*Chỉ hiện cảnh báo trả hàng khi đơn ĐÃ NHẬN (RECEIVED = 5) */}
+              {Number(selected?.status) === ORDER_STATUS.RECEIVED && (
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-xs text-red-400 leading-tight">
+                    Chỉ có thể trả hàng trước 7 ngày kể từ khi nhận.
+                  </p>
+                  <p className="text-xs text-red-400 leading-tight">
+                    (Các đơn trả sau 7 ngày sẽ tự động từ chối trừ trường hợp
+                    đặc biệt)
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between mt-6 items-center">
                 {/* 🟦 Nút “ĐÃ NHẬN HÀNG” khi status = 3 (Đang vận chuyển) */}
                 {Number(selected?.status) === ORDER_STATUS.DELIVERED && (

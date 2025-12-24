@@ -16,7 +16,11 @@ import { useToast } from "@/components/ui/use-toast";
 
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { getUserByEmail, getAddressesByUserId, createAddress } from "@/services/UserService";
+import {
+  getUserByEmail,
+  getAddressesByUserId,
+  createAddress,
+} from "@/services/UserService";
 import { type Book } from "@/services/BookService";
 import {
   PaymentService,
@@ -82,7 +86,9 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation() as {
     state?: {
-      orderId?: string;
+      cartId?: string;
+      walletId?: string;
+      selectedCartItemIds?: string[];
       buyNowLine?: { book: Book; qty: number };
       usedCoin?: boolean;
     };
@@ -92,10 +98,10 @@ export default function CheckoutPage() {
   const { state: cartState } = useCart();
   const { user } = useAuth();
 
-
-
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    null
+  );
 
   const FROM_DISTRICT_ID = 1442;
   const FROM_WARD_CODE = "20501";
@@ -108,9 +114,61 @@ export default function CheckoutPage() {
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [addressInput, setAddressInput] = useState("");
 
+  const [paying, setPaying] = useState<null | "PAYOS" | "COD">(null);
 
+  function buildAddressInforFromForm() {
+    const provinceObj = provinces.find(
+      (p) => String(p.ProvinceID) === String(form.watch("province"))
+    );
+    const districtObj = districts.find(
+      (d) => String(d.DistrictID) === String(form.watch("district"))
+    );
+    const wardObj = wards.find(
+      (w) => String(w.WardCode) === String(form.watch("ward"))
+    );
 
+    const formAddressInfor = `${form.watch("address")}, ${
+      wardObj?.WardName || ""
+    }, ${districtObj?.DistrictName || ""}, ${
+      provinceObj?.ProvinceName || ""
+    }`.trim();
 
+    return { formAddressInfor };
+  }
+
+  async function resolveAddressId(): Promise<string | null> {
+    let finalAddressId = selectedAddressId;
+
+    const selectedAddress = addresses.find(
+      (a) => a.userAddressId === selectedAddressId
+    );
+
+    const { formAddressInfor } = buildAddressInforFromForm();
+
+    const isEdited =
+      !selectedAddress ||
+      selectedAddress.fullName !== form.watch("fullName") ||
+      selectedAddress.phoneNumber !== form.watch("phone") ||
+      selectedAddress.addressInfor !== formAddressInfor;
+
+    if (isEdited && user?.email) {
+      const userRes = await getUserByEmail(user.email);
+
+      const createdAddr = await createAddress({
+        userId: userRes.userId,
+        fullName: form.watch("fullName"),
+        phoneNumber: form.watch("phone"),
+        addressInfor: formAddressInfor,
+        type: "HOME",
+        isActived: "ACTIVE",
+        default: false,
+      });
+
+      finalAddressId = createdAddr.userAddressId;
+    }
+
+    return finalAddressId ?? null;
+  }
 
   /* ======================= LOAD ADDRESS LIST (GIỮ LOGIC CŨ) ======================= */
   useEffect(() => {
@@ -137,14 +195,22 @@ export default function CheckoutPage() {
     })();
   }, [user?.email]);
 
-
   /* ======================= CART / ORDER ======================= */
   const usedCoin = location.state?.usedCoin ?? false;
 
   const isBuyNow = !!location.state?.buyNowLine;
-  const linesToPay = isBuyNow
-    ? [location.state!.buyNowLine!]
-    : cartState.lines.map((l) => ({ book: l.book as Book, qty: l.qty }));
+  const selectedCartItemIds = location.state?.selectedCartItemIds ?? [];
+
+  const linesToPay = useMemo(() => {
+    if (isBuyNow) return [location.state!.buyNowLine!];
+
+    // ✅ chỉ lấy các line được chọn từ cart
+    const chosen = cartState.lines.filter(
+      (l) => l.cartItemId && selectedCartItemIds.includes(l.cartItemId)
+    );
+
+    return chosen.map((l) => ({ book: l.book as Book, qty: l.qty }));
+  }, [isBuyNow, location.state, cartState.lines, selectedCartItemIds]);
 
   const subtotalLocal = useMemo(
     () => linesToPay.reduce((s, l) => s + getUnit(l.book) * l.qty, 0),
@@ -158,22 +224,6 @@ export default function CheckoutPage() {
   const effectiveSubtotal = useMemo(() => {
     return subtotalLocal - discount;
   }, [subtotalLocal, discount]);
-
-
-  const orderId = location.state?.orderId;
-
-  useEffect(() => {
-    if (!orderId) {
-      toast({
-        variant: "destructive",
-        duration: 1500,
-        title: "Không tìm thấy mã đơn hàng",
-        description: "Vui lòng quay lại giỏ hàng và thử lại.",
-      });
-    }
-  }, [orderId, toast]);
-
-
 
   /* ============================ 📌 GHN ADDRESS STATES ============================ */
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -198,7 +248,6 @@ export default function CheckoutPage() {
 
   const total = effectiveSubtotal + shippingFee;
 
-
   /* ============================ 📌 GHN SELECT HANDLERS ============================ */
   async function handleProvinceSelect(id: string) {
     form.setValue("province", id);
@@ -210,7 +259,6 @@ export default function CheckoutPage() {
     setWards([]);
   }
 
-
   async function handleDistrictSelect(id: string) {
     form.setValue("district", id);
     form.setValue("ward", "");
@@ -221,7 +269,12 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     async function updateFee() {
-      if (!form.watch("province") || !form.watch("district") || !form.watch("ward")) return;
+      if (
+        !form.watch("province") ||
+        !form.watch("district") ||
+        !form.watch("ward")
+      )
+        return;
 
       const fee = await GhnAddressService.calculateShippingFee({
         length: DEFAULT_ITEM_LENGTH,
@@ -233,7 +286,7 @@ export default function CheckoutPage() {
         from_ward_code: FROM_WARD_CODE,
         to_district_id: Number(form.watch("district")),
         to_ward_code: form.watch("ward"),
-        insurance_value: subtotalLocal
+        insurance_value: subtotalLocal,
       });
 
       setShippingFee(fee.total || 0);
@@ -244,7 +297,7 @@ export default function CheckoutPage() {
     form.watch("province"),
     form.watch("district"),
     form.watch("ward"),
-    subtotalLocal
+    subtotalLocal,
   ]);
 
   /* ============================ 🤖 AUTOFILL FROM USER + ADDRESS ============================ */
@@ -261,11 +314,11 @@ export default function CheckoutPage() {
       if (!addrList.length) return;
 
       const addr =
-        addrList.find(a => a.default) ||
-        addrList.find(a => a.isActived === "ACTIVE") ||
+        addrList.find((a) => a.default) ||
+        addrList.find((a) => a.isActived === "ACTIVE") ||
         addrList[0];
 
-      const parts = addr.addressInfor.split(",").map(p => p.trim());
+      const parts = addr.addressInfor.split(",").map((p) => p.trim());
       const len = parts.length;
 
       const provinceName = parts[len - 1] || "";
@@ -279,24 +332,36 @@ export default function CheckoutPage() {
       form.setValue("address", detail);
       setAddressInput(detail);
 
-      const cleanProvince = provinceName.replace(/^Tỉnh\s+|^Thành phố\s+/i, "").toLowerCase();
-      const p = pro.find((x: any) => x.ProvinceName.toLowerCase() === cleanProvince);
+      const cleanProvince = provinceName
+        .replace(/^Tỉnh\s+|^Thành phố\s+/i, "")
+        .toLowerCase();
+      const p = pro.find(
+        (x: any) => x.ProvinceName.toLowerCase() === cleanProvince
+      );
       if (!p) return;
 
       form.setValue("province", String(p.ProvinceID));
       const dists = await GhnAddressService.getDistricts(p.ProvinceID);
       setDistricts(dists);
 
-      const cleanDistrict = districtName.replace(/^Quận\s+|^Huyện\s+/i, "").toLowerCase();
-      const d = dists.find((x: any) => x.DistrictName.toLowerCase().includes(cleanDistrict));
+      const cleanDistrict = districtName
+        .replace(/^Quận\s+|^Huyện\s+/i, "")
+        .toLowerCase();
+      const d = dists.find((x: any) =>
+        x.DistrictName.toLowerCase().includes(cleanDistrict)
+      );
       if (!d) return;
 
       form.setValue("district", String(d.DistrictID));
       const ws = await GhnAddressService.getWards(d.DistrictID);
       setWards(ws);
 
-      const cleanWard = wardName.replace(/^Xã\s+|^Phường\s+|^Thị trấn\s+/i, "").toLowerCase();
-      const w = ws.find((x: any) => x.WardName.toLowerCase().includes(cleanWard));
+      const cleanWard = wardName
+        .replace(/^Xã\s+|^Phường\s+|^Thị trấn\s+/i, "")
+        .toLowerCase();
+      const w = ws.find((x: any) =>
+        x.WardName.toLowerCase().includes(cleanWard)
+      );
       if (!w) return;
 
       form.setValue("ward", String(w.WardCode));
@@ -306,7 +371,7 @@ export default function CheckoutPage() {
   }, [user, form]);
 
   function extractDetailAddress(addressInfor: string) {
-    const parts = addressInfor.split(",").map(p => p.trim());
+    const parts = addressInfor.split(",").map((p) => p.trim());
     return parts.slice(0, parts.length - 3).join(", ");
   }
 
@@ -314,14 +379,12 @@ export default function CheckoutPage() {
     return extractDetailAddress(a.addressInfor);
   }
 
-
-
   async function handleAddressInputChange(value: string) {
     // 🔹 luôn cập nhật form.address
     form.setValue("address", value);
 
     const matched = addresses.find(
-      a => extractDetailAddress(a.addressInfor) === value
+      (a) => extractDetailAddress(a.addressInfor) === value
     );
 
     // ❌ Không match → user đang nhập địa chỉ mới
@@ -333,7 +396,7 @@ export default function CheckoutPage() {
     // ✅ Match địa chỉ đã lưu → autofill
     setSelectedAddressId(matched.userAddressId);
 
-    const parts = matched.addressInfor.split(",").map(p => p.trim());
+    const parts = matched.addressInfor.split(",").map((p) => p.trim());
     const len = parts.length;
 
     const provinceName = parts[len - 1];
@@ -368,9 +431,8 @@ export default function CheckoutPage() {
     const dists = await GhnAddressService.getDistricts(p.ProvinceID);
     setDistricts(dists);
 
-    const d = dists.find(
-      (x: any) =>
-        normalize(x.DistrictName).includes(normalize(districtName))
+    const d = dists.find((x: any) =>
+      normalize(x.DistrictName).includes(normalize(districtName))
     );
     if (!d) return;
 
@@ -378,93 +440,96 @@ export default function CheckoutPage() {
     const ws = await GhnAddressService.getWards(d.DistrictID);
     setWards(ws);
 
-    const w = ws.find(
-      (x: any) => normalize(x.WardName).includes(normalize(wardName))
+    const w = ws.find((x: any) =>
+      normalize(x.WardName).includes(normalize(wardName))
     );
     if (!w) return;
 
     form.setValue("ward", String(w.WardCode));
   }
 
+  async function createOrderBeforePay(status: number): Promise<string | null> {
+    const cartId = location.state?.cartId;
+    const walletId = location.state?.walletId;
+    const cartItemIds = location.state?.selectedCartItemIds ?? [];
 
-
-
-
-  /* ============================ 💰 PAYOS HANDLER ============================ */
-  async function handlePayOS(orderId: string) {
-    try {
+    if (!cartId || !walletId) {
       toast({
-        title: "Đang kết nối PayOS...",
-        description: "Vui lòng chờ trong giây lát.",
+        variant: "destructive",
+        title: "Thiếu thông tin giỏ hàng / ví",
+        description: "Vui lòng quay lại giỏ hàng và thử lại.",
         duration: 1500,
       });
+      return null;
+    }
 
-      const currentOrder = await OrderService.getOrderById(orderId);
+    if (!cartItemIds.length) {
+      toast({
+        variant: "destructive",
+        title: "Chưa chọn sản phẩm",
+        description: "Vui lòng quay lại giỏ hàng và chọn sản phẩm.",
+        duration: 1500,
+      });
+      return null;
+    }
 
-      let finalAddressId = selectedAddressId;
+    if (
+      !form.watch("province") ||
+      !form.watch("district") ||
+      !form.watch("ward")
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu thông tin địa chỉ",
+        description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
+        duration: 1500,
+      });
+      return null;
+    }
 
-      /* ======================================================
-       🟦 1. Kiểm tra xem user có chỉnh sửa form hay không
-       ====================================================== */
-      const selectedAddress = addresses.find(a => a.userAddressId === selectedAddressId);
+    const finalAddressId = await resolveAddressId();
 
-      const formFullName = form.watch("fullName");
-      const formPhone = form.watch("phone");
-      const formProvince = form.watch("province");
-      const formDistrict = form.watch("district");
-      const formWard = form.watch("ward");
-      const formDetail = form.watch("address");
-
-      // Tìm lại tên từ provinces / districts / wards
-      const provinceObj = provinces.find(p => String(p.ProvinceID) === String(formProvince));
-      const districtObj = districts.find(d => String(d.DistrictID) === String(formDistrict));
-      const wardObj = wards.find(w => String(w.WardCode) === String(formWard));
-
-      const provinceName = provinceObj?.ProvinceName || "";
-      const districtName = districtObj?.DistrictName || "";
-      const wardName = wardObj?.WardName || "";
-
-      // Build lại addressInfor từ form
-      const formAddressInfor = `${formDetail}, ${wardName}, ${districtName}, ${provinceName}`.trim();
-
-      const isEdited =
-        !selectedAddress ||
-        selectedAddress.fullName !== formFullName ||
-        selectedAddress.phoneNumber !== formPhone ||
-        selectedAddress.addressInfor !== formAddressInfor;
-
-      /* ======================================================
-       🟩 2. Nếu FORM BỊ CHỈNH SỬA → tạo địa chỉ mới
-       ====================================================== */
-      if (isEdited) {
-
-        const userRes = await getUserByEmail(user!.email!);
-
-        const newAddressPayload = {
-          userId: userRes.userId,
-          fullName: formFullName,
-          phoneNumber: formPhone,
-          addressInfor: formAddressInfor,
-          type: "HOME",
-          isActived: "ACTIVE",
-          default: false,
-        };
-
-        const createdAddr = await createAddress(newAddressPayload);
-
-        finalAddressId = createdAddr.userAddressId;
-        console.log("🎉 Đã tạo địa chỉ mới:", createdAddr);
-      }
-
-      const updatePayload = {
+    const order = await OrderService.createOrderFromCart(
+      cartId,
+      walletId,
+      usedCoin,
+      cartItemIds,
+      {
         totalPrice: total,
-        status: Number(currentOrder.status),
-        userAddressId: finalAddressId,
-      };
+        status,
+        userAddressId: finalAddressId ?? undefined,
+        shippingFee: shippingFee ?? null,
+      }
+    );
 
-      await OrderService.updateOrder(orderId, updatePayload);
-      console.log("✅ Đã cập nhật order với địa chỉ giao hàng:", updatePayload);
+    const orderId = order?.orderId;
+    if (!orderId) {
+      toast({
+        variant: "destructive",
+        title: "Tạo đơn hàng thất bại",
+        description: "Không nhận được mã đơn hàng từ hệ thống.",
+        duration: 1500,
+      });
+      return null;
+    }
 
+    return orderId;
+  }
+
+  /* ============================ 💰 PAYOS HANDLER ============================ */
+  async function handlePayOS() {
+    if (paying) return;
+    setPaying("PAYOS");
+
+    try {
+      toast({
+        title: "Đang xử lý...",
+        description: "Vui lòng chờ trong giây lát.",
+        duration: 1200,
+      });
+
+      const orderId = await createOrderBeforePay(2);
+      if (!orderId) return;
 
       const response: PaymentCheckoutResponse =
         await PaymentService.createPaymentCheckout(orderId);
@@ -485,84 +550,25 @@ export default function CheckoutPage() {
         description: error?.message || "Vui lòng thử lại sau.",
         duration: 1500,
       });
+    } finally {
+      setPaying(null);
     }
   }
 
   async function handleCOD() {
-    if (!orderId) {
-      toast({
-        variant: "destructive",
-        title: "Không tìm thấy mã đơn hàng",
-        description: "Vui lòng quay lại giỏ hàng.",
-        duration: 1500,
-      });
-      return;
-    }
-
-    if (
-      !form.watch("province") ||
-      !form.watch("district") ||
-      !form.watch("ward")
-    ) {
-      toast({
-        variant: "destructive",
-        title: "Thiếu thông tin địa chỉ",
-        description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
-        duration: 1500,
-      });
-      return;
-    }
+    if (paying) return;
+    setPaying("COD");
 
     try {
-      let finalAddressId = selectedAddressId;
+      toast({
+        title: "Đang xử lý...",
+        description: "Vui lòng chờ trong giây lát.",
+        duration: 1200,
+      });
 
-      const selectedAddress = addresses.find(
-        (a) => a.userAddressId === selectedAddressId
-      );
+      const orderId = await createOrderBeforePay(1);
+      if (!orderId) return;
 
-      const provinceObj = provinces.find(
-        (p) => String(p.ProvinceID) === form.watch("province")
-      );
-      const districtObj = districts.find(
-        (d) => String(d.DistrictID) === form.watch("district")
-      );
-      const wardObj = wards.find(
-        (w) => String(w.WardCode) === form.watch("ward")
-      );
-
-      const formAddressInfor = `${form.watch("address")}, ${wardObj?.WardName
-        }, ${districtObj?.DistrictName}, ${provinceObj?.ProvinceName
-        }`.trim();
-
-      const isEdited =
-        !selectedAddress ||
-        selectedAddress.addressInfor !== formAddressInfor;
-
-      if (isEdited && user?.email) {
-        const userRes = await getUserByEmail(user.email);
-        const created = await createAddress({
-          userId: userRes.userId,
-          fullName: form.watch("fullName"),
-          phoneNumber: form.watch("phone"),
-          addressInfor: formAddressInfor,
-          type: "HOME",
-          isActived: "ACTIVE",
-          default: false,
-        });
-
-        finalAddressId = created.userAddressId;
-      }
-
-      // ✅ Update order (bao gồm phí ship)
-      const updatePayload = {
-        totalPrice: total,
-        status: 1,
-        userAddressId: finalAddressId,
-      };
-
-      await OrderService.updateOrder(orderId, updatePayload);
-
-      //
       await TransactionService.createCOD({
         orderId,
         totalPrice: total,
@@ -571,7 +577,6 @@ export default function CheckoutPage() {
         status: 0,
         isActived: "ACTIVE",
       });
-
 
       toast({
         title: "Đặt hàng thành công!",
@@ -590,13 +595,14 @@ export default function CheckoutPage() {
         description: err?.message || "Không thể đặt hàng COD.",
         duration: 1500,
       });
+    } finally {
+      setPaying(null);
     }
   }
 
-
   /* ============================ 🧾 RENDER ============================ */
   return (
-    <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
+    <div className="min-h-screen bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
       <CustomerHeader />
 
       <main className="container mx-auto px-20 py-12">
@@ -610,7 +616,8 @@ export default function CheckoutPage() {
             <CardHeader>
               <CardTitle className="text-white">Thông tin Checkout</CardTitle>
               <p className="text-xs text-white/60">
-                Thông tin được tự động điền — vui lòng kiểm tra trước khi thanh toán.
+                Thông tin được tự động điền — vui lòng kiểm tra trước khi thanh
+                toán.
               </p>
             </CardHeader>
 
@@ -618,7 +625,9 @@ export default function CheckoutPage() {
               <form className="space-y-6" noValidate>
                 {/* =================== THÔNG TIN GIAO HÀNG =================== */}
                 <section className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">Thông tin giao hàng</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Thông tin giao hàng
+                  </h3>
 
                   {/* Full name */}
                   <div className="grid gap-2">
@@ -686,13 +695,8 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-
-
-
-
                   {/* Province - District - Ward */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
                     {/* Province */}
                     <div className="grid gap-2">
                       <Label className="text-white">Tỉnh / thành</Label>
@@ -743,10 +747,8 @@ export default function CheckoutPage() {
                         ))}
                       </select>
                     </div>
-
                   </div>
                 </section>
-
 
                 <Separator className="bg-white/10" />
               </form>
@@ -759,10 +761,12 @@ export default function CheckoutPage() {
               <CardTitle className="text-white">Đơn hàng của bạn</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3 max-h-72 overflow-auto pr-1
+              <div
+                className="space-y-3 max-h-72 overflow-auto pr-1
               [scrollbar-width:none]
               [-ms-overflow-style:none]
-              [&::-webkit-scrollbar]:hidden">
+              [&::-webkit-scrollbar]:hidden"
+              >
                 {linesToPay.map((l, idx) => {
                   const name = getBookName(l.book);
                   const unit = getUnit(l.book);
@@ -824,44 +828,26 @@ export default function CheckoutPage() {
               <div className="space-y-3 pt-4">
                 <Button
                   type="button"
-                  onClick={() => {
-                    if (!orderId) {
-                      toast({
-                        variant: "destructive",
-                        title: "Không tìm thấy mã đơn hàng",
-                        description: "Vui lòng quay lại giỏ hàng.",
-                      });
-                      return;
-                    }
-                    if (
-                      !form.watch("province") ||
-                      !form.watch("district") ||
-                      !form.watch("ward")
-                    ) {
-                      toast({
-                        variant: "destructive",
-                        title: "Thiếu thông tin địa chỉ",
-                        description: "Vui lòng chọn đủ tỉnh / huyện / xã.",
-                        duration: 1500,
-                      });
-                      return;
-                    }
-                    handlePayOS(orderId);
-                  }}
-                  className="w-full bg-gradient-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-3 rounded-lg hover:opacity-90"
+                  onClick={handlePayOS}
+                  disabled={paying !== null}
+                  className="w-full bg-linear-to-r from-[#764BA2] to-[#667EEA] text-white font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-70"
                 >
-                  Thanh toán qua PayOS
+                  {paying === "PAYOS"
+                    ? "Đang xử lý..."
+                    : "Thanh toán qua PayOS"}
                 </Button>
 
                 <Button
                   type="button"
                   onClick={handleCOD}
-                  className="w-full bg-white text-[#16213E] font-semibold py-3 rounded-lg"
+                  disabled={paying !== null}
+                  className="w-full bg-white text-[#16213E] font-semibold py-3 rounded-lg disabled:opacity-70"
                 >
-                  Thanh toán tiền mặt (COD)
+                  {paying === "COD"
+                    ? "Đang xử lý..."
+                    : "Thanh toán tiền mặt (COD)"}
                 </Button>
               </div>
-
             </CardContent>
           </Card>
         </div>

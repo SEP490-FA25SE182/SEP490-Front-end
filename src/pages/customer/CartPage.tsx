@@ -6,12 +6,10 @@ import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { Trash2, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { OrderService } from "@/services/OrderService";
 import { getWalletByUserId } from "@/services/WalletService";
 import { getUserByEmail } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
 import { Switch } from "@/components/ui/switch";
-
 
 export default function CartPage() {
   const { state, setQty, remove, clear } = useCart();
@@ -22,8 +20,7 @@ export default function CartPage() {
   const [useCoin, setUseCoin] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-
-  const selectedLines = state.lines.filter(line =>
+  const selectedLines = state.lines.filter((line) =>
     selectedIds.includes(line.book.bookId)
   );
 
@@ -36,7 +33,6 @@ export default function CartPage() {
   const displaySubtotal = useCoin
     ? selectedSubtotal - discount
     : selectedSubtotal;
-
 
   useEffect(() => {
     async function loadCoin() {
@@ -60,33 +56,26 @@ export default function CartPage() {
     loadCoin();
   }, [user?.email]);
 
-
   const handleCheckout = async () => {
     try {
-      // 🔹 1. Kiểm tra giỏ hàng hợp lệ
       if (!state?.cartId) {
         toast.error("Không tìm thấy giỏ hàng hiện tại.");
         return;
       }
 
-      // Kiểm tra số lượng sách trong giỏ
       const invalidQtyItem = selectedLines.find(
-        line => line.qty <= 0 || !Number.isInteger(line.qty)
+        (line) => line.qty <= 0 || !Number.isInteger(line.qty)
       );
-
       if (invalidQtyItem) {
         toast.error("Sản phẩm hiện tại đã hết hàng hoặc không khả dụng");
         return;
       }
 
-
-      // 🔹 2. Kiểm tra người dùng
       if (!user?.email) {
         toast.error("Không tìm thấy thông tin người dùng.");
         return;
       }
 
-      // 🔹 3. Lấy userId từ email
       const userRes = await getUserByEmail(user.email);
       const userId = userRes?.userId;
       if (!userId) {
@@ -94,62 +83,37 @@ export default function CartPage() {
         return;
       }
 
-      // 🔹 4. Lấy ví người dùng theo userId
       const walletRes = await getWalletByUserId(userId);
       const wallet = Array.isArray(walletRes) ? walletRes[0] : walletRes;
-
       if (!wallet?.walletId) {
         toast.error("Không tìm thấy ví người dùng.");
         return;
       }
 
-
-      // 🚀 6. Gọi API tạo order từ cart
       const selectedCartItemIds = state.lines
-        .filter(line => selectedIds.includes(line.book.bookId))
-        .map(line => line.cartItemId)
+        .filter((line) => selectedIds.includes(line.book.bookId))
+        .map((line) => line.cartItemId)
         .filter(Boolean) as string[];
-
 
       if (selectedCartItemIds.length === 0) {
         toast.error("Vui lòng chọn ít nhất 1 sản phẩm");
         return;
       }
 
-
-      const order = await OrderService.createOrderFromCart(
-        state.cartId,
-        wallet.walletId,
-        useCoin,
-        selectedCartItemIds
-      );
-
-      if (!order?.orderId) {
-        throw new Error("Không nhận được orderId từ backend.");
-      }
-
-    
-
-      console.log("✅ Order tạo thành công:", order);
-      toast.success("Đơn hàng đã được tạo thành công!");
-
-      // 🔁 7. Điều hướng sang trang Checkout
+      // ✅ CHỈ ĐẨY STATE SANG CHECKOUT
       navigate("/checkout", {
         state: {
-          orderId: order.orderId,
-          cartId: order.cartId,
-          totalPrice: order.totalPrice,
+          cartId: state.cartId,
           walletId: wallet.walletId,
           usedCoin: useCoin,
+          selectedCartItemIds,
         },
       });
     } catch (error: any) {
-      console.error("❌ Lỗi khi tạo order:", error);
-      toast.error(error?.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
+      console.error("❌ Lỗi khi chuyển sang checkout:", error);
+      toast.error(error?.message || "Không thể chuyển sang checkout.");
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]">
@@ -189,27 +153,31 @@ export default function CartPage() {
                         type="button"
                         onClick={() => {
                           if (selectedIds.includes(id)) {
-                            setSelectedIds(prev => prev.filter(x => x !== id));
+                            setSelectedIds((prev) =>
+                              prev.filter((x) => x !== id)
+                            );
                           } else {
-                            setSelectedIds(prev => [...prev, id]);
+                            setSelectedIds((prev) => [...prev, id]);
                           }
                         }}
                         className={`
         w-6 h-6 rounded-md flex items-center justify-center
         border transition-all duration-300
 
-        ${selectedIds.includes(id)
-                            ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
-                            : "bg-white/5 border-white/30"}
+        ${
+          selectedIds.includes(id)
+            ? "bg-gradient-to-r from-[#764BA2] to-[#667EEA] border-transparent"
+            : "bg-white/5 border-white/30"
+        }
       `}
                       >
                         {selectedIds.includes(id) && (
-                          <span className="text-white text-sm font-bold">✓</span>
+                          <span className="text-white text-sm font-bold">
+                            ✓
+                          </span>
                         )}
                       </button>
                     </div>
-
-
 
                     <div className="w-20 h-28 overflow-hidden rounded-lg shrink-0">
                       <img
@@ -245,7 +213,11 @@ export default function CartPage() {
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() =>
-                              setQty(line.book.bookId, Math.max(1, line.qty - 1), line.book.price)
+                              setQty(
+                                line.book.bookId,
+                                Math.max(1, line.qty - 1),
+                                line.book.price
+                              )
                             }
                           >
                             <Minus className="w-4 h-4" />
@@ -258,15 +230,20 @@ export default function CartPage() {
                             onChange={(e) =>
                               setQty(
                                 line.book.bookId,
-                                Math.max(1, Number(e.target.value) || 1
-                                ),
+                                Math.max(1, Number(e.target.value) || 1),
                                 line.book.price
                               )
                             }
                           />
                           <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
-                            onClick={() => setQty(line.book.bookId, line.qty + 1, line.book.price)}
+                            onClick={() =>
+                              setQty(
+                                line.book.bookId,
+                                line.qty + 1,
+                                line.book.price
+                              )
+                            }
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -341,7 +318,6 @@ export default function CartPage() {
                 )}
               </div>
 
-
               <div className="h-px bg-white/10 my-3" />
               <div className="flex items-center justify-between text-white mb-4">
                 <span className="font-semibold">Thành tiền</span>
@@ -351,9 +327,11 @@ export default function CartPage() {
               <button
                 disabled={selectedIds.length === 0}
                 className={`w-full rounded-lg py-2 font-semibold transition-all
-    ${selectedIds.length === 0
-                    ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-                    : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"}
+    ${
+      selectedIds.length === 0
+        ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+        : "bg-gradient-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
+    }
   `}
                 onClick={handleCheckout}
               >

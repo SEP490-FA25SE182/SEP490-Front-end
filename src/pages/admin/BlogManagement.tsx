@@ -59,7 +59,7 @@ export default function BlogManagementPage() {
             );
             const tagData = await TagService.getAll();
 
-            // 🔹 Gán authorName cho mỗi blog
+            //  Gán authorName cho mỗi blog
             const blogsWithAuthor = await Promise.all(
                 blogsData.map(async (b) => {
                     const user = await getUserById(b.authorId);
@@ -70,7 +70,7 @@ export default function BlogManagementPage() {
                 })
             );
 
-            // 🟩 SORT PHẢI ĐỂ SAU Promise.all()
+            //  SORT PHẢI ĐỂ SAU Promise.all()
             blogsWithAuthor.sort(
                 (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
             );

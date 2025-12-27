@@ -81,7 +81,7 @@ export default function ModBookPreview() {
                 }
                 if (cancelled) return;
                 setBook(currentBook);
-                setReviewText(currentBook?.review ?? ""); // 👈 fill review cũ nếu có
+                setReviewText(currentBook?.review ?? ""); //  fill review cũ nếu có
 
                 // 2. Chapters
                 const chaptersRes: any = await getAllChapters({
@@ -265,7 +265,7 @@ export default function ModBookPreview() {
         return url;
     };
 
-    // 👉 handler duyệt / từ chối: lưu cả review + publicationStatus
+    //  handler duyệt / từ chối: lưu cả review + publicationStatus
     const handleModerate = async (newStatus: number) => {
         if (!book) return;
 
@@ -288,7 +288,7 @@ export default function ModBookPreview() {
                         : "Tác phẩm đã bị từ chối.",
             });
 
-            // ✅ Sau khi duyệt / từ chối xong, quay về trang moderator
+            //  Sau khi duyệt / từ chối xong, quay về trang moderator
             navigate("/moderator");
 
         } catch (err) {
@@ -406,14 +406,14 @@ export default function ModBookPreview() {
                                         className="flex-1"
                                         size="sm"
                                         variant="destructive"
-                                        onClick={() => handleModerate(4)}   // ✅ từ chối -> 4
+                                        onClick={() => handleModerate(4)}   //  từ chối -> 4
                                     >
                                         Từ chối sách
                                     </Button>
                                     <Button
                                         className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                                         size="sm"
-                                        onClick={() => handleModerate(2)}   // ✅ duyệt -> 2
+                                        onClick={() => handleModerate(2)}   //  duyệt -> 2
                                     >
                                         Duyệt sách
                                     </Button>

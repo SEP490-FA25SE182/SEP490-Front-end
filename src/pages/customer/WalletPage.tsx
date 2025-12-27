@@ -42,10 +42,10 @@ export default function WalletPage() {
         let w: Wallet;
 
         try {
-          // 🔍 lấy ví theo user
+          //  lấy ví theo user
           w = await getWalletByUserId(userId);
         } catch {
-          // ❗ chưa có ví → tạo ví mới
+          //  chưa có ví → tạo ví mới
           w = await createWallet({
             userId,
             balance: 0,
@@ -53,7 +53,7 @@ export default function WalletPage() {
             isActived: "ACTIVE",
           });
 
-          toast.success("🎉 Ví mới đã được tạo!");
+          toast.success(" Ví mới đã được tạo!");
         }
 
         setWallet(w);
@@ -69,7 +69,7 @@ export default function WalletPage() {
         setTransactions(txRes.content ?? []);
 
       } catch (err) {
-        console.error("❌ Lỗi khi tải ví:", err);
+        console.error(" Lỗi khi tải ví:", err);
         toast.error("Không thể tải ví!");
       } finally {
         setLoading(false);
@@ -96,7 +96,7 @@ export default function WalletPage() {
     <>
       <h1 className="text-xl font-bold text-gray-800 mb-8">VÍ CỦA TÔI</h1>
 
-      {/* 💰 Tiền thật */}
+      {/*  Tiền thật */}
       <div className="text-center mb-8">
         <p className="text-gray-500 text-sm">Số dư (VND)</p>
         <h2 className="text-3xl font-extrabold text-emerald-500">
@@ -104,7 +104,7 @@ export default function WalletPage() {
         </h2>
       </div>
 
-      {/* 🪙 Xu */}
+      {/*  Xu */}
       <div className="text-center mb-10">
         <p className="text-gray-500 text-sm">Xu thưởng</p>
         <h2 className="text-3xl font-extrabold text-yellow-500">
@@ -112,7 +112,7 @@ export default function WalletPage() {
         </h2>
       </div>
 
-      {/* 🔎 Bộ lọc giao dịch */}
+      {/*  Bộ lọc giao dịch */}
       <div className="flex flex-wrap gap-2 justify-center mb-5">
         {[
           { label: "Tất cả", value: "ALL" },

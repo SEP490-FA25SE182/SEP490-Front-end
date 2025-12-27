@@ -35,7 +35,7 @@ export default function TextPageEdit() {
 
   // === Audio ===
   const updatePageAudio = useUpdatePageAudio();
-  const createPageAudio = useCreatePageAudio();     // 🆕 HOOK TẠO MỚI
+  const createPageAudio = useCreatePageAudio();     //  HOOK TẠO MỚI
 
   // === State form ===
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -44,7 +44,7 @@ export default function TextPageEdit() {
   const [audioList, setAudioList] = useState<{ id: string; name: string; url: string }[]>([]);
   const [selectedAudio, setSelectedAudio] = useState<string>("");
   const [pageAudioId, setPageAudioId] = useState<string>("");
-  const [hasExistingPageAudio, setHasExistingPageAudio] = useState(false); // 🆕 CÓ SẴN HAY CHƯA
+  const [hasExistingPageAudio, setHasExistingPageAudio] = useState(false); //  CÓ SẴN HAY CHƯA
 
   // === Lấy user hiện tại ===
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -54,8 +54,8 @@ export default function TextPageEdit() {
     userId: user.userId,
     isActived: "ACTIVE",
     page: 0,
-    size: 9999,                 // ✅ lấy hết
-    sort: ["updatedAt,desc"], // ✅ mới nhất trước (nếu BE support)
+    size: 9999,                 //  lấy hết
+    sort: ["updatedAt,desc"], //  mới nhất trước (nếu BE support)
   });
 
 
@@ -94,7 +94,7 @@ export default function TextPageEdit() {
 
     const activeList = (audioItems as any[])
       .filter((a) => a.isActived === "ACTIVE" && a.audioId)
-      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ DESC: mới -> cũ (mới nhất ở đầu)
+      .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)) //  DESC: mới -> cũ (mới nhất ở đầu)
       .map((a) => ({
         id: a.audioId as string,
         name: a.title || "Audio không tên",
@@ -113,13 +113,13 @@ export default function TextPageEdit() {
         setSelectedAudio(firstPageAudio.audioId);
         setPageAudioId(firstPageAudio.pageAudioId || "");
         setShowAudioForm(true);
-        setHasExistingPageAudio(true);         // 🆕 ĐANG Ở CHẾ ĐỘ EDIT
+        setHasExistingPageAudio(true);         //  ĐANG Ở CHẾ ĐỘ EDIT
       }
     } else {
       // Không có page-audio nào
       setPageAudioId("");
       setSelectedAudio("");
-      setHasExistingPageAudio(false);          // 🆕 SẼ TẠO MỚI NẾU USER CHỌN AUDIO
+      setHasExistingPageAudio(false);          //  SẼ TẠO MỚI NẾU USER CHỌN AUDIO
     }
   }, [pageAudiosData]);
 
@@ -135,7 +135,7 @@ export default function TextPageEdit() {
     }
 
     try {
-      // 1️⃣ Cập nhật nội dung trang
+      //  Cập nhật nội dung trang
       await updatePage.mutateAsync({
         id: pageId,
         data: {
@@ -146,10 +146,10 @@ export default function TextPageEdit() {
         },
       });
 
-      // 2️⃣ Cập nhật / tạo liên kết audio nếu có
+      //  Cập nhật / tạo liên kết audio nếu có
       if (showAudioForm && selectedAudio) {
         if (hasExistingPageAudio && pageAudioId) {
-          // ✅ ĐÃ CÓ PAGE-AUDIO → UPDATE
+          //  ĐÃ CÓ PAGE-AUDIO → UPDATE
           await updatePageAudio.mutateAsync({
             id: pageAudioId,
             data: {
@@ -158,7 +158,7 @@ export default function TextPageEdit() {
             },
           });
         } else {
-          // ✅ CHƯA CÓ PAGE-AUDIO → CREATE
+          //  CHƯA CÓ PAGE-AUDIO → CREATE
           await createPageAudio.mutateAsync([
             {
               pageId,
@@ -174,7 +174,7 @@ export default function TextPageEdit() {
       });
       navigate(-1);
     } catch (err: any) {
-      console.error("❌ Lỗi khi lưu:", err);
+      console.error(" Lỗi khi lưu:", err);
       toast({
         title: "Lỗi khi lưu",
         description: err?.response?.data?.message || "Không thể cập nhật trang.",
@@ -295,7 +295,7 @@ export default function TextPageEdit() {
                 disabled={
                   updatePage.isPending ||
                   updatePageAudio.isPending ||
-                  createPageAudio.isPending       // 🆕 disable khi đang tạo mới
+                  createPageAudio.isPending       //  disable khi đang tạo mới
                 }
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >

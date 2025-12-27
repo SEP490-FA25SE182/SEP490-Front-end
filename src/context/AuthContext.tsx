@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const firebaseInitializedRef = useRef(false);
 
 
-  // 🔹 Khôi phục user và token khi reload
+  //  Khôi phục user và token khi reload
   useEffect(() => {
   const savedUser = localStorage.getItem("user");
   const savedToken = localStorage.getItem("token");
@@ -43,12 +43,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   if (savedToken) setToken(savedToken);
   if (savedUser) setUser(JSON.parse(savedUser));
 
-  // 🔥 Nếu không có firebaseUser thì vẫn phải cho app chạy tiếp
+  //  Nếu không có firebaseUser thì vẫn phải cho app chạy tiếp
   setIsInitialized(true);
 }, []);
 
 
-  // 🔹 Theo dõi Firebase token thay đổi => Đồng bộ với backend
+  //  Theo dõi Firebase token thay đổi => Đồng bộ với backend
 useEffect(() => {
   const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
     if (!firebaseInitializedRef.current) {
@@ -56,7 +56,7 @@ useEffect(() => {
       return;
     }
 
-    // 🔹 User đã logout
+    //  User đã logout
     if (!firebaseUser) {
       setToken(null);
       setUser(null);
@@ -73,7 +73,7 @@ useEffect(() => {
 
       const email = firebaseUser.email;
 
-      // ❗ Nếu Firebase không có email → không gọi BE
+      //  Nếu Firebase không có email → không gọi BE
       if (!email) {
         setIsInitialized(true);
         return;
@@ -94,10 +94,10 @@ useEffect(() => {
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
     } catch (err) {
-      console.error("❌ Không lấy được user backend", err);
+      console.error(" Không lấy được user backend", err);
     }
 
-    // 🔥 ĐẢM BẢO CHẮC CHẮN SẼ SET Ở CUỐI CÙNG
+    //  ĐẢM BẢO CHẮC CHẮN SẼ SET Ở CUỐI CÙNG
     setIsInitialized(true);
   });
 

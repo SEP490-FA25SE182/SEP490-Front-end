@@ -9,7 +9,6 @@ import { useAuth } from "@/context/AuthContext";
 import { clearAuth } from "@/utils/authStorage";
 import { getUserByEmail, type User as UserType } from "@/services/UserService";
 
-/** ✅ helper: convert gs://... -> https firebase download url */
 function gsToHttp(url?: string | null) {
   if (!url) return "";
   if (!url.startsWith("gs://")) return url;
@@ -44,13 +43,11 @@ export default function CustomerHeader() {
 
   const isLoggedIn = !!localStorage.getItem("token");
 
-  // ✅ sync searchTerm với query param ?q=
   useEffect(() => {
     const q = new URLSearchParams(location.search).get("q") ?? "";
     setSearchTerm(q);
   }, [location.search]);
 
-  // ✅ fetch genres
   useEffect(() => {
     const fetchGenres = async () => {
       try {
@@ -58,7 +55,7 @@ export default function CustomerHeader() {
         const data = await getAllGenres();
         setGenres(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("❌ Lỗi khi lấy danh sách thể loại:", error);
+        console.error(" Lỗi khi lấy danh sách thể loại:", error);
         setGenres([]);
       } finally {
         setLoadingGenres(false);
@@ -67,7 +64,6 @@ export default function CustomerHeader() {
     fetchGenres();
   }, []);
 
-  // ✅ fetch user profile giống ProfilePage để có fullName/avatarUrl chuẩn
   useEffect(() => {
     const fetchProfile = async () => {
       if (!isLoggedIn) {
@@ -88,7 +84,6 @@ export default function CustomerHeader() {
     fetchProfile();
   }, [authUser?.email, isLoggedIn]);
 
-  // ✅ click outside để đóng dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const t = event.target as Node;

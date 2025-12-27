@@ -5,7 +5,7 @@ import ModeratorLayout from "./ModeratorLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getAllUsers } from "@/services/UserService";
 
-/** ✅ helper: convert gs://... -> https firebase download url (giống CustomerHeader) */
+/**  helper: convert gs://... -> https firebase download url (giống CustomerHeader) */
 function gsToHttp(url?: string | null) {
   if (!url) return "";
   if (!url.startsWith("gs://")) return url;
@@ -33,14 +33,14 @@ export default function ModeratorPage() {
       try {
         setLoading(true);
 
-        // 🔹 Lấy thật nhiều sách để không miss sách PENDING
+        //  Lấy thật nhiều sách để không miss sách PENDING
         const [books, allUsers] = await Promise.all([
           // lấy 0–1000, bạn có thể tăng thêm nếu cần
           getAllBooks({ page: 0, size: 1000 }),
           getAllUsers(),
         ]);
 
-        // 🔹 Chỉ giữ sách PENDING (3 hoặc "PENDING")
+        //  Chỉ giữ sách PENDING (3 hoặc "PENDING")
         const pendingBooks = (books ?? []).filter((b: any) => {
           const rawPub = b.publicationStatus ?? b.publication_status ?? b.status;
           if (rawPub == null) return false;
@@ -53,7 +53,7 @@ export default function ModeratorPage() {
           return isPending;
         });
 
-        // 🔹 Lấy authorId từ các sách PENDING
+        //  Lấy authorId từ các sách PENDING
         const authorIdSet = new Set(
           pendingBooks.map((b: any) => String(b.authorId))
         );
@@ -69,7 +69,7 @@ export default function ModeratorPage() {
         setUsers(authors as any[]);
         setBooksState(pendingBooks);
       } catch (err) {
-        console.error("❌ Load moderator users failed", err);
+        console.error(" Load moderator users failed", err);
       } finally {
         setLoading(false);
       }

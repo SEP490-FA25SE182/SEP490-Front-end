@@ -65,7 +65,7 @@ export default function Login() {
             description: "Chào mừng bạn quay trở lại.",
           });
 
-          // 🔥 Điều hướng chuẩn theo roleName
+          //  Điều hướng chuẩn theo roleName
           const roleLower = roleName.toLowerCase();
           if (roleLower.includes("admin") || roleLower.includes("staff"))
             return (window.location.href = "/admin/dashboard");
@@ -97,7 +97,7 @@ export default function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const idToken = await user.getIdToken(); // ✅ Lấy idToken thật từ Firebase
+      const idToken = await user.getIdToken(); //  Lấy idToken thật từ Firebase
 
       console.log("Google User:", {
         name: user.displayName,
@@ -114,7 +114,7 @@ export default function Login() {
       });
       setToken(idToken);
 
-      // ✅ Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
+      //  Gửi token lên backend Spring Boot để xác thực và tạo tài khoản nếu cần
       const response = await axios.post(`${API_RK}/users/auth/google`, {
         idToken: idToken,
       });
@@ -152,7 +152,7 @@ export default function Login() {
         try {
           const roleId = res.user.roleId;
           if (roleId) {
-            const role = await getRoleById(roleId); // ✅ dùng service chuẩn
+            const role = await getRoleById(roleId); //  dùng service chuẩn
             const roleName = (role?.roleName || "").toLowerCase();
 
             if (roleName.includes("author")) {

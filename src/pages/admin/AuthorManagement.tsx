@@ -125,14 +125,14 @@ export default function AuthorManagementPage() {
   const fetchAuthors = async () => {
     setLoading(true);
     try {
-      // 1️⃣ Lấy users + books
+      //  Lấy users + books
       const users = await getAllUsers();
       const books = await getAllBooks();
 
-      console.log("✅ users raw:", users);
-      console.log("✅ books raw:", books);
+      console.log(" users raw:", users);
+      console.log(" books raw:", books);
 
-      // 2️⃣ Gắn roleName cho từng user (giống login)
+      //  Gắn roleName cho từng user (giống login)
       const usersWithRole = await Promise.all(
         users.map(async (u) => {
           try {
@@ -157,7 +157,7 @@ export default function AuthorManagementPage() {
         })
         .map((x) => x.user);
 
-      // 4️⃣ Lấy danh sách order (status 5) + orderDetails
+      //  Lấy danh sách order (status 5) + orderDetails
       let successOrders: OrderResponse[] = [];
       let detailsByOrderId = new Map<string, OrderDetailResponse[]>();
 
@@ -183,18 +183,18 @@ export default function AuthorManagementPage() {
         });
       } catch (err) {
         console.warn(
-          "⚠️ Không lấy được orders/orderDetails, tạm xem như chưa có doanh thu",
+          " Không lấy được orders/orderDetails, tạm xem như chưa có doanh thu",
           err
         );
         successOrders = [];
         detailsByOrderId = new Map();
       }
 
-      // 5️⃣ Map bookId -> Book giúp lookup nhanh
+      //  Map bookId -> Book giúp lookup nhanh
       const bookMap = new Map<string, Book>();
       books.forEach((b) => bookMap.set(b.bookId, b));
 
-      // 6️⃣ Lấy thông tin tất toán gần nhất cho từng author (wallet + transaction SETTLEMENT)
+      //  Lấy thông tin tất toán gần nhất cho từng author (wallet + transaction SETTLEMENT)
       const authorSettlementMap = new Map<
         string,
         { lastSettlementAt?: string }
@@ -234,7 +234,7 @@ export default function AuthorManagementPage() {
             });
           } catch (err) {
             console.warn(
-              "⚠️ Không lấy được settlement cho author",
+              " Không lấy được settlement cho author",
               u.userId,
               err
             );
@@ -245,7 +245,7 @@ export default function AuthorManagementPage() {
 
       // const now = new Date();
 
-      // 7️⃣ Build thống kê cho từng tác giả
+      //  Build thống kê cho từng tác giả
       const result: AuthorRow[] = authorUsers.map((u) => {
         const myBooks: Book[] = books.filter((b) => b.authorId === u.userId);
         const settleInfo = authorSettlementMap.get(u.userId);
@@ -313,7 +313,7 @@ export default function AuthorManagementPage() {
 
       setAuthors(result);
     } catch (error) {
-      console.error("❌ Lỗi tải tác giả:", error);
+      console.error(" Lỗi tải tác giả:", error);
       toast.error("Không thể tải danh sách tác giả");
     } finally {
       setLoading(false);
@@ -321,7 +321,7 @@ export default function AuthorManagementPage() {
   };
 
   useEffect(() => {
-    console.log("✅ useEffect triggered");
+    console.log(" useEffect triggered");
     fetchAuthors();
   }, []);
 
@@ -388,7 +388,7 @@ export default function AuthorManagementPage() {
         setContractViewUrls([]);
       }
     } catch (err) {
-      console.error("❌ Load contract failed", err);
+      console.error(" Load contract failed", err);
       setContractView(null);
       setContractViewUrls([]);
     }

@@ -247,7 +247,6 @@ export const generateIllustrationWithImage = async (
 ) => {
   const formData = new FormData();
 
-  // 👇 meta có aspectRatio → gửi xuống backend
   formData.append("meta", JSON.stringify(meta));
 
   if (controlImage) formData.append("controlImage", controlImage);

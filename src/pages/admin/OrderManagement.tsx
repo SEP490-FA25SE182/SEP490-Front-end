@@ -247,7 +247,7 @@ export default function OrderManagementPage() {
     try {
       toast.loading("Đang duyệt hoàn tiền...");
 
-      // 1️⃣ Lấy REFUND transaction
+      //  Lấy REFUND transaction
       const refundTrans = await getRefundTransaction(refundOrder.orderId);
 
       if (!refundTrans) {
@@ -255,25 +255,25 @@ export default function OrderManagementPage() {
         return;
       }
 
-      // 2️⃣ Cập nhật REFUND → SETTLEMENT + PAID (3)
+      //  Cập nhật REFUND → SETTLEMENT + PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
         totalPrice: refundTrans.totalPrice,
         status: TRANS_STATUS.PAID, // 3
         orderId: refundTrans.orderId,
         paymentMethodId: refundTrans.paymentMethodId,
         walletId: refundTrans.walletId ?? refundOrder.walletId,
-        transType: "REFUND", // ✅ ép giữ REFUND
+        transType: "REFUND", //  ép giữ REFUND
         isActived: refundTrans.isActived ?? "ACTIVE",
       });
 
       console.log("refundTrans:", refundTrans);
 
-      // 3️⃣ Lấy ví user
+      //  Lấy ví user
       const walletId = refundOrder.walletId; // CHUẨN NHẤT
 
       const wallet = await getWalletById(walletId);
 
-      // 4️⃣ Cộng tiền hoàn vào ví
+      //  Cộng tiền hoàn vào ví
       await updateWallet(walletId, {
         balance: wallet.balance + refundOrder.totalPrice,
       });
@@ -292,12 +292,12 @@ export default function OrderManagementPage() {
 
       toast.success("Duyệt hoàn tiền thành công!");
 
-      // 7️⃣ Đóng modal
+      //  Đóng modal
       setRefundOpen(false);
       setRefundOrder(null);
       setRefundTrans(null);
     } catch (error) {
-      console.error("❌ Lỗi duyệt hoàn tiền:", error);
+      console.error(" Lỗi duyệt hoàn tiền:", error);
       toast.error("Không thể duyệt hoàn tiền.");
     } finally {
       toast.dismiss();
@@ -602,7 +602,7 @@ export default function OrderManagementPage() {
                 <b>Số tiền hoàn:</b> {formatVND(refundOrder.totalPrice)}
               </p>
 
-              {/* ⭐ HIỂN THỊ LÝ DO TRẢ HÀNG */}
+              {/*  HIỂN THỊ LÝ DO TRẢ HÀNG */}
               {refundOrder.reason && (
                 <div className="bg-gray-100 p-3 rounded-lg border">
                   <p className="font-semibold text-gray-700">Lý do trả hàng:</p>
@@ -612,7 +612,7 @@ export default function OrderManagementPage() {
                 </div>
               )}
 
-              {/* ⭐ HIỂN THỊ ẢNH TRẢ HÀNG */}
+              {/*  HIỂN THỊ ẢNH TRẢ HÀNG */}
               {refundOrder.imageUrl && (
                 <div>
                   <p className="font-semibold text-gray-700 mb-2">
@@ -650,7 +650,7 @@ export default function OrderManagementPage() {
                 {/* Nếu đang load transaction thì tạm ẩn/disable nút */}
                 {loadingRefundTrans ? null : (
                   <>
-                    {/* ✅ Nếu REFUND đã PAID thì ẩn nút Chấp nhận hoàn tiền */}
+                    {/*  Nếu REFUND đã PAID thì ẩn nút Chấp nhận hoàn tiền */}
                     {!isRefundAlreadyPaid ? (
                       <AlertDialog
                         open={openApproveConfirm}

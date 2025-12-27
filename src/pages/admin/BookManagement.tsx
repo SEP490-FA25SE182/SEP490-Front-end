@@ -27,7 +27,7 @@ import {
   type Book,
 } from "@/services/BookService";
 
-import { getUserById } from "@/services/UserService"; // 🔥 LẤY TÊN TÁC GIẢ
+import { getUserById } from "@/services/UserService"; //  LẤY TÊN TÁC GIẢ
 
 import axios from "axios";
 import { API_RK } from "@/config";
@@ -105,7 +105,7 @@ export default function BookManagementPage() {
       const res = await getAllBooks();
       setBooks(res);
 
-      // 🔥 Fetch author names
+      //  Fetch author names
       const map: Record<string, string> = {};
 
       for (const b of res) {
@@ -148,7 +148,7 @@ export default function BookManagementPage() {
     .sort((a, b) => {
       const timeA = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
       const timeB = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
-      return timeB - timeA; // 🔥 mới nhất lên đầu
+      return timeB - timeA; //  mới nhất lên đầu
     });
 
   const handleProgressChange = (value: string) => {
@@ -434,7 +434,7 @@ export default function BookManagementPage() {
                 </SelectTrigger>
 
                 <SelectContent>
-                  {/* ⬅️ Đang sáng tác */}
+                  {/*  Đang sáng tác */}
                   {progressStatus === "0" && (
                     <>
                       <SelectItem value="0">Bản nháp</SelectItem>
@@ -443,12 +443,12 @@ export default function BookManagementPage() {
                     </>
                   )}
 
-                  {/* ⬅️ Hoàn thành */}
+                  {/*  Hoàn thành */}
                   {progressStatus === "1" && (
                     <SelectItem value="1">Đã xuất bản</SelectItem>
                   )}
 
-                  {/* ⬅️ Ngưng */}
+                  {/*  Ngưng */}
                   {progressStatus === "2" && (
                     <SelectItem value="0">Bản nháp</SelectItem>
                   )}

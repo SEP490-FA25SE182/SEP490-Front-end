@@ -2,7 +2,7 @@ import axios from "axios";
 import { API_RK } from "@/config";
 
 /* ------------------------------------------
- 🧩 Kiểu type của Transaction từ BE
+  Kiểu type của Transaction từ BE
 ------------------------------------------ */
 export type TransactionType =
   | "PAYMENT"
@@ -14,7 +14,7 @@ export type TransactionType =
   | "AI_MODEL";
 
 /* ------------------------------------------
- 🧩 RESPONSE khi BE trả về Transaction
+  RESPONSE khi BE trả về Transaction
 ------------------------------------------ */
 export interface TransactionResponse {
   transactionId: string;
@@ -37,7 +37,7 @@ export interface TransactionSearchResponse {
 }
 
 /* ------------------------------------------
- 🧩 REQUEST BODY chuẩn khi tạo transaction
+  REQUEST BODY chuẩn khi tạo transaction
 ------------------------------------------ */
 export interface TransactionRequest {
   totalPrice: number;
@@ -49,7 +49,7 @@ export interface TransactionRequest {
   isActived: "ACTIVE" | "INACTIVE";
 }
 
-/* ⭐ NEW: Request riêng cho API /transactions/wallet/pay */
+/*  NEW: Request riêng cho API /transactions/wallet/pay */
 export interface WalletPayRequest {
   totalPrice: number;
   status: number;
@@ -63,10 +63,10 @@ export interface WalletPayRequest {
 }
 
 /* ------------------------------------------
- ⚙️ TransactionService
+  TransactionService
 ------------------------------------------ */
 export const TransactionService = {
-  // 🔹 Lấy transaction theo ID
+  //  Lấy transaction theo ID
   async getById(id: string): Promise<TransactionResponse> {
     const res = await axios.get(`${API_RK}/transactions/${id}`, {
       headers: {
@@ -76,7 +76,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // 🔹 Tạo transaction mới (PAYMENT, REFUND, ...)
+  //  Tạo transaction mới (PAYMENT, REFUND, ...)
   async create(data: TransactionRequest): Promise<TransactionResponse> {
     const res = await axios.post(`${API_RK}/transactions`, data, {
       headers: {
@@ -98,7 +98,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // ⭐ NEW: Thanh toán bằng ví /api/rookie/transactions/wallet/pay
+  //  NEW: Thanh toán bằng ví /api/rookie/transactions/wallet/pay
   async walletPay(data: WalletPayRequest): Promise<TransactionResponse> {
     const res = await axios.post(
       `${API_RK}/transactions/wallet/pay`,
@@ -113,7 +113,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // 🔹 Cập nhật transaction theo ID
+  //  Cập nhật transaction theo ID
   async update(
     id: string,
     data: Partial<TransactionRequest>
@@ -127,7 +127,7 @@ export const TransactionService = {
     return res.data;
   },
 
-  // 🔹 Xóa transaction
+  //  Xóa transaction
   async delete(id: string): Promise<void> {
     await axios.delete(`${API_RK}/transactions/${id}`, {
       headers: {
@@ -136,7 +136,7 @@ export const TransactionService = {
     });
   },
 
-  // 🔹 Tìm kiếm transaction theo: orderId, paymentMethodId, transType, ...
+  //  Tìm kiếm transaction theo: orderId, paymentMethodId, transType, ...
   async search(
     params?: Record<string, string | number | undefined>
   ): Promise<TransactionSearchResponse> {
@@ -161,8 +161,8 @@ export const TransactionService = {
   async searchTransactions(params?: {
     walletId?: string;
     orderId?: string;
-    status?:number              // ✅ add
-    transType?: TransactionType;   // ✅ add
+    status?:number              //  add
+    transType?: TransactionType;   //  add
     page?: number;
     size?: number;
     sort?: string[];

@@ -13,7 +13,7 @@ interface Props {
 
 export default function ModeratorLayout({ title, breadcrumb, children }: Props) {
   const navigate = useNavigate();
-  const location = useLocation() as any; // ✅ lấy state từ route
+  const location = useLocation() as any; //  lấy state từ route
   const { setUser, setToken } = useAuth();
 
   const handleLogout = () => {
@@ -26,7 +26,7 @@ export default function ModeratorLayout({ title, breadcrumb, children }: Props) 
     window.location.href = "/login";
   };
 
-  // ✅ route quay về ModeratorBookList (cần authorId)
+  //  route quay về ModeratorBookList (cần authorId)
   const booksListPath = useMemo(() => {
     const authorId =
       location?.state?.authorId ??
@@ -44,7 +44,7 @@ export default function ModeratorLayout({ title, breadcrumb, children }: Props) 
             {breadcrumb.map((item, i) => {
               const isBooks = item.label.trim().toLowerCase() === "books";
 
-              // ✅ nếu Books mà to bị sai (vd /moderator/books hoặc có :authorId) thì override
+              //  nếu Books mà to bị sai (vd /moderator/books hoặc có :authorId) thì override
               const computedTo =
                 isBooks
                   ? booksListPath
@@ -57,7 +57,7 @@ export default function ModeratorLayout({ title, breadcrumb, children }: Props) 
                   <span
                     onClick={() =>
                       isClickable &&
-                      navigate(computedTo!, { state: location.state }) // ✅ giữ state (books/authorId) nếu có
+                      navigate(computedTo!, { state: location.state }) //  giữ state (books/authorId) nếu có
                     }
                     className={isClickable ? "hover:text-white cursor-pointer" : "text-white font-medium"}
                   >

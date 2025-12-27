@@ -71,7 +71,7 @@ export default function AuthorBookPreview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ EXPORT FILE .DOC (nhúng ảnh base64, giữ nguyên rich text, có trang bìa, KHÔNG hiện "Trang X")
+  //  EXPORT FILE .DOC (nhúng ảnh base64, giữ nguyên rich text, có trang bìa, KHÔNG hiện "Trang X")
   const handleExportDoc = async () => {
     if (!book) {
       toast({
@@ -196,7 +196,7 @@ export default function AuthorBookPreview() {
 <body>
 `;
 
-      // 🔹 TRANG BÌA: tên sách + mô tả + ảnh bìa
+      //  TRANG BÌA: tên sách + mô tả + ảnh bìa
       html += `<div class="cover page-break">`;
       html += `<div class="cover-title">${escapeHtml(
         book.bookName || "Không tên"
@@ -218,14 +218,14 @@ export default function AuthorBookPreview() {
 
         const isPicturePage = p.pageType === "PICTURE";
 
-        // 🔹 Heading chương (khi đổi chapter)
+        //  Heading chương (khi đổi chapter)
         if (p.chapterId !== currentChapterId) {
           currentChapterId = p.chapterId;
           html += `<div class="chapter-title">Chương ${p.chapterNumber ?? ""
             }: ${escapeHtml(p.chapterName ?? "")}</div>`;
         }
 
-        // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
+        //  Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
         if (!isPicturePage && typeof p.content === "string") {
           const content = p.content.trim();
           if (content) {
@@ -240,7 +240,7 @@ export default function AuthorBookPreview() {
           }
         }
 
-        // 🔹 Ảnh minh hoạ
+        //  Ảnh minh hoạ
         let illustrationRaw: string | null = null;
         if (p.illustration?.imageUrl) {
           illustrationRaw = p.illustration.imageUrl;
@@ -266,7 +266,7 @@ export default function AuthorBookPreview() {
           html += `<p class="page-content">[Trang ảnh]</p>`;
         }
 
-        // 🔹 Marker (nếu có)
+        //  Marker (nếu có)
         if (p.markerImageUrl) {
           const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
           if (markerDataUrl) {

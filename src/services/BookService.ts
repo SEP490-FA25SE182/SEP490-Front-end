@@ -4,7 +4,7 @@ import { resolveFirebaseUrl } from "@/firebase";
 import { getToken, getCurrentUserId, getUserRole } from "@/utils/authStorage";
 
 /* =======================================================
-   🧩 INTERFACES
+    INTERFACES
 ======================================================= */
 export interface Book {
   bookId: string;
@@ -50,7 +50,7 @@ export interface GetBooksParams {
 }
 
 /* =======================================================
-   🔒 AXIOS INSTANCE
+    AXIOS INSTANCE
 ======================================================= */
 const api = axios.create({ baseURL: API_RK });
 
@@ -60,7 +60,7 @@ api.interceptors.request.use((config) => {
   if (config.headers) {
     if (token) config.headers.set?.("Authorization", `Bearer ${token}`);
   } else {
-    // ✅ Fallback cho các version cũ hoặc kiểu object
+    //  Fallback cho các version cũ hoặc kiểu object
     config.headers = {} as any;
     if (token) (config.headers as any)["Authorization"] = `Bearer ${token}`;
     if (uid) (config.headers as any)["X-User-Id"] = uid;
@@ -69,7 +69,7 @@ api.interceptors.request.use((config) => {
 });
 
 /* =======================================================
-   🧠 CLASS BOOK SERVICE
+    CLASS BOOK SERVICE
 ======================================================= */
 export class BookService {
   private userId?: string;
@@ -88,7 +88,7 @@ export class BookService {
     return override ?? this.userId ?? getCurrentUserId() ?? undefined;
   }
 
-  /** 🔧 Chuẩn hóa dữ liệu gửi đi */
+  /**  Chuẩn hóa dữ liệu gửi đi */
   private normalizeBookPayload(book: Partial<Book>) {
     const publication =
       typeof book.publicationStatus === "string"
@@ -117,7 +117,7 @@ export class BookService {
   }
 
   /* =======================================================
-     📚 LẤY DANH SÁCH SÁCH (PHÂN TRANG)
+      LẤY DANH SÁCH SÁCH (PHÂN TRANG)
   ======================================================== */
   async getBooks(
     params?: GetBooksParams,
@@ -131,12 +131,12 @@ export class BookService {
       page: params?.page ?? 0,
       size: params?.size ?? 20,
       ...params,
-      ...(role === "author" && uid ? { authorId: uid } : {}), // ✅ chỉ filter nếu là author
+      ...(role === "author" && uid ? { authorId: uid } : {}), //  chỉ filter nếu là author
     };
 
     const res = await api.get<PagedResponse<Book>>(`/users/books`, { params: finalParams });
 
-    console.log("📦 Params gửi lên:", finalParams);
+    console.log(" Params gửi lên:", finalParams);
     const books = res.data.content || [];
     const converted = await Promise.all(
       books.map(async (b) => ({
@@ -151,7 +151,7 @@ export class BookService {
   }
 
   /* =======================================================
-     📚 LẤY TOÀN BỘ SÁCH (RÚT GỌN)
+      LẤY TOÀN BỘ SÁCH (RÚT GỌN)
   ======================================================== */
   async getAllBooks(params?: GetBooksParams, userIdOverride?: string): Promise<Book[]> {
     const res = await this.getBooks(params, userIdOverride);
@@ -159,7 +159,7 @@ export class BookService {
   }
 
   /* =======================================================
-     📘 LẤY CHI TIẾT 1 SÁCH
+      LẤY CHI TIẾT 1 SÁCH
   ======================================================== */
   async getBookById(id: string): Promise<Book> {
     const res = await api.get<Book>(`/users/books/${id}`);
@@ -169,7 +169,7 @@ export class BookService {
   }
 
   /* =======================================================
-     ➕ TẠO MỚI SÁCH
+      TẠO MỚI SÁCH
   ======================================================== */
   async createBook(book: Partial<Book>): Promise<Book> {
     const normalized = this.normalizeBookPayload(book);
@@ -178,7 +178,7 @@ export class BookService {
   }
 
   /* =======================================================
-     ✏️ CẬP NHẬT SÁCH
+      CẬP NHẬT SÁCH
   ======================================================== */
   async updateBook(id: string, patch: Partial<Book>): Promise<Book> {
     // 1. Lấy dữ liệu hiện tại của sách từ BE
@@ -206,14 +206,14 @@ export class BookService {
   }
 
   /* =======================================================
-     ❌ XOÁ SÁCH
+      XOÁ SÁCH
   ======================================================== */
   async deleteBook(id: string): Promise<void> {
     await api.delete(`/users/books/${id}`);
   }
 
   /* =======================================================
-     🔄 CẬP NHẬT TRẠNG THÁI (MOD DUYỆT)
+      CẬP NHẬT TRẠNG THÁI (MOD DUYỆT)
   ======================================================== */
   async updateBookStatusFull(book: Book, newStatus: number, _message?: string): Promise<Book> {
     if (!book?.bookId?.trim()) throw new Error("book.bookId is required");
@@ -239,7 +239,7 @@ export class BookService {
   }
 
   /* =======================================================
-     🔍 TÌM SÁCH THEO TÊN (CHO GỢI Ý HASHTAG)
+      TÌM SÁCH THEO TÊN (CHO GỢI Ý HASHTAG)
   ======================================================== */
   async searchByTitle(keyword: string): Promise<Book[]> {
     if (!keyword.trim()) return [];
@@ -259,14 +259,14 @@ export class BookService {
 
       return converted;
     } catch (err) {
-      console.error("❌ Lỗi khi tìm sách:", err);
+      console.error(" Lỗi khi tìm sách:", err);
       return [];
     }
   }
 }
 
 /* =======================================================
-   📦 EXPORTS
+    EXPORTS
 ======================================================= */
 // Singleton instance
 const _bookService = new BookService();

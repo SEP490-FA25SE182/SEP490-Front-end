@@ -242,8 +242,6 @@ export default function AuthorTermsOfUse({ isOpen, onClose }: Props) {
               </div>
             </section>
 
-            {/* ✅ ĐÃ BỎ: mục “Sở hữu trí tuệ và giấy phép sử dụng” */}
-
             <section className="space-y-2">
               <h3 className="text-white font-semibold">
                 5. Nội dung bị cấm và giới hạn sử dụng
@@ -376,7 +374,6 @@ export default function AuthorTermsOfUse({ isOpen, onClose }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ Dialog hợp đồng */}
       <Dialog
         open={openContract}
         onOpenChange={(o) => !o && setOpenContract(false)}

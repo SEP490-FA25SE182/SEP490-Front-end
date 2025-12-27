@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import GLBThumbnail from "./GLBThumbnail";
 import { useGetMarkerById } from "@/services/ARService";
 import QuizViewDialog from "@/components/dialog/QuizViewDialog";
-import { useState, useEffect, useMemo } from "react"; // ✅ thêm useMemo
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
 
@@ -79,7 +79,6 @@ export default function AssetToolPanel({
     if (uid) setAuthorId(uid);
   }, []);
 
-  // ✅ SORT assets: updatedAt (mới nhất lên đầu), fallback createdAt
   const sortedAssets = useMemo(() => {
     return (assets ?? [])
       .slice()
@@ -134,7 +133,6 @@ export default function AssetToolPanel({
                     Không có model 3D.
                   </div>
                 ) : (
-                  // ✅ dùng sortedAssets thay vì assets
                   sortedAssets.map((a: any) => {
                     const rawUrl = a.assetUrl ?? a.url ?? a.fileUrl ?? "";
                     const assetUrl = typeof rawUrl === "string" ? rawUrl : "";

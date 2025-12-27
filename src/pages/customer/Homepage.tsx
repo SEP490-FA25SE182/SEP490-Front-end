@@ -27,7 +27,7 @@ import {
 } from "framer-motion";
 
 /* -------------------------
- 🖼 Danh sách ảnh quảng cáo
+  Danh sách ảnh quảng cáo
 -------------------------- */
 const advertisementImages = [
   "https://static.vecteezy.com/system/resources/previews/067/724/087/non_2x/book-festival-or-fair-horizontal-banner-for-advertising-and-promotion-piles-of-various-books-template-for-social-media-posts-web-design-world-book-day-or-back-to-school-concepts-vector.jpg",
@@ -37,7 +37,7 @@ const advertisementImages = [
 ];
 
 /* -------------------------
- 🎞 Motion helpers
+  Motion helpers
 -------------------------- */
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 16 },
@@ -75,7 +75,7 @@ const SectionReveal: React.FC<
 };
 
 /* -------------------------
- 🎨 Genre cards (UI giống ảnh)
+  Genre cards (UI giống ảnh)
 -------------------------- */
 const GENRE_BG = [
   "from-indigo-500/70 to-sky-500/20",
@@ -134,7 +134,7 @@ const GenreCard: React.FC<{
 const GenresSectionCards: React.FC<{ genres: Genre[] }> = ({ genres }) => {
   const [openAll, setOpenAll] = useState(false);
 
-  // ✅ 6 card + 1 card “+N chủ đề” (y như đang set)
+  //  6 card + 1 card “+N chủ đề” (y như đang set)
   const MAX_PREVIEW = 6;
   const preview = genres.slice(0, MAX_PREVIEW);
   const restCount = Math.max(0, genres.length - preview.length);
@@ -204,7 +204,7 @@ const GenresSectionCards: React.FC<{ genres: Genre[] }> = ({ genres }) => {
 };
 
 /* -------------------------
- 🧩 BookCard
+  BookCard
 -------------------------- */
 const BookCard: React.FC<{ book: Book }> = ({ book }) => (
   <Link to={`/book/${book.bookId}`}>
@@ -238,7 +238,7 @@ const Chip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 /* -------------------------
- 🎯 Hero slide: chip = thể loại của sách
+  Hero slide: chip = thể loại của sách
 -------------------------- */
 const HeroBookSlide: React.FC<{
   book: Book;
@@ -271,7 +271,7 @@ const HeroBookSlide: React.FC<{
                     "bg-linear-to-tr from-white via-fuchsia-200 to-sky-200",
                     "bg-clip-text text-transparent",
                     "drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]",
-                    "line-clamp-2", // ✅ clamp ở span trong cùng
+                    "line-clamp-2", //  clamp ở span trong cùng
                   ].join(" ")}
                   style={{ fontWeight: 700, fontVariationSettings: '"opsz" 96, "wght" 700, "ital" 1' }}
                 >
@@ -364,7 +364,7 @@ const HeroFullBleed: React.FC<{
     <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
-    {/* ✅ SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
+    {/*  SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
       <SnowCanvas className="z-5" buildSnowmanAfterMs={3500} density={1.1} />
 
       {/* Content nằm trên background */}
@@ -416,7 +416,7 @@ const HeroFullBleed: React.FC<{
 
 
 /* -------------------------
- 🧩 Section: Grid sách (có stagger)
+  Section: Grid sách (có stagger)
 -------------------------- */
 const BookGridSection: React.FC<{
   title: string;
@@ -459,7 +459,7 @@ const BookGridSection: React.FC<{
 };
 
 /* -------------------------
- 🎠 Section: Carousel sách (có stagger nhẹ)
+ Section: Carousel sách (có stagger nhẹ)
 -------------------------- */
 const BookCarouselSection: React.FC<{
   title: string;
@@ -565,7 +565,7 @@ const GenreRowsBlock: React.FC<{
                       ))}
                     </CarouselContent>
 
-                    {/* ✅ bỏ 2 nút này để không tràn div */}
+                    {/*  bỏ 2 nút này để không tràn div */}
                     {/* <CarouselPrevious /> */}
                     {/* <CarouselNext /> */}
                   </Carousel>
@@ -584,7 +584,7 @@ const GenreRowsBlock: React.FC<{
 };
 
 /* -------------------------
- 🌟 Homepage
+  Homepage
 -------------------------- */
 export default function Homepage() {
   const { genreId } = useParams<{ genreId?: string }>();
@@ -623,7 +623,7 @@ export default function Homepage() {
         const data = await getAllBooks({
           ...(genreId ? { genreId } : {}),
           isActived: "ACTIVE",
-          publicationStatus: 1, // ✅ chỉ lấy sách đã xuất bản
+          publicationStatus: 1, //  chỉ lấy sách đã xuất bản
         });
 
         const publishedActiveBooks = (Array.isArray(data) ? data : []).filter(
@@ -644,7 +644,7 @@ export default function Homepage() {
 
         setBooks(publishedActiveBooks);
       } catch (error) {
-        console.error("❌ Lỗi khi fetch sách:", error);
+        console.error(" Lỗi khi fetch sách:", error);
         setBooks([]);
       } finally {
         setLoading(false);
@@ -701,7 +701,7 @@ export default function Homepage() {
         const data = await getAllGenres();
         setGenres(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("❌ Lỗi khi fetch genres:", error);
+        console.error(" Lỗi khi fetch genres:", error);
         setGenres([]);
       } finally {
         setLoadingGenres(false);
@@ -844,7 +844,7 @@ export default function Homepage() {
               <HeroFullBleed books={heroBooks} genresMap={heroGenresMap} />
             </SectionReveal>
 
-            {/* ✅ Genres (card UI + +N chủ đề, bỏ kéo ngang) */}
+            {/*  Genres (card UI + +N chủ đề, bỏ kéo ngang) */}
             {loadingGenres ? (
               <SectionReveal className="mb-12">
                 <p className="text-white/60">Đang tải thể loại...</p>

@@ -468,7 +468,7 @@ export default function SnowCanvas({
 
       if (shouldBuild) {
         const cx = w * 0.28; // vị trí người tuyết
-        const target = moundTarget(w, h, cx); // ✅ chỉ tạo mound nền
+        const target = moundTarget(w, h, cx); //  chỉ tạo mound nền
 
         const k = built ? 0.08 : 0.045; // làm mịn nhanh hơn chút
         for (let i = 0; i < cols; i++) {
@@ -490,7 +490,7 @@ export default function SnowCanvas({
       if (built) {
         const cx = w * 0.28;
         const baseY = h - 26 * DPR;
-        const s = 0.9; // ✅ KHÔNG nhân DPR nữa để khỏi phình
+        const s = 0.9; //  KHÔNG nhân DPR nữa để khỏi phình
         drawCuteSnowman(ctx, cx, baseY, s);
       }
 

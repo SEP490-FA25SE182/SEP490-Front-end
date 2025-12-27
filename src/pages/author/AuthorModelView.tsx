@@ -331,7 +331,7 @@ export default function AuthorModelView() {
     try {
       const meta = {
         markerId,
-        userId,               // 👈 thêm dòng này
+        userId,               //  thêm dòng này
         fileName: file.name,  // optional: cho backend biết tên file
         format: "GLB",        // optional: clear format
       };

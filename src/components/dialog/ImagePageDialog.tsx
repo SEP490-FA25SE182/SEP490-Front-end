@@ -39,7 +39,7 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,desc"], // ✅ mới nhất lên đầu theo createdAt
+    sort: ["updatedAt,desc"], 
   });
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function ImagePageDialog({ isOpen, onClose, pageId, pageNumber, c
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && (it.illustrationId || it.id))
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc: mới nhất trước
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) 
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,

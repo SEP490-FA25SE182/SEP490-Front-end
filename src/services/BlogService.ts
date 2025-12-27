@@ -3,7 +3,7 @@ import { API_RK } from "@/config";
 import { resolveFirebaseUrl } from "@/firebase";
 
 /* -----------------------------------------
- 🧩 Interface BlogPost
+  Interface BlogPost
 ----------------------------------------- */
 export interface BlogPost {
   blogId: string;
@@ -22,7 +22,7 @@ export interface BlogPost {
 }
 
 /* -----------------------------------------
- 🧩 Interface tạo bài viết mới
+  Interface tạo bài viết mới
 ----------------------------------------- */
 export interface CreateBlogRequest {
   title: string;
@@ -35,10 +35,10 @@ export interface CreateBlogRequest {
 }
 
 /* -----------------------------------------
- 🧩 BlogService
+  BlogService
 ----------------------------------------- */
 export const BlogService = {
-  // 🔹 Lấy tất cả bài viết
+  //  Lấy tất cả bài viết
   async getAll(): Promise<BlogPost[]> {
     const res = await axios.get(`${API_RK}/blogs/search`);
     const data = Array.isArray(res.data)
@@ -47,7 +47,7 @@ export const BlogService = {
         ? res.data.content
         : [];
 
-    // ✅ convert gs:// thành link hiển thị https://
+    //  convert gs:// thành link hiển thị https://
     const blogs = await Promise.all(
       data.map(async (b: BlogPost) => ({
         ...b,
@@ -57,7 +57,7 @@ export const BlogService = {
     return blogs;
   },
 
-  // 🔹 Lấy bài viết theo ID
+  //  Lấy bài viết theo ID
   async getById(blogId: string): Promise<BlogPost> {
     const res = await axios.get(`${API_RK}/blogs/${blogId}`);
     const blog = res.data;
@@ -68,7 +68,7 @@ export const BlogService = {
     };
   },
 
-  // 🔹 Tạo bài viết mới (coverUrl là gs://...)
+  //  Tạo bài viết mới (coverUrl là gs://...)
   async create(data: CreateBlogRequest): Promise<BlogPost> {
     const payload = {
       ...data,
@@ -87,7 +87,7 @@ export const BlogService = {
     };
   },
 
-  // 🔹 Cập nhật bài viết (có thể cập nhật lại coverUrl gs://...)
+  //  Cập nhật bài viết (có thể cập nhật lại coverUrl gs://...)
   async update(blogId: string, data: Partial<CreateBlogRequest>): Promise<BlogPost> {
     const res = await axios.put(`${API_RK}/blogs/${blogId}`, data);
     const updated = res.data;
@@ -97,12 +97,12 @@ export const BlogService = {
     };
   },
 
-  // 🔹 Xóa bài viết
+  //  Xóa bài viết
   async remove(blogId: string): Promise<void> {
     await axios.delete(`${API_RK}/blogs/${blogId}`);
   },
 
-  // 🔹 Tìm kiếm bài viết (mặc định chỉ lấy ACTIVE)
+  //  Tìm kiếm bài viết (mặc định chỉ lấy ACTIVE)
   async search(params: {
     title?: string;
     content?: string;
@@ -126,7 +126,7 @@ export const BlogService = {
     return blogs;
   },
 
-  // 🔹 Lọc bài viết (ví dụ chỉ lấy ACTIVE)
+  //  Lọc bài viết (ví dụ chỉ lấy ACTIVE)
   async filter(params: {
     isActived?: "ACTIVE" | "INACTIVE" | "BANNED";
     tagIds?: string[];
@@ -146,7 +146,7 @@ export const BlogService = {
     return blogs;
   },
 
-  // 🔹 Lấy blog của user cụ thể
+  //  Lấy blog của user cụ thể
   async getByUser(authorId: string): Promise<BlogPost[]> {
     const res = await axios.get(`${API_RK}/blogs/search/user`, {
       params: { authorId },
@@ -165,7 +165,7 @@ export const BlogService = {
 
 
 /* =======================================================
-   💬 INTERFACE COMMENT
+    INTERFACE COMMENT
 ======================================================= */
 export interface Comment {
   commentId: string;
@@ -179,10 +179,10 @@ export interface Comment {
 }
 
 /* =======================================================
-   💡 REQUEST BODY
+    REQUEST BODY
 ======================================================= */
 
-// 🔹 Body khi tạo mới comment
+//  Body khi tạo mới comment
 export interface CreateCommentRequest {
   content: string;
   isPublished: boolean;
@@ -191,7 +191,7 @@ export interface CreateCommentRequest {
   isActived: "ACTIVE" | "INACTIVE";
 }
 
-// 🔹 Body khi cập nhật comment
+//  Body khi cập nhật comment
 export interface UpdateCommentRequest {
   content: string;
   isPublished: boolean;
@@ -201,10 +201,10 @@ export interface UpdateCommentRequest {
 }
 
 /* =======================================================
-   ⚙️ COMMENT SERVICE
+    COMMENT SERVICE
 ======================================================= */
 export const CommentService = {
-  // 🔹 Lấy tất cả comment (GET /api/rookie/users/comments)
+  //  Lấy tất cả comment (GET /api/rookie/users/comments)
   async getAll(params?: {
     userId?: string;
     blogId?: string;
@@ -223,34 +223,34 @@ export const CommentService = {
     const res = await axios.get(url);
     const data = res.data;
 
-    // ✅ Nếu backend trả dạng PageResponse thì chỉ lấy phần content
+    //  Nếu backend trả dạng PageResponse thì chỉ lấy phần content
     if (Array.isArray(data?.content)) {
       return data.content;
     }
 
-    // ✅ Nếu backend trả về list thuần
+    //  Nếu backend trả về list thuần
     return data;
   },
 
-  // 🔹 Lấy comment theo ID (GET /api/rookie/users/comments/{id})
+  //  Lấy comment theo ID (GET /api/rookie/users/comments/{id})
   async getById(id: string): Promise<Comment> {
     const res = await axios.get(`${API_RK}/users/comments/${id}`);
     return res.data;
   },
 
-  // 🔹 Tạo mới comment (POST /api/rookie/users/comments)
+  //  Tạo mới comment (POST /api/rookie/users/comments)
   async create(data: CreateCommentRequest): Promise<Comment> {
     const res = await axios.post(`${API_RK}/users/comments`, data);
     return res.data;
   },
 
-  // 🔹 Cập nhật comment (PUT /api/rookie/users/comments/{id})
+  //  Cập nhật comment (PUT /api/rookie/users/comments/{id})
   async update(id: string, data: UpdateCommentRequest): Promise<Comment> {
     const res = await axios.put(`${API_RK}/users/comments/${id}`, data);
     return res.data;
   },
 
-  // 🔹 Xóa comment (DELETE /api/rookie/users/comments/{id})
+  //  Xóa comment (DELETE /api/rookie/users/comments/{id})
   async remove(id: string): Promise<void> {
     await axios.delete(`${API_RK}/users/comments/${id}`);
   },
@@ -259,7 +259,7 @@ export const CommentService = {
 
 
 /* =======================================================
-   🏷️ INTERFACES
+    INTERFACES
 ======================================================= */
 
 /**
@@ -273,7 +273,7 @@ export interface Tag {
 
 /**
  * Body khi tạo mới tag (POST)
- * ➤ Backend yêu cầu gửi MẢNG
+ *  Backend yêu cầu gửi MẢNG
  */
 export interface CreateTagRequest {
   name: string;
@@ -289,23 +289,23 @@ export interface UpdateTagRequest {
 }
 
 /* =======================================================
-   ⚙️ TAG SERVICE
+    TAG SERVICE
 ======================================================= */
 export const TagService = {
-  // 🔹 GET /api/rookie/tags — Lấy tất cả tag
+  //  GET /api/rookie/tags — Lấy tất cả tag
   async getAll(): Promise<Tag[]> {
     const res = await axios.get(`${API_RK}/tags`);
     const data = res.data;
     return Array.isArray(data?.content) ? data.content : data;
   },
 
-  // 🔹 GET /api/rookie/tags/{id} — Lấy 1 tag theo ID
+  //  GET /api/rookie/tags/{id} — Lấy 1 tag theo ID
   async getById(id: string): Promise<Tag> {
     const res = await axios.get(`${API_RK}/tags/${id}`);
     return res.data;
   },
 
-  // 🔹 POST /api/rookie/tags — Tạo mới tag (⚠️ Backend yêu cầu gửi MẢNG)
+  //  POST /api/rookie/tags — Tạo mới tag ( Backend yêu cầu gửi MẢNG)
   async create(tagList: CreateTagRequest[]): Promise<Tag[]> {
     const res = await axios.post(`${API_RK}/tags`, tagList, {
       headers: { "Content-Type": "application/json" },
@@ -315,18 +315,18 @@ export const TagService = {
     return Array.isArray(data?.content) ? data.content : data;
   },
 
-  // 🔹 PUT /api/rookie/tags/{id} — Cập nhật tag
+  //  PUT /api/rookie/tags/{id} — Cập nhật tag
   async update(id: string, data: UpdateTagRequest): Promise<Tag> {
     const res = await axios.put(`${API_RK}/tags/${id}`, data);
     return res.data;
   },
 
-  // 🔹 DELETE /api/rookie/tags/{id} — Xoá tag
+  //  DELETE /api/rookie/tags/{id} — Xoá tag
   async remove(id: string): Promise<void> {
     await axios.delete(`${API_RK}/tags/${id}`);
   },
 
-  // 🔹 GET /api/rookie/tags/search — Tìm kiếm tag
+  //  GET /api/rookie/tags/search — Tìm kiếm tag
   async search(params: { keyword?: string; page?: number; size?: number }): Promise<Tag[]> {
     const res = await axios.get(`${API_RK}/tags/search`, { params });
     const data = res.data;

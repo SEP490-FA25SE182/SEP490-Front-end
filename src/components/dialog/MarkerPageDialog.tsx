@@ -24,12 +24,11 @@ interface Props {
 export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
   const { toast } = useToast();
 
-  // ✅ server sort theo createdAt desc (mới nhất lên đầu)
   const { data: markersResp } = useSearchMarkers({
     page: 0,
-    size: 9999,                 // ✅ lấy tất cả
-    sort: ["updatedAt,asc"],   // ✅ gần đây nhất trước
-    // isActived: "ACTIVE",      // nếu BE hỗ trợ filter thì bật lên
+    size: 9999,                 
+    sort: ["updatedAt,asc"],  
+    // isActived: "ACTIVE",   
   });
 
   const markers = markersResp?.content ?? [];
@@ -40,7 +39,6 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
     if (!isOpen) setSelectedMarkerId("");
   }, [isOpen]);
 
-  // ✅ client sort fallback theo createdAt desc
   const markerList = useMemo(() => {
     if (!Array.isArray(markers)) return [];
 
@@ -49,7 +47,7 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
 
     return markers
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ desc
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) //  desc
       .map((m: any) => ({
         id: (m.markerId ?? m.id) as string,
         code: m.markerCode,

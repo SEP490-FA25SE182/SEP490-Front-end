@@ -32,13 +32,13 @@ const AuthorPageDetail = () => {
     if (uid) setAuthorId(uid);
   }, []);
 
-  // 🔹 lấy relations & illustrations
+  //  lấy relations & illustrations
   const { data: pageIllustrationsResp } = useSearchPageIllustrations();
   const { data: illustrationsResp } = useGetAllIllustrations();
-  // 🔹 lấy marker gắn theo page (sử dụng pageId)
+  //  lấy marker gắn theo page (sử dụng pageId)
   const { data: markersResp } = useSearchMarkers({ pageId });
 
-  // 🔹 lấy quan hệ page-audio + list audio
+  //  lấy quan hệ page-audio + list audio
   const { data: pageAudiosResp } = useSearchPageAudios({ pageId });
   // useSearchAudios filtered by authorId
   const { data: audiosResp } = useSearchAudios(authorId ? { userId: authorId } : undefined);
@@ -108,7 +108,7 @@ const AuthorPageDetail = () => {
     [pageAudios, audios]
   );
 
-  // 🔹 helper
+  //  helper
   const isImageUrl = (url?: string) => {
     if (!url) return false;
     return (
@@ -130,7 +130,7 @@ const AuthorPageDetail = () => {
     return url;
   };
 
-  // ✅ TẤT CẢ HOOK nằm trên này, không có hook phía dưới nữa
+  //  TẤT CẢ HOOK nằm trên này, không có hook phía dưới nữa
 
   if (isLoading) {
     return (
@@ -148,7 +148,7 @@ const AuthorPageDetail = () => {
     );
   }
 
-  // 🔹 Tính imageUrl từ relation nhưng KHÔNG dùng hook
+  //  Tính imageUrl từ relation nhưng KHÔNG dùng hook
   const imageUrlFromRelation = (() => {
     if (!page.pageId) return undefined;
 

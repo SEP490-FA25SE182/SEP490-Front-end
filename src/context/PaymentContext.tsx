@@ -34,14 +34,14 @@ export const PaymentProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
 
   /**
-   * 🧾 Thêm 1 giao dịch mới
+   *  Thêm 1 giao dịch mới
    */
   const addPaymentRecord = (record: PaymentRecord) => {
     setPayments((prev) => [record, ...prev]);
   };
 
   /**
-   * 🔄 Cập nhật trạng thái giao dịch (VD: từ pending → success)
+   *  Cập nhật trạng thái giao dịch (VD: từ pending → success)
    */
   const updatePaymentStatus = (id: string, status: PaymentRecord["status"]) => {
     setPayments((prev) =>
@@ -50,7 +50,7 @@ export const PaymentProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   /**
-   * 🧹 Xoá toàn bộ lịch sử giao dịch
+   *  Xoá toàn bộ lịch sử giao dịch
    */
   const clearPayments = () => {
     setPayments([]);

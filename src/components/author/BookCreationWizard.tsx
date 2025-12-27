@@ -34,7 +34,6 @@ export default function BookCreationWizard(props: WizardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ✅ Lấy authorId từ currentUserId (localStorage) -> user.userId -> getUserByEmail
   useEffect(() => {
     const fetchAuthorId = async () => {
       try {
@@ -47,7 +46,7 @@ export default function BookCreationWizard(props: WizardProps) {
 
         // 2) từ AuthContext
         if (user?.userId) {
-          const uid: string = user.userId; // 👈 thu hẹp kiểu tại đây
+          const uid: string = user.userId; //  thu hẹp kiểu tại đây
           setBook((prev) => ({ ...prev, authorId: uid }));
           return;
         }
@@ -56,7 +55,7 @@ export default function BookCreationWizard(props: WizardProps) {
         if (user?.email) {
           const currentUser = await getUserByEmail(user.email);
           if (currentUser?.userId) {
-            const uid: string = currentUser.userId; // 👈 cũng thu hẹp
+            const uid: string = currentUser.userId; //  cũng thu hẹp
             setBook((prev) => ({ ...prev, authorId: uid }));
             return;
           }
@@ -70,7 +69,7 @@ export default function BookCreationWizard(props: WizardProps) {
           variant: "destructive",
         });
       } catch (error) {
-        console.error("❌ Lỗi khi xác định authorId:", error);
+        console.error(" Lỗi khi xác định authorId:", error);
         toast({
           title: "Lỗi",
           description: "Không thể lấy thông tin tác giả. Vui lòng thử lại sau.",

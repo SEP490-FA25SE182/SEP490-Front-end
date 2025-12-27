@@ -10,7 +10,7 @@ import { useGetPageById } from "@/services/BookManageService";
 import {
   useGetAllMarkers,
   useAttachMarkerToPage,
-} from "@/services/ARService"; // ⚠️ sửa lại path nếu file service tên khác
+} from "@/services/ARService"; //  sửa lại path nếu file service tên khác
 
 // helper convert gs:// -> https preview
 function gsToHttp(url: string) {

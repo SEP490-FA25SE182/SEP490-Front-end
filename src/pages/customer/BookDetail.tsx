@@ -22,7 +22,7 @@ import { getAllGenres, type Genre } from "@/services/GenreService";
 import { useAuth } from "@/context/AuthContext";
 
 /* ---------------------------
- 🧩 Review và StarRating
+  Review và StarRating
 --------------------------- */
 const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
   <div className="flex">
@@ -38,7 +38,7 @@ const StarRating: React.FC<{ rating: number }> = ({ rating }) => (
 );
 
 /* ---------------------------
- 📘 BookCard cho sách liên quan
+  BookCard cho sách liên quan
 --------------------------- */
 const BookCard: React.FC<{ book: Book }> = ({ book }) => (
   <Link to={`/book/${book.bookId}`}>
@@ -66,7 +66,7 @@ const BookCard: React.FC<{ book: Book }> = ({ book }) => (
 );
 
 /* ---------------------------
- 🌟 BookDetail chính
+  BookDetail chính
 --------------------------- */
 export const BookDetail = () => {
   const { bookId } = useParams<{ bookId: string }>();
@@ -91,28 +91,28 @@ export const BookDetail = () => {
   const [averageRating, setAverageRating] = useState<number>(0);
 
   /* ---------------------------
-   📡 Fetch book detail & feedbacks
+    Fetch book detail & feedbacks
   --------------------------- */
   useEffect(() => {
     const fetchBookData = async () => {
       try {
         if (!bookId) return;
 
-        // 1️⃣ Lấy thông tin sách
+        //  Lấy thông tin sách
         const bookData = await getBookById(bookId);
         setBook(bookData);
 
-        // 🔹 Lấy danh sách thể loại theo bookId
+        //  Lấy danh sách thể loại theo bookId
         const genresData = await getAllGenres(bookId);
         setGenres(genresData ?? []);
 
-        // 2️⃣ Lấy feedback thật từ API
+        //  Lấy feedback thật từ API
         const allFeedbacks = await FeedbackService.getAll();
         const filtered = allFeedbacks.filter(
           (f) => f.bookId === bookId && f.isActived === "ACTIVE"
         );
 
-        // 3️⃣ Gắn tên người dùng song song
+        //  Gắn tên người dùng song song
         const feedbacksWithUser = await Promise.all(
           filtered.map(async (f) => {
             try {
@@ -125,7 +125,7 @@ export const BookDetail = () => {
         );
         setFeedbacks(feedbacksWithUser);
 
-        // 4️⃣ Tính trung bình rating
+        //  Tính trung bình rating
         if (feedbacksWithUser.length > 0) {
           const total = feedbacksWithUser.reduce(
             (sum, f) => sum + parseFloat(f.rating),
@@ -136,7 +136,7 @@ export const BookDetail = () => {
           setAverageRating(0);
         }
 
-        // 5️⃣ Lấy sách liên quan
+        //  Lấy sách liên quan
         const allBooks = await getAllBooks();
         const related = allBooks
           .filter(
@@ -147,7 +147,7 @@ export const BookDetail = () => {
           .slice(0, 4);
         setRelatedBooks(related);
       } catch (err) {
-        console.error("❌ Lỗi khi lấy dữ liệu sách:", err);
+        console.error(" Lỗi khi lấy dữ liệu sách:", err);
       } finally {
         setLoading(false);
       }
@@ -156,7 +156,7 @@ export const BookDetail = () => {
   }, [bookId]);
 
   /* ---------------------------
-   🧾 Format ngày
+    Format ngày
   --------------------------- */
   const formatDate = (dateString?: string | null) =>
     dateString
@@ -168,7 +168,7 @@ export const BookDetail = () => {
       : "Không rõ";
 
   /* ---------------------------
-   🛒 Thêm vào giỏ hàng
+    Thêm vào giỏ hàng
   --------------------------- */
   const handleAddToCart = async () => {
     if (!book) return;
@@ -186,7 +186,7 @@ export const BookDetail = () => {
   };
 
   /* ---------------------------
-   🖼 Giao diện chính
+    Giao diện chính
   --------------------------- */
   if (loading)
     return (
@@ -302,7 +302,7 @@ export const BookDetail = () => {
         <div className="mt-12 border-t border-white/20 pt-8">
           <h2 className="text-2xl font-bold text-white mb-2">Đánh giá</h2>
 
-          {/* ⭐ Filter & Summary */}
+          {/*  Filter & Summary */}
           {feedbacks.length > 0 ? (
             <div className="flex items-center gap-3 mb-6">
               <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />

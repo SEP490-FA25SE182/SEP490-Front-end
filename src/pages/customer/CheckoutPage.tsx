@@ -534,7 +534,10 @@ export default function CheckoutPage() {
       const response: PaymentCheckoutResponse =
         await PaymentService.createPaymentCheckout(orderId);
 
-      localStorage.setItem("lastOrder", JSON.stringify(orderId));
+      localStorage.setItem("lastOrder", JSON.stringify({
+    orderId,
+    orderCode: response.orderCode, // ✅ thêm dòng này
+  }));
       const checkoutUrl = response?.checkoutUrl;
 
       if (checkoutUrl && checkoutUrl.startsWith("https")) {

@@ -304,41 +304,14 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
               </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Tên file
-                </label>
-                <Input
-                  value={audioData.title}
-                  onChange={(e) =>
-                    setAudioData({ ...audioData, title: e.target.value })
-                  }
-                  placeholder="Tên file khi lưu..."
-                  className="bg-gray-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Ngôn ngữ</label>
-                <Select
-                  value={audioData.language}
-                  onValueChange={(value) =>
-                    setAudioData({ ...audioData, language: value })
-                  }
-                >
-                  <SelectTrigger className="bg-white border-gray-300">
-                    <SelectValue placeholder="Chọn ngôn ngữ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code}>
-                        {lang.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="mt-3">
+              <label className="block text-sm text-gray-700 mb-1">Tên file</label>
+              <Input
+                value={audioData.title}
+                onChange={(e) => setAudioData({ ...audioData, title: e.target.value })}
+                placeholder="Tên file khi lưu..."
+                className="bg-gray-100"
+              />
             </div>
 
             <div className="mt-3 flex flex-col items-center">
@@ -427,7 +400,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
                     </Select>
                   </div>
                 </div>
- 
+
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">
                     Ngôn ngữ

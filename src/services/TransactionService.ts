@@ -170,8 +170,8 @@ export const TransactionService = {
     const qp = new URLSearchParams();
 
     if (params?.walletId) qp.set("walletId", String(params.walletId));
-    if (params?.orderId) qp.set("orderId", String(params.orderId));           // ✅ add
-    if (params?.transType) qp.set("transType", String(params.transType));     // ✅ add
+    if (params?.orderId) qp.set("orderId", String(params.orderId));        
+    if (params?.transType) qp.set("transType", String(params.transType)); 
 
     if (params?.page !== undefined) qp.set("page", String(params.page));
     if (params?.size !== undefined) qp.set("size", String(params.size));

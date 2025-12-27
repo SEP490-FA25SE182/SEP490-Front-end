@@ -277,6 +277,17 @@ export default function CartPage() {
 
                           <button
                             disabled={isMaxStock || isOutOfStock}
+                            onClick={() =>
+                              setQty(
+                                line.book.bookId,
+                                line.qty + 1,
+                                line.book.price
+                              )
+                            }
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
                             className="w-8 h-8 grid place-items-center rounded-lg bg-white/10 text-white hover:bg-white/20"
                             onClick={() =>
                               setQty(

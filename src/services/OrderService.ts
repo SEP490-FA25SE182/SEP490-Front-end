@@ -25,6 +25,7 @@ export interface OrderResponse {
   userAddressId: string;
   reason?: string;
   imageUrl?: string;
+  shippingFee?: number | null;
 
 }
 

@@ -1,26 +1,47 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
 import { askGemini } from "@/services/Gemini";
 
 export default function AIChatWidget() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
+  const [messages, setMessages] = useState<
+    { sender: "user" | "ai"; text: string }[]
+  >([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ debounce: 1 request / 2s
+  const lastSendRef = useRef(0);
+
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
+
+    const now = Date.now();
+    if (now - lastSendRef.current < 2000) {
+      setMessages(prev => [
+        ...prev,
+        { sender: "ai", text: "⏳ Chờ 2 giây rồi gửi tiếp nhé." },
+      ]);
+      return;
+    }
+    lastSendRef.current = now;
 
     const userMessage = input;
     setMessages(prev => [...prev, { sender: "user", text: userMessage }]);
     setInput("");
     setLoading(true);
 
-    // gọi Gemini API
-    const reply = await askGemini(userMessage);
-
-    setMessages(prev => [...prev, { sender: "ai", text: reply }]);
-    setLoading(false);
+    try {
+      const reply = await askGemini(userMessage);
+      setMessages(prev => [...prev, { sender: "ai", text: reply }]);
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,7 +57,6 @@ export default function AIChatWidget() {
       {/* Chatbox */}
       {open && (
         <div className="fixed bottom-20 right-6 w-80 h-[460px] bg-white rounded-xl shadow-xl border flex flex-col z-50">
-
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b bg-blue-600 text-white rounded-t-xl">
             <h3 className="font-semibold text-lg">Trợ lý AI</h3>
@@ -70,20 +90,26 @@ export default function AIChatWidget() {
           {/* Input */}
           <div className="p-3 border-t flex gap-2">
             <input
-              className="flex-1 border rounded-lg px-3 py-2 text-sm"
+              disabled={loading}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm disabled:bg-gray-100"
               placeholder="Nhập tin nhắn..."
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && sendMessage()}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
             />
             <button
+              disabled={loading}
               onClick={sendMessage}
-              className="bg-blue-600 text-white rounded-lg px-3 hover:bg-blue-700"
+              className="bg-blue-600 text-white rounded-lg px-3 hover:bg-blue-700 disabled:opacity-50"
             >
               <Send size={18} />
             </button>
           </div>
-
         </div>
       )}
     </>

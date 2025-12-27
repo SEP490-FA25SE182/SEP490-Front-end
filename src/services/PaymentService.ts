@@ -28,6 +28,22 @@ export interface PaymentWebhookResponse {
 }
 
 /* =====================================================
+   🔁 PAYOS REDIRECT / CANCEL CALLBACK
+===================================================== */
+export interface PayOSRedirectCallbackParams {
+  status?: string;      // ví dụ "CANCELLED"
+  cancel?: string;      // "true"
+  orderCode: number;    // bắt buộc (BE cần)
+}
+
+export interface PayOSRedirectCallbackResponse {
+  // tuỳ BE trả gì, nếu chưa có thì để any/unknown
+  success?: boolean;
+  message?: string;
+}
+
+
+/* =====================================================
    💳 PAYMENT SERVICE
 ===================================================== */
 export const PaymentService = {
@@ -39,7 +55,7 @@ export const PaymentService = {
     console.log("📦 Gửi request tạo thanh toán PayOS cho order:", orderId);
 
     const returnUrl = `${window.location.origin}/payment-status?success=true`;
-    const cancelUrl = `${window.location.origin}/payment-status?success=false`;
+    const cancelUrl = `${window.location.origin}/payment-status?success=false&orderId=${orderId}`;
 
     const res = await axios.post(`${API_RK}/payments/${orderId}/checkout`, null, {
       params: { returnUrl, cancelUrl },
@@ -64,4 +80,28 @@ export const PaymentService = {
     console.log("✅ Phản hồi webhook:", res.data);
     return res.data as PaymentWebhookResponse;
   },
+
+    /**
+   * 🚫 Callback khi user huỷ / thanh toán thất bại (PayOS redirect cancel)
+   * FE gọi để BE set Transaction=CANCELED và Order=CANCELLED
+   */
+  async redirectCancelCallback(
+    params: PayOSRedirectCallbackParams
+  ): Promise<PayOSRedirectCallbackResponse> {
+    console.log("🚫 Gọi callback cancel:", params);
+
+    // Ví dụ endpoint (bạn chỉnh đúng theo controller của BE):
+    // GET  /payments/redirect
+    const res = await axios.get(`${API_RK}/payments/callback`, {
+      params: {
+        status: params.status ?? "CANCELLED",
+        cancel: params.cancel ?? "true",
+        orderCode: params.orderCode,
+      },
+    });
+
+    console.log("✅ Phản hồi callback cancel:", res.data);
+    return res.data as PayOSRedirectCallbackResponse;
+  },
+
 };

@@ -216,7 +216,7 @@ export default function AuthorProfile() {
       setUser(refreshed);
       setEdited(refreshed);
 
-      // 🔄 refresh wallets bằng searchWallets
+      //  refresh wallets bằng searchWallets
       try {
         const w = await getWalletByUserId(uid);
         setWallets(w ? [w] : []);
@@ -250,7 +250,7 @@ export default function AuthorProfile() {
       const res: any = await TransactionService.searchTransactions({
         walletId: wid,
         page,
-        size: TX_PAGE_SIZE, // ✅ 10 / page
+        size: TX_PAGE_SIZE, //  10 / page
         sort: ["createdAt,desc"], // nếu BE hỗ trợ
       });
 
@@ -542,7 +542,7 @@ export default function AuthorProfile() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {/* ❌ Bỏ cột WalletId, chỉ để thông tin ví */}
+                          {/*  Bỏ cột WalletId, chỉ để thông tin ví */}
                           <TableHead className="text-white">Số dư</TableHead>
                           <TableHead className="text-white">Coin</TableHead>
                           <TableHead className="text-white">

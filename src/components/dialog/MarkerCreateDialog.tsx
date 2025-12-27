@@ -40,7 +40,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
     userId,
     page: 0,
     size: 9999,
-    sort: ["updatedAt,desc"], // ✅ sort từ server (nếu hỗ trợ)
+    sort: ["updatedAt,desc"], 
   });
 
   // reset state khi đóng dialog
@@ -83,7 +83,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
 
     return illustrations
       .filter((it: any) => it.isActived === "ACTIVE" && !!(it.illustrationId ?? it.id))
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ DESC: mới -> cũ
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt))
       .map((it: any) => ({
         id: it.illustrationId ?? it.id,
         title: it.title,

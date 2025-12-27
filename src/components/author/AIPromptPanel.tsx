@@ -18,14 +18,14 @@ import {
 } from "@/services/AIService";
 import SpinningCubeLoader from "@/components/loading/SpinningCubeLoader";
 
-/* 🔹 ADD: dùng toast */
+/*  ADD: dùng toast */
 import { useToast } from "@/components/ui/use-toast";
-/* 🔹 ADD: gọi API trừ tiền */
+/*  ADD: gọi API trừ tiền */
 import {
   TransactionService,
   type WalletPayRequest,
 } from "@/services/TransactionService";
-/* 🔹 ADD: lấy userId giống BookCreationWizard */
+/*  ADD: lấy userId giống BookCreationWizard */
 import { getCurrentUserId } from "@/utils/authStorage";
 
 interface AIPromptPanelProps {
@@ -57,7 +57,7 @@ function getDimensionsForAspect(aspect: string, maxSide = 1024) {
   }
 }
 
-const DEFAULT_ASPECT = "2:3"; // ✅ mặc định 2:3
+const DEFAULT_ASPECT = "2:3";
 const DEFAULT_DIMS = getDimensionsForAspect(DEFAULT_ASPECT);
 
 const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
@@ -66,13 +66,12 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
     prompt: "",
     negativePrompt: "",
     mode: "TEXT_TO_IMAGE",
-    // ✅ width/height mặc định theo 2:3
     width: DEFAULT_DIMS.width,
     height: DEFAULT_DIMS.height,
     accept: "image/*",
     stylePreset: "PHOTOGRAPHIC",
     style: "Photographic",
-    aspectRatio: DEFAULT_ASPECT, // ✅ 2:3
+    aspectRatio: DEFAULT_ASPECT,
     format: "png",
     title: "",
     controlnetType: "",
@@ -87,10 +86,10 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
   const createAIGeneration = useCreateAIGeneration();
   const createAIGenerationTarget = useCreateAIGenerationTarget();
   const generateWithImage = useGenerateIllustrationWithImage();
-  const { toast } = useToast(); // 🔹 ADD
+  const { toast } = useToast(); //  ADD
 
   const getUserId = (): string => {
-    // 🔹 ADD: ưu tiên lấy theo helper giống BookCreationWizard
+    //  ADD: ưu tiên lấy theo helper giống BookCreationWizard
     try {
       const uidFromStorage = getCurrentUserId();
       if (uidFromStorage) return uidFromStorage;
@@ -137,7 +136,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
     };
 
     try {
-      // 🔹 ADD: gọi API trừ tiền trước khi tạo ảnh
+      //  ADD: gọi API trừ tiền trước khi tạo ảnh
       const walletPayload: WalletPayRequest = {
         totalPrice: 1000,
         status: 3,
@@ -157,7 +156,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
         description: "Đã trừ 1.000đ từ ví của bạn.",
       });
 
-      // 🔹 phần generate ảnh AI giữ nguyên
+      //  phần generate ảnh AI giữ nguyên
       const [genRes, aiGenRes] = await Promise.all([
         generateWithImage.mutateAsync({ userId, meta }),
         createAIGeneration.mutateAsync([
@@ -200,7 +199,7 @@ const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerated }) => {
       onGenerated?.({ imageUrl: imageUrl || "", aiGeneration: aiGenObj });
     } catch (error) {
       console.error("Error generating AI image:", error);
-      // 🔹 ADD: toast báo lỗi chung (thanh toán hoặc generate lỗi)
+      //  ADD: toast báo lỗi chung (thanh toán hoặc generate lỗi)
       toast({
         title: "Lỗi",
         description: "Thanh toán hoặc tạo ảnh thất bại. Vui lòng thử lại.",

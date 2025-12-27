@@ -50,7 +50,7 @@ export default function ImageCreate() {
 
         // Nếu không lấy được thì để null (khi upload sẽ báo)
       } catch (error) {
-        console.error("❌ Lỗi khi xác định authorId:", error);
+        console.error(" Lỗi khi xác định authorId:", error);
       }
     };
 
@@ -184,12 +184,12 @@ export default function ImageCreate() {
         {/* Body */}
         <div className="flex-1 overflow-auto bg-[#0f172a] p-8">
           {aiPanelOpen ? (
-            // ✅ Khi mở AI Panel → chiếm full phần nội dung (giữ nguyên sidebar)
+            //  Khi mở AI Panel → chiếm full phần nội dung (giữ nguyên sidebar)
             <div className="h-full overflow-auto">
               <AIPromptPanel onGenerated={handleAIImageGenerated} />
             </div>
           ) : (
-            // ✅ Giao diện upload thủ công
+            //  Giao diện upload thủ công
             <>
               <h2 className="text-xl font-semibold mb-6">Upload ảnh từ máy</h2>
 

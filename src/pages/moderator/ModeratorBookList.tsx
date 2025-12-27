@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ModeratorLayout from "./ModeratorLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getBooks } from "@/services/BookService"; // ✅ dùng api lấy sách
+import { getBooks } from "@/services/BookService"; //  dùng api lấy sách
 
 export default function ModeratorBookList() {
   const { state } = useLocation() as any;
@@ -14,7 +14,7 @@ export default function ModeratorBookList() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
-  // ✅ nếu không có state.books thì tự load theo authorId
+  //  nếu không có state.books thì tự load theo authorId
   useEffect(() => {
     if (books.length > 0) return;
     if (!authorId) return;

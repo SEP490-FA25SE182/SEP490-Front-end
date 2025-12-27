@@ -108,16 +108,16 @@ export default function UserManagementPage() {
     fetchRole();
   }, [user?.email]);
 
-  // 🔹 Lấy toàn bộ user
+  //  Lấy toàn bộ user
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
         const res = await getAllUsers();
-        setAllUsers(res); // ✅ thêm
-        setUsers(res); // ✅ thêm (list đang hiển thị)
+        setAllUsers(res); //  thêm
+        setUsers(res); //  thêm (list đang hiển thị)
       } catch (err) {
-        console.error("❌ Lỗi khi tải user:", err);
+        console.error(" Lỗi khi tải user:", err);
         toast.error("Không thể tải danh sách người dùng");
       } finally {
         setLoading(false);
@@ -150,7 +150,7 @@ export default function UserManagementPage() {
     }
   }, [allUsers]);
 
-  // 🔹 Lấy tên role tương ứng cho từng user
+  //  Lấy tên role tương ứng cho từng user
   useEffect(() => {
     async function fetchRoleNames() {
       const map: Record<string, string> = {};
@@ -213,20 +213,20 @@ export default function UserManagementPage() {
 
   const isCurrentUserAdmin = currentRoleName === "admin";
 
-  // 🗑️ Xóa user
+  //  Xóa user
   const handleDelete = async (userId: string) => {
     if (!confirm("Bạn có chắc muốn xóa người dùng này?")) return;
     try {
       await deleteUser(userId);
       toast.success("Đã xóa người dùng thành công");
       setUsers((prev) => prev.filter((u) => u.userId !== userId));
-      setAllUsers((prev) => prev.filter((u) => u.userId !== userId)); // ✅ thêm
+      setAllUsers((prev) => prev.filter((u) => u.userId !== userId)); //  thêm
     } catch (err) {
       toast.error("Không thể xóa người dùng");
     }
   };
 
-  // 🔎 Lọc theo role / status
+  //  Lọc theo role / status
   const filteredUsers = allUsers.filter((u) => {
     const q = searchQuery.trim().toLowerCase();
 
@@ -249,8 +249,8 @@ export default function UserManagementPage() {
     setOpenRoyaltyModal(true);
     setSelectedUser(u);
     setContract(null);
-    setContractPreviewUrls([]); // ✅
-    setContractFiles([]);       // ✅
+    setContractPreviewUrls([]); // 
+    setContractFiles([]);       // 
 
     try {
       const contracts = await ContractService.search();
@@ -274,13 +274,13 @@ export default function UserManagementPage() {
     try {
       setSavingRoyalty(true);
 
-      // ✅ 1. UPDATE ROYALTY USER (GIỮ NGUYÊN CÁCH CŨ)
+      //  1. UPDATE ROYALTY USER (GIỮ NGUYÊN CÁCH CŨ)
       await updateUser(selectedUser.userId, {
         ...selectedUser,
         royalty: royaltyValue,
       });
 
-      // ✅ 2. UPLOAD FILE NẾU CÓ
+      //  2. UPLOAD FILE NẾU CÓ
       let documentUrls: string[] = contract?.documentUrls ?? [];
 
       if (contractFiles.length > 0) {
@@ -295,7 +295,7 @@ export default function UserManagementPage() {
 
 
 
-      // ✅ 3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
+      //  3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
       if (documentUrls.length > 0) {
         if (contract?.contractId) {
           await ContractService.update(contract.contractId, {
@@ -315,7 +315,7 @@ export default function UserManagementPage() {
         }
       }
 
-      // ✅ 4. UPDATE UI LOCAL (KHỎI LOAD LẠI)
+      //  4. UPDATE UI LOCAL (KHỎI LOAD LẠI)
       setUsers(prev =>
         prev.map(u =>
           u.userId === selectedUser.userId
@@ -324,7 +324,7 @@ export default function UserManagementPage() {
         )
       );
 
-      toast.success("Cập nhật royalty & hợp đồng thành công ✅");
+      toast.success("Cập nhật royalty & hợp đồng thành công ");
       setOpenRoyaltyModal(false);
     } catch (err) {
       console.error(err);
@@ -570,7 +570,7 @@ export default function UserManagementPage() {
                       </TableCell>
                       {isCurrentUserAdmin && (
                         <TableCell className="flex justify-end gap-2">
-                          {/* ✍️ Nếu user là AUTHOR → hiện nút Royalty */}
+                          {/*  Nếu user là AUTHOR → hiện nút Royalty */}
                           {isAuthor(u.roleId) && (
                             <Button
                               className="bg-yellow-500 hover:bg-yellow-600 text-white"

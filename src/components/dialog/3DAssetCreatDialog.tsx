@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail } from "@/services/UserService";
 import { getCurrentUserId } from "@/utils/authStorage";
 import SpinningCubeLoader from "@/components/loading/SpinningCubeLoader";
-/* 🔹 NEW: gọi API trừ tiền ví */
+/*  NEW: gọi API trừ tiền ví */
 import { TransactionService } from "@/services/TransactionService";
 
 interface Props {
@@ -170,7 +170,7 @@ const Asset3DCreateDialog: React.FC<Props> = ({ isOpen, onClose, markerId, userI
     }
 
     try {
-      /* 🔹 NEW: gọi walletPay trước khi gửi yêu cầu tạo 3D */
+      /*  NEW: gọi walletPay trước khi gửi yêu cầu tạo 3D */
       const walletPayload = {
         totalPrice: 20000,
         status: 3,
@@ -188,7 +188,7 @@ const Asset3DCreateDialog: React.FC<Props> = ({ isOpen, onClose, markerId, userI
         description: "Đã trừ 20.000đ từ ví của bạn.",
       });
 
-      // 🔹 Các API gen 3D model giữ nguyên
+      //  Các API gen 3D model giữ nguyên
       await generateAsset.mutateAsync(meta);
       toast({
         title: "Tạo 3D model thành công",
@@ -257,7 +257,7 @@ const Asset3DCreateDialog: React.FC<Props> = ({ isOpen, onClose, markerId, userI
           <p className="text-sm font-light">* Lưu ý, mỗi lần tạo 3D model bằng AI thì sẽ tiêu mất 20.000đ từ ví Rookies. Xin hãy kiểm tra số dư trong ví trước khi tạo.</p>
         </div>
 
-        {/* 🔄 Loader cube hiển thị khi đang gửi request */}
+        {/*  Loader cube hiển thị khi đang gửi request */}
         {generateAsset.isPending && (
           <div className="mt-4 flex flex-col items-center gap-2">
             <SpinningCubeLoader />

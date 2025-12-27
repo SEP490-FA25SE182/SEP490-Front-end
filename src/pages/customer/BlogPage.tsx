@@ -37,7 +37,7 @@ import { getUserById, type User } from "@/services/UserService";
 import { resolveFirebaseUrl } from "@/firebase";
 
 /* =======================================================
-   🗨️ CommentDialog Component
+    CommentDialog Component
 ======================================================= */
 const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
   blogId,
@@ -150,7 +150,7 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
 
       <DialogContent className="max-w-2xl bg-[#1e1e2e] text-white border border-white/10 max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>💬 Bình luận bài viết</DialogTitle>
+          <DialogTitle> Bình luận bài viết</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -243,7 +243,7 @@ const CommentDialog: React.FC<{ blogId: string; currentUserId?: string }> = ({
 };
 
 /* =======================================================
-   🧩 BlogCard Component
+    BlogCard Component
 ======================================================= */
 const BlogCard: React.FC<{
   post: BlogPost;
@@ -275,7 +275,7 @@ const BlogCard: React.FC<{
   }, [author?.avatarUrl]);
 
 
-  // 🔹 Chuyển #TênSách -> Link
+  //  Chuyển #TênSách -> Link
   const renderHashtags = (text: string) =>
     text.split(/(#[A-Za-zÀ-ỹ0-9_]+)/g
     ).map((part, idx) =>
@@ -355,7 +355,7 @@ const BlogCard: React.FC<{
 };
 
 /* =======================================================
-   🧩 BlogPage
+    BlogPage
 ======================================================= */
 export default function BlogPage() {
   const { user } = useAuth();
@@ -432,7 +432,7 @@ export default function BlogPage() {
 
 
 
-  // 🔹 Tìm hashtag 
+  //  Tìm hashtag 
   const handleContentChange = (text: string) => {
     setNewPost(prev => ({ ...prev, content: text }));
 
@@ -516,13 +516,13 @@ export default function BlogPage() {
       content: newPost.content,
       authorId: user?.userId || "guest",
       isActived: "ACTIVE" as const,
-      tagIds, // 🔥 Gắn thẳng mapping
+      tagIds, //  Gắn thẳng mapping
     };
 
     try {
       const created = await BlogService.create(payload);
       setPosts(prev => [created, ...prev]);
-      toast.success("🎉 Đăng bài thành công!");
+      toast.success(" Đăng bài thành công!");
       setNewPost({ title: "", content: "", coverUrl: "" });
     } catch {
       toast.error("Không thể đăng bài!");
@@ -536,7 +536,7 @@ export default function BlogPage() {
     try {
       await BlogService.remove(id);
       setPosts((prev) => prev.filter((p) => p.blogId !== id));
-      toast.success("🗑️ Đã xoá bài viết!");
+      toast.success(" Đã xoá bài viết!");
     } catch {
       toast.error("Không thể xoá bài viết!");
     }
@@ -692,7 +692,7 @@ export default function BlogPage() {
               ))
             ) : (
               <p className="text-center text-gray-400 py-10">
-                Không có bài viết nào 🕵️
+                Không có bài viết nào 
               </p>
             )}
           </div>

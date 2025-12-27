@@ -54,7 +54,7 @@ export default function AuthorIncome() {
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
 
-  // ✅ NEW: chọn tháng (default: tháng hiện tại) để tính tất cả phí theo tháng
+  //  NEW: chọn tháng (default: tháng hiện tại) để tính tất cả phí theo tháng
   const pad2 = (n: number) => String(n).padStart(2, "0");
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -75,7 +75,7 @@ export default function AuthorIncome() {
     return `${m}/${y}`;
   }, [selectedMonth]);
 
-  // ✅ CHANGED: phí tác quyền theo Transaction (SETTLEMENT + status=3) theo tháng
+  //  CHANGED: phí tác quyền theo Transaction (SETTLEMENT + status=3) theo tháng
   const [settlementThisMonth, setSettlementThisMonth] = useState<number>(0);
   const [walletId, setWalletId] = useState<string | null>(null);
 
@@ -176,14 +176,14 @@ export default function AuthorIncome() {
           }
         }
       } catch (error) {
-        console.error("❌ Lỗi khi xác định authorId:", error);
+        console.error(" Lỗi khi xác định authorId:", error);
       }
     };
 
     fetchAuthorId();
   }, [user]);
 
-  // ✅ NEW: lấy walletId theo authorId
+  //  NEW: lấy walletId theo authorId
   useEffect(() => {
     let mounted = true;
     const fetchWallet = async () => {
@@ -243,7 +243,7 @@ export default function AuthorIncome() {
       currency: "VND",
     }).format(amount);
 
-  // ✅ CHANGED: tính phí tác quyền = sum(totalPrice) của transType=SETTLEMENT & status=3 theo tháng
+  //  CHANGED: tính phí tác quyền = sum(totalPrice) của transType=SETTLEMENT & status=3 theo tháng
   useEffect(() => {
     let mounted = true;
 
@@ -295,7 +295,7 @@ export default function AuthorIncome() {
     };
   }, [walletId, monthRange.start, monthRange.end]);
 
-  // ===== doanh thu thực tế (✅ theo tháng) =====
+  // ===== doanh thu thực tế ( theo tháng) =====
   useEffect(() => {
     let mounted = true;
 
@@ -357,7 +357,7 @@ export default function AuthorIncome() {
     };
   }, [authorId, allBooks, monthRange.start, monthRange.end]);
 
-  // ✅ CHANGED: Phí tác quyền = settlementThisMonth (sum totalPrice)
+  //  CHANGED: Phí tác quyền = settlementThisMonth (sum totalPrice)
   const royaltyFee = useMemo(() => Math.round(settlementThisMonth), [settlementThisMonth]);
 
   const cards = [
@@ -535,7 +535,7 @@ export default function AuthorIncome() {
               <h2 className="text-xl font-semibold text-gray-900">Hoạt động tạo sách</h2>
 
               <div className="flex gap-2">
-                {/* ✅ chọn tháng để tính phí theo tháng */}
+                {/*  chọn tháng để tính phí theo tháng */}
                 <input
                   type="month"
                   value={selectedMonth}

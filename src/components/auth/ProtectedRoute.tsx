@@ -11,12 +11,12 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   // ⏳ Chờ AuthContext load xong
   if (!isInitialized) return <div>Loading...</div>;
 
-  // ❌ Chưa đăng nhập
+  //  Chưa đăng nhập
   if (!user) return <Navigate to="/login" replace />;
 
   const role = user.roleName?.toLowerCase();
 
-  // ❌ Sai role không có quyền → đẩy về home
+  //  Sai role không có quyền → đẩy về home
   if (!allowedRoles.some(r => role?.includes(r.toLowerCase()))) {
     return <Navigate to="/login" replace />;
   }

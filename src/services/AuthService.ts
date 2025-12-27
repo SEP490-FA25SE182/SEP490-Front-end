@@ -83,7 +83,6 @@ export const useLoginUser = () =>
           roleId: res.user.roleId,
           isActived: res.user.isActived,
         });
-        // 👇 Cực kỳ quan trọng: đồng bộ vào BookService
         bookService.setUserId(res.user.userId);
       }
     },
@@ -101,7 +100,6 @@ export const useRegisterUser = () =>
           roleId: res.user.roleId,
           isActived: res.user.isActived,
         });
-        // 👇 Đồng bộ vào BookService
         bookService.setUserId(res.user.userId);
       }
     },

@@ -48,8 +48,8 @@ export default function ImagePageCreate() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     page: 0,
-    size: 9999,               // ✅ lấy hết
-    sort: ["updatedAt,desc"], // ✅ gần đây nhất trước (nếu BE support)
+    size: 9999,               //  lấy hết
+    sort: ["updatedAt,desc"], //  gần đây nhất trước (nếu BE support)
   });
 
 
@@ -74,14 +74,14 @@ export default function ImagePageCreate() {
     return [...illustrations]
       .filter((it: any) => it.isActived === "ACTIVE" && !!it.illustrationId)
       .sort((a: any, b: any) => {
-        // ✅ ưu tiên updatedAt, fallback createdAt
+        //  ưu tiên updatedAt, fallback createdAt
         const tb = toTime(b.updatedAt) || toTime(b.createdAt);
         const ta = toTime(a.updatedAt) || toTime(a.createdAt);
 
         // mới nhất trước
         if (tb !== ta) return tb - ta;
 
-        // ✅ nếu trùng thời gian thì sort thêm theo id để ổn định
+        //  nếu trùng thời gian thì sort thêm theo id để ổn định
         return String(b.illustrationId).localeCompare(String(a.illustrationId));
       })
       .map((it: any) => ({

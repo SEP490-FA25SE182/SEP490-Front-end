@@ -117,14 +117,12 @@ export default function AuthorBookList() {
       "1": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
       "2": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
       "3": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
-      // 👇 thêm status 4
       "4": { text: "Bị từ chối duyệt", className: "bg-red-500/20 text-red-300" },
 
       "DRAFT": { text: "Nháp (đang làm)", className: "bg-gray-500/20 text-gray-300" },
       "PENDING": { text: "Chờ duyệt", className: "bg-yellow-500/20 text-yellow-300" },
       "PUBLISHED": { text: "Đã xuất bản", className: "bg-green-500/20 text-green-300" },
       "ARCHIVED": { text: "Đã được duyệt", className: "bg-blue-500/20 text-blue-300" },
-      // 👇 token REJECTED
       "REJECTED": { text: "Bị từ chối duyệt", className: "bg-red-500/20 text-red-300" },
 
       "ACTIVE": { text: "Hoạt động", className: "bg-green-500/20 text-green-300" },
@@ -394,19 +392,19 @@ export default function AuthorBookList() {
                 publication === 0 ||
                 String(publication).toUpperCase() === "DRAFT";
 
-              // ✅ ARCHIVED
+              //  ARCHIVED
               const isArchived =
                 String(publication) === "2" ||
                 publication === 2 ||
                 String(publication).toUpperCase() === "ARCHIVED";
 
-              // ✅ REJECTED (4) – sách bị từ chối duyệt
+              //  REJECTED (4) – sách bị từ chối duyệt
               const isRejected =
                 String(publication) === "4" ||
                 publication === 4 ||
                 String(publication).toUpperCase() === "REJECTED";
 
-              // ✅ Với status = 2 (ARCHIVED) thì click card vẫn vào chapter list giống nháp
+              //  Với status = 2 (ARCHIVED) thì click card vẫn vào chapter list giống nháp
               const openChaptersOnClick = isDraft || isArchived || isRejected;
 
               return (
@@ -439,7 +437,7 @@ export default function AuthorBookList() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-52">
-                          {/* ✅ Chỉ hiện "Sửa" nếu chưa xuất bản và chưa gửi duyệt */}
+                          {/*  Chỉ hiện "Sửa" nếu chưa xuất bản và chưa gửi duyệt */}
                           {!isLocked && (
                             <DropdownMenuItem
                               onClick={(e) => { e.stopPropagation(); navigate(`/author/authoreditbook/${id}`); }}

@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useMemo } from "react";
 
-/** ✅ helper: convert gs://... -> https firebase download url */
+/**  helper: convert gs://... -> https firebase download url */
 function gsToHttp(url?: string | null) {
   if (!url) return "";
   if (!url.startsWith("gs://")) return url;

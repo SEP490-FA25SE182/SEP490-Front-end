@@ -166,6 +166,37 @@ export const useAttachMarkerToPage = () => {
   });
 };
 
+export const getMarkerAttachedPagesCount = async (
+  markerId: string
+): Promise<number> => {
+  // request size=1 để chỉ lấy totalElements (nhanh)
+  const res = await axios.get(`${API_AR}/markers/${markerId}/pages`, {
+    params: { page: 0, size: 1 },
+  });
+
+  const data = res.data;
+
+  // case 1: trả paged { content:[], totalElements: number }
+  if (data && typeof data.totalElements === "number") return data.totalElements;
+
+  // case 2: trả array pages []
+  if (Array.isArray(data)) return data.length;
+
+  // case 3: trả content array nhưng không có totalElements
+  if (data && Array.isArray(data.content)) return data.content.length;
+
+  return 0;
+};
+
+export const useMarkerAttachedPagesCount = (markerId?: string) => {
+  return useQuery({
+    queryKey: ["markers", markerId, "pages-count"],
+    queryFn: () => getMarkerAttachedPagesCount(markerId as string),
+    enabled: !!markerId,
+    staleTime: 30 * 1000,
+  });
+};
+
 /* ====================== ASSET3D (UPDATED FIELDS) ====================== */
 
 export interface Asset3D {

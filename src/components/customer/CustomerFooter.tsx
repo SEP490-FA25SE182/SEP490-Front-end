@@ -14,7 +14,7 @@ const CustomerFooter = () => {
         const data = await getAllGenres();
         setGenres(Array.isArray(data) ? data : []);
       } catch (e) {
-        console.error("❌ Lỗi khi fetch genres ở footer:", e);
+        console.error(" Lỗi khi fetch genres ở footer:", e);
         setGenres([]);
       } finally {
         setLoadingGenres(false);

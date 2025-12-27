@@ -106,7 +106,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
           }
         }
       } catch (error) {
-        console.error("❌ Lỗi khi xác định authorId:", error);
+        console.error(" Lỗi khi xác định authorId:", error);
       }
     };
     fetchAuthorId();
@@ -211,7 +211,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
           language: audioData.language,
         };
 
-        // 🔥 GỌI API upload thực sự
+        //  GỌI API upload thực sự
         await uploadTTS.mutateAsync({
           userId: authorId,
           meta,
@@ -257,7 +257,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
       onCreated?.();
       onClose();
     } catch (err: any) {
-      console.error("❌ Lỗi khi tạo/upload audio:", err);
+      console.error(" Lỗi khi tạo/upload audio:", err);
       toast({
         title: "Lỗi khi tạo/upload audio",
         description:
@@ -445,7 +445,7 @@ const CreateAudioDialog: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
             </div>
           )}
 
-          {/* 🔄 Loading Jumping Dots khi đang xử lý (vẫn giữ component) */}
+          {/*  Loading Jumping Dots khi đang xử lý (vẫn giữ component) */}
           {isProcessing && (
             <div className="mt-4 flex flex-col items-center gap-2">
               <LoadingThreeDotsJumping />

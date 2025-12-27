@@ -9,7 +9,7 @@ import {
   useSearchPageIllustrations,
   useGetAllIllustrations,
   useSearchPageAudios,
-  useSearchAudios, // <-- changed
+  useSearchAudios,
   type Illustration,
   type PageIllustration,
   type Audio,
@@ -17,7 +17,7 @@ import {
 } from "@/services/AIService";
 
 import { useSearchMarkers, type Marker } from "@/services/ARService";
-import { getCurrentUserId } from "@/utils/authStorage"; // <-- added
+import { getCurrentUserId } from "@/utils/authStorage";
 
 const AuthorPageDetail = () => {
   const { pageId } = useParams<{ pageId: string }>();
@@ -32,16 +32,30 @@ const AuthorPageDetail = () => {
     if (uid) setAuthorId(uid);
   }, []);
 
-  // 🔹 lấy relations & illustrations
+  // marker zoom modal state
+  const [selectedMarker, setSelectedMarker] = useState<Marker | null>(null);
+
+  // close modal by ESC
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedMarker(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // lấy relations & illustrations
   const { data: pageIllustrationsResp } = useSearchPageIllustrations();
   const { data: illustrationsResp } = useGetAllIllustrations();
-  // 🔹 lấy marker gắn theo page (sử dụng pageId)
+  // lấy marker gắn theo page (sử dụng pageId)
   const { data: markersResp } = useSearchMarkers({ pageId });
 
-  // 🔹 lấy quan hệ page-audio + list audio
+  // lấy quan hệ page-audio + list audio
   const { data: pageAudiosResp } = useSearchPageAudios({ pageId });
   // useSearchAudios filtered by authorId
-  const { data: audiosResp } = useSearchAudios(authorId ? { userId: authorId } : undefined);
+  const { data: audiosResp } = useSearchAudios(
+    authorId ? { userId: authorId } : undefined
+  );
 
   const pageIllustrations: PageIllustration[] = useMemo(() => {
     if (!pageIllustrationsResp) return [];
@@ -75,9 +89,7 @@ const AuthorPageDetail = () => {
     if (Array.isArray((pageAudiosResp as any).content)) {
       return (pageAudiosResp as any).content as PageAudio[];
     }
-    return Array.isArray(pageAudiosResp)
-      ? (pageAudiosResp as PageAudio[])
-      : [];
+    return Array.isArray(pageAudiosResp) ? (pageAudiosResp as PageAudio[]) : [];
   }, [pageAudiosResp]);
 
   const audios: Audio[] = useMemo(() => {
@@ -108,7 +120,7 @@ const AuthorPageDetail = () => {
     [pageAudios, audios]
   );
 
-  // 🔹 helper
+  // helper
   const isImageUrl = (url?: string) => {
     if (!url) return false;
     return (
@@ -130,8 +142,6 @@ const AuthorPageDetail = () => {
     return url;
   };
 
-  // ✅ TẤT CẢ HOOK nằm trên này, không có hook phía dưới nữa
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#0f172a] text-white">
@@ -148,7 +158,7 @@ const AuthorPageDetail = () => {
     );
   }
 
-  // 🔹 Tính imageUrl từ relation nhưng KHÔNG dùng hook
+  // Tính imageUrl từ relation nhưng KHÔNG dùng hook
   const imageUrlFromRelation = (() => {
     if (!page.pageId) return undefined;
 
@@ -176,7 +186,6 @@ const AuthorPageDetail = () => {
     return illu?.imageUrl;
   })();
 
-
   const contentIsImage = isImageUrl(page.content);
   const finalImageUrl =
     imageUrlFromRelation || (contentIsImage ? page.content : undefined);
@@ -188,7 +197,6 @@ const AuthorPageDetail = () => {
   console.log("pageIllustrationsResp raw", pageIllustrationsResp);
   console.log("pageIllustrations normalized", pageIllustrations);
   console.log("illustrations normalized", illustrations);
-
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -204,7 +212,11 @@ const AuthorPageDetail = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <ChevronLeft className="w-6 h-6" />
+              ) : (
+                <ChevronRight className="w-6 h-6" />
+              )}
             </Button>
 
             <div className="ml-4 text-white text-lg font-medium">
@@ -232,21 +244,57 @@ const AuthorPageDetail = () => {
             {isImage ? (
               finalImageUrl && displayUrl ? (
                 <div className="flex justify-center">
-                  <img
-                    src={displayUrl}
-                    alt={`Trang ${page.pageNumber}`}
-                    className="rounded-lg shadow-lg max-h-[80vh] object-contain border border-white/20"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.parentElement!.innerHTML =
-                        '<p class="text-gray-400 text-sm text-center">Không thể tải ảnh.</p>';
-                    }}
-                  />
+                  {/* container relative để marker lồng lên illustration */}
+                  <div className="relative inline-block">
+                    <img
+                      src={displayUrl}
+                      alt={`Trang ${page.pageNumber}`}
+                      className="rounded-lg shadow-lg max-h-[80vh] object-contain border border-white/20"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        e.currentTarget.parentElement!.innerHTML =
+                          '<p class="text-gray-400 text-sm text-center">Không thể tải ảnh.</p>';
+                      }}
+                    />
+
+                    {/* MARKERS overlay góc phải trên (click để zoom) */}
+                    {markers.length > 0 && (
+                      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                        {markers.map((m) => (
+                          <div
+                            key={m.markerId ?? m.markerCode}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedMarker(m)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                setSelectedMarker(m);
+                              }
+                            }}
+                            className="cursor-zoom-in rounded-md overflow-hidden border border-white/30 bg-black/30 backdrop-blur-sm shadow-lg hover:scale-[1.03] transition"
+                            title={m.markerCode}
+                          >
+                            {m.imageUrl ? (
+                              <img
+                                src={getDisplayImageUrl(m.imageUrl)}
+                                alt={m.markerCode}
+                                className="w-20 h-20 object-contain p-1"
+                              />
+                            ) : (
+                              <div className="w-20 h-20 flex items-center justify-center text-[10px] text-gray-200">
+                                No marker
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-300 text-sm text-center">
-                  Trang ảnh (pageType = PICTURE) nhưng chưa tìm được URL ảnh từ
-                  quan hệ page-illustration hoặc từ <code>content</code>.
+                  Trang ảnh nhưng chưa tìm được URL ảnh từ quan hệ
+                  page-illustration hoặc từ <code>content</code>.
                 </p>
               )
             ) : (
@@ -262,58 +310,6 @@ const AuthorPageDetail = () => {
                       ?.replace(/<p>/g, "<p class='mb-3'>") || "",
                 }}
               />
-            )}
-
-            {/* MARKERS (hiển thị ảnh marker gắn theo pageId) */}
-            {markers.length > 0 && (
-              <div className="mt-6 flex flex-col items-center">
-                <h3 className="text-sm text-gray-300 mb-3 text-center">
-                  Marker gắn trên trang
-                </h3>
-                {markers.map((m) => (
-                  <div key={m.markerId ?? m.markerCode} className="w-full max-w-3xl mb-4">
-                    <div className="flex justify-center">
-                      {m.imageUrl ? (
-                        <img
-                          src={getDisplayImageUrl(m.imageUrl)}
-                          alt={m.markerCode}
-                          className="rounded-lg shadow-lg w-full object-contain max-h-[40vh] border border-white/20"
-                        />
-                      ) : (
-                        <div className="w-full h-36 bg-gray-700 rounded flex items-center justify-center text-xs text-gray-300">
-                          Không có ảnh
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Thông tin marker trải ngang, bỏ width */}
-                    <div className="mt-3 text-xs text-gray-300 flex flex-wrap items-center justify-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">Code:</span>
-                        <span className="truncate">{m.markerCode}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">Type:</span>
-                        <span className="truncate">{m.markerType}</span>
-                      </div>
-
-                      {m.printablePdfUrl && (
-                        <div>
-                          <a
-                            href={m.printablePdfUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-300 underline"
-                          >
-                            Printable PDF
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
 
             {/* AUDIOS (preview audio gắn theo pageId) */}
@@ -340,8 +336,58 @@ const AuthorPageDetail = () => {
               </div>
             )}
           </div>
-        </div>
 
+          {/* MODAL ZOOM MARKER */}
+          {selectedMarker?.imageUrl && (
+            <div
+              className="fixed inset-0 z-999 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setSelectedMarker(null)}
+            >
+              <div
+                className="relative max-w-4xl w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setSelectedMarker(null)}
+                  className="absolute -top-3 -right-3 bg-white text-black rounded-full w-9 h-9 shadow flex items-center justify-center"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+
+                <div className="bg-black/30 border border-white/20 rounded-xl p-3 shadow-xl">
+                  <img
+                    src={getDisplayImageUrl(selectedMarker.imageUrl)}
+                    alt={selectedMarker.markerCode}
+                    className="w-full max-h-[80vh] object-contain rounded-lg"
+                  />
+
+                  <div className="mt-3 text-xs text-gray-200 flex flex-wrap gap-4 justify-center">
+                    <div>
+                      <span className="font-semibold">Code:</span>{" "}
+                      {selectedMarker.markerCode}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Type:</span>{" "}
+                      {selectedMarker.markerType}
+                    </div>
+
+                    {selectedMarker.printablePdfUrl && (
+                      <a
+                        href={selectedMarker.printablePdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-300 underline"
+                      >
+                        Printable PDF
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

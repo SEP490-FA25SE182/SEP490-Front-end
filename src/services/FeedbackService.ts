@@ -2,7 +2,7 @@ import axios from "axios";
 import { API_RK } from "@/config";
 
 /* =====================================================
-   🧠 INTERFACES
+    INTERFACES
 ===================================================== */
 
 /** Feedback entity (đúng theo response backend) */
@@ -35,11 +35,11 @@ export interface UpdateFeedbackRequest {
 }
 
 /* =====================================================
-   ⚙️ SERVICE FUNCTIONS
+    SERVICE FUNCTIONS
 ===================================================== */
 
 export const FeedbackService = {
-    /** 🔹 Lấy tất cả feedbacks (có thể lọc theo userId, bookId, orderDetailId) */
+    /**  Lấy tất cả feedbacks (có thể lọc theo userId, bookId, orderDetailId) */
     async getAll(params?: {
         userId?: string;
         bookId?: string;
@@ -55,25 +55,25 @@ export const FeedbackService = {
         return data?.content || [];
     },
 
-    /** 🔹 Lấy feedback theo ID */
+    /**  Lấy feedback theo ID */
     async getById(id: string): Promise<Feedback> {
         const res = await axios.get(`${API_RK}/users/feedbacks/${id}`);
         return res.data;
     },
 
-    /** 🔹 Tạo mới feedback */
+    /**  Tạo mới feedback */
     async create(data: CreateFeedbackRequest): Promise<Feedback> {
         const res = await axios.post(`${API_RK}/users/feedbacks`, data);
         return res.data;
     },
 
-    /** 🔹 Cập nhật feedback theo ID */
+    /**  Cập nhật feedback theo ID */
     async update(id: string, data: UpdateFeedbackRequest): Promise<Feedback> {
         const res = await axios.put(`${API_RK}/users/feedbacks/${id}`, data);
         return res.data;
     },
 
-    /** 🔹 Xóa feedback theo ID */
+    /**  Xóa feedback theo ID */
     async delete(id: string): Promise<void> {
         await axios.delete(`${API_RK}/users/feedbacks/${id}`);
     },

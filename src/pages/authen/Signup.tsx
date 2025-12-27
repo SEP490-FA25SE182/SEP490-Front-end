@@ -110,7 +110,7 @@ export default function Signup() {
               ...prev,
               email: "Email đã tồn tại!",
             }));
-            return; // 🔥 Quan trọng: không chạy đoạn toast lỗi chung phía dưới
+            return; //  Quan trọng: không chạy đoạn toast lỗi chung phía dưới
           }
 
           toast.error("Đăng ký thất bại!", {
@@ -128,7 +128,7 @@ export default function Signup() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const idToken = await user.getIdToken(); // 🔥 Lấy idToken chuẩn từ Firebase
+      const idToken = await user.getIdToken(); //  Lấy idToken chuẩn từ Firebase
 
       console.log("Firebase ID Token:", idToken);
 

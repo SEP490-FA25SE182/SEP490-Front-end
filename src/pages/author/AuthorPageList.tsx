@@ -79,7 +79,7 @@ const AuthorPageList = () => {
   const updateChapter = useUpdateChapter();
 
 
-  // 🆕 lấy authorId giống AuthorIncome
+  //  lấy authorId giống AuthorIncome
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
 
@@ -106,7 +106,7 @@ const AuthorPageList = () => {
           }
         }
       } catch (error) {
-        console.error("❌ Lỗi khi xác định authorId:", error);
+        console.error(" Lỗi khi xác định authorId:", error);
       }
     };
 
@@ -123,7 +123,7 @@ const AuthorPageList = () => {
   );
 
 
-  // 🆕 Markers (right panel) - lọc theo userId của author
+  //  Markers (right panel) - lọc theo userId của author
   const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
     authorId
       ? {
@@ -135,7 +135,7 @@ const AuthorPageList = () => {
       : undefined
   );
 
-  // 🔹 Lấy quan hệ page-illustration & danh sách illustration
+  //  Lấy quan hệ page-illustration & danh sách illustration
   const { data: pageIllustrationsResp } = useSearchPageIllustrations();
   const { data: illustrationsResp } = useGetAllIllustrations();
 
@@ -160,7 +160,7 @@ const AuthorPageList = () => {
         : [];
   }, [illustrationsResp]);
 
-  // 🔹 Map nhanh pageId → imageUrl
+  //  Map nhanh pageId → imageUrl
   const pageImageMap: Record<string, string> = useMemo(() => {
     const map: Record<string, string> = {};
     if (!pageIllustrations.length) return map;
@@ -252,7 +252,7 @@ const AuthorPageList = () => {
 
     return list
       .filter((m: any) => m.isActived !== "INACTIVE") // nếu có flag
-      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)); // ✅ DESC
+      .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)); //  DESC
   }, [markersResp]);
 
 
@@ -265,7 +265,7 @@ const AuthorPageList = () => {
     );
   };
 
-  // 🔹 SỬA: xác định trang ảnh dựa trên pageType + quan hệ page-illustration + content
+  //  SỬA: xác định trang ảnh dựa trên pageType + quan hệ page-illustration + content
   const isImagePage = (page: Page) => {
     const relationUrl = getImageUrlByPageId(page.pageId);
     const contentIsImage = isImageUrl(page.content);

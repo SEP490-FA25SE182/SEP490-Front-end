@@ -225,7 +225,6 @@ export default function AuthorChapterList() {
                     </span>
                   </div>
 
-                  {/* 👇 Thêm review ở ngay dưới trạng thái xuất bản (ẩn khi là nháp) */}
                   {!isDraftStatus(book?.publicationStatus) && (
                     <div className="col-span-2">
                       <span className="font-medium text-gray-200">Đánh giá:</span>{" "}

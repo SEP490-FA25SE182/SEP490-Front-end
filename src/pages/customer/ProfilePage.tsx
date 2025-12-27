@@ -35,7 +35,7 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
-/** ✅ helper: convert gs://... -> https firebase download url */
+/**  helper: convert gs://... -> https firebase download url */
 function gsToHttp(url?: string | null) {
   if (!url) return "";
   if (!url.startsWith("gs://")) return url;
@@ -50,7 +50,7 @@ function gsToHttp(url?: string | null) {
 }
 
 /* --------------------------------------------------
- 🧩 ProfilePage Component
+  ProfilePage Component
 -------------------------------------------------- */
 export default function ProfilePage() {
   const { user: authUser } = useAuth();
@@ -66,7 +66,7 @@ export default function ProfilePage() {
     "https://avatar.iran.liara.run/public/boy?username=default";
 
   /* ---------------------------------------------
-   🟢 Fetch User Info
+    Fetch User Info
   --------------------------------------------- */
   useEffect(() => {
     const fetchUser = async () => {
@@ -90,7 +90,7 @@ export default function ProfilePage() {
   }, [authUser?.email]);
 
   /* ---------------------------------------------
-   🏠 Fetch Address List
+    Fetch Address List
   --------------------------------------------- */
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -121,7 +121,7 @@ export default function ProfilePage() {
 
 
   /* ---------------------------------------------
-   ✏️ Update User Info
+    Update User Info
   --------------------------------------------- */
   const handleSave = async () => {
     if (!user?.userId) return;
@@ -146,7 +146,7 @@ export default function ProfilePage() {
     }
   };
 
-  // ✅ avatar src đã được convert gs:// -> https, có fallback
+  //  avatar src đã được convert gs:// -> https, có fallback
   const avatarSrc = useMemo(() => {
     const u = gsToHttp(user?.avatarUrl);
     const a = gsToHttp(authUser?.avatarUrl);
@@ -171,13 +171,13 @@ export default function ProfilePage() {
       await uploadBytes(avatarRef, file);
       const downloadUrl = await getDownloadURL(avatarRef);
 
-      // 👉 Cập nhật DB
+      //  Cập nhật DB
       await updateUser(user.userId, {
         ...user,
         avatarUrl: downloadUrl,
       });
 
-      // 👉 Update UI ngay
+      //  Update UI ngay
       setUser((prev) =>
         prev ? { ...prev, avatarUrl: downloadUrl } : prev
       );
@@ -193,7 +193,7 @@ export default function ProfilePage() {
 
 
   /* ---------------------------------------------
-   🧾 Render
+    Render
   --------------------------------------------- */
   return (
     <div className="space-y-8">
@@ -305,14 +305,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🏠 SỔ ĐỊA CHỈ */}
+      {/*  SỔ ĐỊA CHỈ */}
       <div className="mt-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <MapPin className="w-5 h-5" /> Sổ địa chỉ
           </h2>
 
-          {/* ➕ Nút Thêm địa chỉ */}
+          {/*  Nút Thêm địa chỉ */}
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="flex items-center gap-2 cursor-pointer" onClick={() => {
@@ -339,7 +339,7 @@ export default function ProfilePage() {
           </Dialog>
         </div>
 
-        {/* 📋 Danh sách địa chỉ */}
+        {/*  Danh sách địa chỉ */}
         <div className="space-y-4">
           {addresses.length === 0 ? (
             <p className="text-gray-500 italic">Chưa có địa chỉ nào.</p>
@@ -361,7 +361,7 @@ export default function ProfilePage() {
                       <p className="text-sm text-gray-600">📞 {addr.phoneNumber}</p>
                     )}
                     {addr.type && (
-                      <p className="text-sm text-gray-500 italic">🏷️ {addr.type}</p>
+                      <p className="text-sm text-gray-500 italic"> {addr.type}</p>
                     )}
 
                     {addr.default && (
@@ -371,9 +371,9 @@ export default function ProfilePage() {
                     )}
                   </div>
 
-                  {/* 🔧 Action */}
+                  {/*  Action */}
                   <div className="flex gap-2">
-                    {/* ✏️ Sửa */}
+                    {/*  Sửa */}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="ghost" size="icon" onClick={() => {
@@ -402,13 +402,13 @@ export default function ProfilePage() {
                       </DialogContent>
                     </Dialog>
 
-                    {/* 🗑️ Xóa */}
+                    {/*  Xóa */}
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteAddress(addr.userAddressId)}
                     >
-                      🗑️
+                      
                     </Button>
                   </div>
                 </div>
@@ -422,7 +422,7 @@ export default function ProfilePage() {
 }
 
 /* --------------------------------------------------
- 🔸 Subcomponents
+  Subcomponents
 -------------------------------------------------- */
 function InfoField({
   label,
@@ -468,7 +468,7 @@ function AddOrEditAddressForm({
 }) {
   const [loading, setLoading] = useState(false);
 
-  // 🧩 Dữ liệu
+  //  Dữ liệu
   const [fullName, setFullName] = useState(
     defaultAddress?.fullName || userDefaultInfo?.fullName || ""
   );
@@ -511,7 +511,7 @@ function AddOrEditAddressForm({
       .catch(() => toast.error("Không tải được danh sách phường/xã!"));
   }, [district]);
 
-  // 💾 Submit
+  //  Submit
   const handleSubmit = async () => {
     if (!addressDetail) {
       toast.error("Vui lòng nhập địa chỉ!");
@@ -558,7 +558,7 @@ function AddOrEditAddressForm({
     }
   };
 
-  // 🧩 Render
+  //  Render
   return (
     <div className="space-y-4">
       {/* Họ tên (readonly nếu đã có) */}

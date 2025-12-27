@@ -35,10 +35,10 @@ export interface UpdateUserRequest extends Partial<CreateUserRequest> { }
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     const res = await axios.get(`${API_RK}/users/search`);
-    // 🔹 Nếu backend trả về Page<UserResponse>, chỉ lấy phần content
+    //  Nếu backend trả về Page<UserResponse>, chỉ lấy phần content
     return res.data?.content ?? [];
   } catch (error) {
-    console.error("❌ Lỗi khi lấy danh sách user:", error);
+    console.error(" Lỗi khi lấy danh sách user:", error);
     return [];
   }
 };
@@ -107,22 +107,22 @@ export const getRoleById = async (roleId: string): Promise<Role> => {
       },
     });
 
-    // 🧩 Chỉ lấy 2 trường cần thiết
+    //  Chỉ lấy 2 trường cần thiết
     const { roleId: id, roleName } = res.data;
     return { roleId: id, roleName };
   } catch (error: any) {
-    console.error("❌ Lỗi khi lấy role:", error.response?.data || error);
+    console.error(" Lỗi khi lấy role:", error.response?.data || error);
     throw error;
   }
 };
 
 /* =======================================================
-   🏠 USER ADDRESS (Địa chỉ người dùng)
+    USER ADDRESS (Địa chỉ người dùng)
 ======================================================= */
 
 
 /* ---------------------------------------------
- 🧩 Interface địa chỉ đồng bộ với BE
+  Interface địa chỉ đồng bộ với BE
 --------------------------------------------- */
 export interface Address {
   userAddressId: string;
@@ -138,7 +138,7 @@ export interface Address {
 }
 
 /* ---------------------------------------------
- 🧩 Body khi tạo địa chỉ mới
+  Body khi tạo địa chỉ mới
 --------------------------------------------- */
 export interface CreateAddressRequest {
   addressInfor: string;
@@ -151,7 +151,7 @@ export interface CreateAddressRequest {
 }
 
 /* ---------------------------------------------
- 🧩 Body khi cập nhật địa chỉ
+  Body khi cập nhật địa chỉ
 --------------------------------------------- */
 export interface UpdateAddressRequest {
   addressInfor: string;
@@ -164,7 +164,7 @@ export interface UpdateAddressRequest {
 }
 
 /* =======================================================
-   🔹 API CALLS
+    API CALLS
 ======================================================= */
 
 

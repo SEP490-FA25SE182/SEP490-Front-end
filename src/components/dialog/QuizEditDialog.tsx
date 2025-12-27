@@ -33,7 +33,7 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
   const { data: playData, isLoading, isError, refetch } = useGetQuizPlayById(
     quizId ?? undefined
   );
-  // 👉 lấy quiz meta để giữ chapterId + các field khác
+  //  lấy quiz meta để giữ chapterId + các field khác
   const { data: quizMeta } = useGetQuizById(quizId ?? undefined);
 
   const updateQuiz = useUpdateQuiz();
@@ -176,7 +176,7 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
 
     setSaving(true);
     try {
-      // 🔹 Update quiz meta, giữ nguyên chapterId và các field khác từ quizMeta
+      //  Update quiz meta, giữ nguyên chapterId và các field khác từ quizMeta
       await updateQuiz.mutateAsync({
         id: quizId,
         data: {
@@ -188,7 +188,7 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
         } as any,
       });
 
-      // 🔹 Update questions & answers
+      //  Update questions & answers
       for (const q of local.questions) {
         if (q.questionId) {
           await updateQuestion.mutateAsync({
@@ -221,7 +221,7 @@ const QuizEditDialog: React.FC<Props> = ({ isOpen, onClose, quizId }) => {
         }
       }
 
-      // 🔹 Invalidate cache
+      //  Invalidate cache
       qc.invalidateQueries({ queryKey: ["quizzes", "play", quizId] });
       qc.invalidateQueries({ queryKey: ["quizzes", "search"] });
 

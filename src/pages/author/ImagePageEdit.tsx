@@ -172,7 +172,7 @@ export default function ImagePageEdit() {
 
     return [...allMarkers]
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) // ✅ mới nhất trước
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) //  mới nhất trước
       .map((m: any) => ({
         id: m.markerId ?? m.id,
         code: m.markerCode,

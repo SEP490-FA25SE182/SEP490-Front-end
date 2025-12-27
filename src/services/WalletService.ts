@@ -70,7 +70,7 @@ export const createWallet = async (
   });
 
   const arr: Wallet[] = res.data;
-  return arr[0]; // 👈 lấy phần tử đầu tiên làm Wallet
+  return arr[0]; //  lấy phần tử đầu tiên làm Wallet
 };
 
 

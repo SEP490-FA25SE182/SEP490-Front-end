@@ -38,7 +38,12 @@ interface EnrichedPage extends Page {
   audio?: Audio | null;
   illustration?: Illustration | null;
   hasMarker?: boolean;
+
+  // marker image để hiển thị thumbnail + zoom
   markerImageUrl?: string | null;
+
+  // optional: nếu bạn vẫn muốn lưu pdf link
+  markerPdfUrl?: string | null;
 }
 
 type LocationState = {
@@ -68,10 +73,35 @@ export default function AuthorBookPreview() {
     null
   );
 
+  // ✅ modal zoom marker
+  const [zoomMarkerUrl, setZoomMarkerUrl] = useState<string | null>(null);
+  const [zoomMarkerTitle, setZoomMarkerTitle] = useState<string>("");
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomMarkerUrl(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ EXPORT FILE .DOC (nhúng ảnh base64, giữ nguyên rich text, có trang bìa, KHÔNG hiện "Trang X")
+  const getDisplayUrl = (url?: string | null) => {
+    if (!url) return "";
+    if (url.startsWith("gs://")) {
+      const parts = url.split("/");
+      const bucket = parts[2];
+      const path = parts.slice(3).join("/");
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
+    }
+    return url;
+  };
+
+  //  EXPORT FILE .DOC (nhúng ảnh base64, giữ nguyên rich text, có trang bìa, KHÔNG hiện "Trang X")
   const handleExportDoc = async () => {
     if (!book) {
       toast({
@@ -90,17 +120,13 @@ export default function AuthorBookPreview() {
       return;
     }
 
-    // thông báo bắt đầu xuất
     toast({
       title: "Đang xuất file .doc",
       description: "Tệp đang được tạo, vui lòng chờ trong giây lát...",
     });
 
     try {
-      // helper: tải ảnh -> data URL
-      const loadImageAsDataUrl = async (
-        rawUrl: string
-      ): Promise<string | null> => {
+      const loadImageAsDataUrl = async (rawUrl: string): Promise<string | null> => {
         try {
           const url = getDisplayUrl(rawUrl);
           if (!url) return null;
@@ -118,11 +144,9 @@ export default function AuthorBookPreview() {
         }
       };
 
-      // helper: chỉ thay src của <img> trong HTML content, giữ nguyên mọi tag/style khác
       const embedImagesInHtml = async (htmlContent: string): Promise<string> => {
         try {
-          const imgSrcRegex =
-            /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+          const imgSrcRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
 
           const urls = new Set<string>();
           let match: RegExpExecArray | null;
@@ -139,14 +163,11 @@ export default function AuthorBookPreview() {
           const map: Record<string, string> = {};
           for (const src of urls) {
             const dataUrl = await loadImageAsDataUrl(src);
-            if (dataUrl) {
-              map[src] = dataUrl;
-            }
+            if (dataUrl) map[src] = dataUrl;
           }
 
           let result = htmlContent;
           for (const [src, dataUrl] of Object.entries(map)) {
-            // thay tất cả src cũ thành dataUrl
             result = result.split(src).join(dataUrl);
           }
 
@@ -157,7 +178,6 @@ export default function AuthorBookPreview() {
         }
       };
 
-      // sort pages giống preview
       const sortedPages = [...pages].sort((a, b) => {
         const c1 = a.chapterNumber ?? 0;
         const c2 = b.chapterNumber ?? 0;
@@ -170,7 +190,6 @@ export default function AuthorBookPreview() {
         "_"
       );
 
-      // ảnh bìa -> base64
       const coverDataUrl = book.coverUrl
         ? await loadImageAsDataUrl(book.coverUrl)
         : null;
@@ -196,7 +215,6 @@ export default function AuthorBookPreview() {
 <body>
 `;
 
-      // 🔹 TRANG BÌA: tên sách + mô tả + ảnh bìa
       html += `<div class="cover page-break">`;
       html += `<div class="cover-title">${escapeHtml(
         book.bookName || "Không tên"
@@ -218,20 +236,18 @@ export default function AuthorBookPreview() {
 
         const isPicturePage = p.pageType === "PICTURE";
 
-        // 🔹 Heading chương (khi đổi chapter)
         if (p.chapterId !== currentChapterId) {
           currentChapterId = p.chapterId;
-          html += `<div class="chapter-title">Chương ${p.chapterNumber ?? ""
-            }: ${escapeHtml(p.chapterName ?? "")}</div>`;
+          html += `<div class="chapter-title">Chương ${p.chapterNumber ?? ""}: ${escapeHtml(
+            p.chapterName ?? ""
+          )}</div>`;
         }
 
-        // 🔹 Nội dung text (chỉ trang chữ) – KHÔNG thêm "Trang X"
         if (!isPicturePage && typeof p.content === "string") {
           const content = p.content.trim();
           if (content) {
             const isHtml = /<\/?[a-z][\s\S]*>/i.test(content);
             if (isHtml) {
-              // GIỮ NGUYÊN HTML (strong, em, span, list, v.v.), chỉ thay src của img
               const processed = await embedImagesInHtml(content);
               html += `<div class="page-content">${processed}</div>`;
             } else {
@@ -240,17 +256,12 @@ export default function AuthorBookPreview() {
           }
         }
 
-        // 🔹 Ảnh minh hoạ
         let illustrationRaw: string | null = null;
         if (p.illustration?.imageUrl) {
           illustrationRaw = p.illustration.imageUrl;
         } else if (isPicturePage && typeof p.content === "string") {
           const raw = p.content.trim();
-          if (
-            raw.startsWith("http://") ||
-            raw.startsWith("https://") ||
-            raw.startsWith("gs://")
-          ) {
+          if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("gs://")) {
             illustrationRaw = raw;
           }
         }
@@ -266,12 +277,11 @@ export default function AuthorBookPreview() {
           html += `<p class="page-content">[Trang ảnh]</p>`;
         }
 
-        // 🔹 Marker (nếu có)
+        // marker image (nếu có)
         if (p.markerImageUrl) {
           const markerDataUrl = await loadImageAsDataUrl(p.markerImageUrl);
           if (markerDataUrl) {
-            html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${p.pageNumber
-              }" />`;
+            html += `<img class="marker" src="${markerDataUrl}" alt="Marker trang ${p.pageNumber}" />`;
           }
         }
 
@@ -280,9 +290,7 @@ export default function AuthorBookPreview() {
 
       html += `</body></html>`;
 
-      const blob = new Blob([html], {
-        type: "application/msword;charset=utf-8",
-      });
+      const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -292,10 +300,10 @@ export default function AuthorBookPreview() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // thông báo thành công
       toast({
         title: "Xuất file thành công",
-        description: "Tệp .doc đã được tạo và tải về. Vui lòng kiểm tra thư mục tải về của trình duyệt.",
+        description:
+          "Tệp .doc đã được tạo và tải về. Vui lòng kiểm tra thư mục tải về của trình duyệt.",
       });
     } catch (e) {
       console.error("Lỗi khi xuất DOC:", e);
@@ -317,7 +325,6 @@ export default function AuthorBookPreview() {
         setLoading(true);
         setError(null);
 
-        // 1. Lấy book detail (ưu tiên state từ navigate, fallback gọi API)
         let currentBook = location.state?.book as Book | undefined;
         if (!currentBook) {
           currentBook = await getBookById(bookId);
@@ -325,7 +332,6 @@ export default function AuthorBookPreview() {
         if (cancelled) return;
         setBook(currentBook);
 
-        // 2. Lấy chapters của book (không gửi sort cho BE)
         const chaptersRes: any = await getAllChapters({
           bookId,
           page: 0,
@@ -333,7 +339,6 @@ export default function AuthorBookPreview() {
         });
         let chapterList: Chapter[] = chaptersRes?.content ?? chaptersRes ?? [];
 
-        // sort chapter ở FE
         chapterList = [...chapterList].sort(
           (a, b) => (a.chapterNumber ?? 0) - (b.chapterNumber ?? 0)
         );
@@ -341,7 +346,6 @@ export default function AuthorBookPreview() {
         if (cancelled) return;
         setChapters(chapterList);
 
-        // 3. Lấy pages cho từng chapter (không gửi sort cho BE)
         const basePages: EnrichedPage[] = [];
         for (const ch of chapterList) {
           if (!ch.chapterId) continue;
@@ -364,7 +368,6 @@ export default function AuthorBookPreview() {
           if (cancelled) return;
         }
 
-        // Sort theo chapterNumber + pageNumber ở FE
         basePages.sort((a, b) => {
           const c1 = a.chapterNumber ?? 0;
           const c2 = b.chapterNumber ?? 0;
@@ -374,7 +377,6 @@ export default function AuthorBookPreview() {
 
         if (cancelled) return;
 
-        // 4. Enrich từng page với marker, audio, illustration
         const audioCache: Record<string, Audio> = {};
         const illustrationCache: Record<string, Illustration> = {};
         const enriched: EnrichedPage[] = [];
@@ -389,6 +391,7 @@ export default function AuthorBookPreview() {
           // --- Marker theo page ---
           let hasMarker = false;
           let markerImageUrl: string | null = null;
+          let markerPdfUrl: string | null = null;
 
           try {
             const markerRes = await searchMarkers({
@@ -400,8 +403,12 @@ export default function AuthorBookPreview() {
             const marker = markerRes?.content?.[0];
             if (marker) {
               hasMarker = true;
-              markerImageUrl =
-                marker.printablePdfUrl || marker.imageUrl || null;
+
+              // ✅ ưu tiên IMAGE để hiển thị trong preview
+              markerImageUrl = marker.imageUrl || null;
+
+              // optional
+              markerPdfUrl = marker.printablePdfUrl || null;
             }
           } catch (err) {
             console.error("Lỗi searchMarkers pageId=", pageId, err);
@@ -456,6 +463,7 @@ export default function AuthorBookPreview() {
             ...p,
             hasMarker,
             markerImageUrl,
+            markerPdfUrl,
             audio,
             illustration,
           });
@@ -493,14 +501,8 @@ export default function AuthorBookPreview() {
   const canPrev = currentIndex > 0;
   const canNext = currentIndex + 2 < totalPages;
 
-  const leftPage = useMemo(
-    () => pages[currentIndex] ?? null,
-    [pages, currentIndex]
-  );
-  const rightPage = useMemo(
-    () => pages[currentIndex + 1] ?? null,
-    [pages, currentIndex]
-  );
+  const leftPage = useMemo(() => pages[currentIndex] ?? null, [pages, currentIndex]);
+  const rightPage = useMemo(() => pages[currentIndex + 1] ?? null, [pages, currentIndex]);
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 2 >= 0 ? prev - 2 : 0));
@@ -508,9 +510,7 @@ export default function AuthorBookPreview() {
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) =>
-      prev + 2 < totalPages ? prev + 2 : prev
-    );
+    setCurrentIndex((prev) => (prev + 2 < totalPages ? prev + 2 : prev));
     setActiveAudioPageId(null);
   };
 
@@ -523,27 +523,11 @@ export default function AuthorBookPreview() {
     navigate("/author/authorbooklist");
   };
 
-  const getDisplayUrl = (url?: string | null) => {
-    if (!url) return "";
-    if (url.startsWith("gs://")) {
-      const parts = url.split("/");
-      const bucket = parts[2];
-      const path = parts.slice(3).join("/");
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-        path
-      )}?alt=media`;
-    }
-    return url;
-  };
-
   return (
     <div className="flex h-screen bg-[#0b1020]">
-      {/* Sidebar */}
       <AuthorSidebar isOpen={sidebarOpen} />
 
-      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <header className="bg-[#111827] border-b border-white/10">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-3">
@@ -562,15 +546,12 @@ export default function AuthorBookPreview() {
               <div>
                 <div className="flex items-center gap-2 text-white">
                   <BookOpen className="w-5 h-5 text-purple-400" />
-                  <span className="font-semibold">
-                    Xem sách (Author Preview)
-                  </span>
+                  <span className="font-semibold">Xem sách (Author Preview)</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* nút xuất DOC */}
               <Button
                 size="sm"
                 variant="outline"
@@ -591,7 +572,6 @@ export default function AuthorBookPreview() {
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-auto px-6 py-5 bg-[#020617]">
           {loading && (
             <div className="flex h-full items-center justify-center text-gray-300">
@@ -607,7 +587,7 @@ export default function AuthorBookPreview() {
 
           {!loading && !error && book && (
             <div className="flex flex-col lg:flex-row gap-6 h-full">
-              {/* Info panel (left) */}
+              {/* Info panel */}
               <div className="w-full lg:w-72 xl:w-80 bg-[#0b1120] border border-white/10 rounded-xl p-4 flex flex-col gap-4">
                 <div className="flex gap-3">
                   <div className="w-20 h-28 rounded-md overflow-hidden bg-white/5 shadow">
@@ -662,18 +642,18 @@ export default function AuthorBookPreview() {
                   <div>
                     Đang xem:{" "}
                     {totalPages > 0
-                      ? `${currentIndex + 1}${currentIndex + 2 <= totalPages
-                        ? " - " + (currentIndex + 2)
-                        : ""
-                      }`
+                      ? `${currentIndex + 1}${
+                          currentIndex + 2 <= totalPages
+                            ? " - " + (currentIndex + 2)
+                            : ""
+                        }`
                       : "-"}
                   </div>
                 </div>
               </div>
 
-              {/* Flipbook (right) */}
+              {/* Flipbook */}
               <div className="flex-1 flex flex-col gap-4">
-                {/* Navigation */}
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-300 flex items-center gap-2">
                     <span>Xem dạng sách lật</span>
@@ -691,8 +671,9 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canPrev}
                       onClick={handlePrev}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canPrev ? "opacity-40 cursor-not-allowed" : ""
-                        }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
+                        !canPrev ? "opacity-40 cursor-not-allowed" : ""
+                      }`}
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </Button>
@@ -701,15 +682,15 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canNext}
                       onClick={handleNext}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canNext ? "opacity-40 cursor-not-allowed" : ""
-                        }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
+                        !canNext ? "opacity-40 cursor-not-allowed" : ""
+                      }`}
                     >
                       <ChevronRight className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>
 
-                {/* Book pages */}
                 <div className="flex-1 flex justify-center items-stretch">
                   {totalPages === 0 ? (
                     <div className="flex items-center justify-center text-gray-400">
@@ -723,6 +704,11 @@ export default function AuthorBookPreview() {
                         activeAudioPageId={activeAudioPageId}
                         onToggleAudio={handleToggleAudio}
                         getDisplayUrl={getDisplayUrl}
+                        onMarkerZoom={(rawUrl, title) => {
+                          const url = getDisplayUrl(rawUrl);
+                          setZoomMarkerTitle(title || "Marker");
+                          setZoomMarkerUrl(url);
+                        }}
                       />
                       <PageCard
                         page={rightPage}
@@ -730,9 +716,46 @@ export default function AuthorBookPreview() {
                         activeAudioPageId={activeAudioPageId}
                         onToggleAudio={handleToggleAudio}
                         getDisplayUrl={getDisplayUrl}
+                        onMarkerZoom={(rawUrl, title) => {
+                          const url = getDisplayUrl(rawUrl);
+                          setZoomMarkerTitle(title || "Marker");
+                          setZoomMarkerUrl(url);
+                        }}
                       />
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ MODAL ZOOM MARKER */}
+          {zoomMarkerUrl && (
+            <div
+              className="fixed inset-0 z-999 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setZoomMarkerUrl(null)}
+            >
+              <div
+                className="relative max-w-4xl w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setZoomMarkerUrl(null)}
+                  className="absolute -top-3 -right-3 bg-white text-black rounded-full w-9 h-9 shadow flex items-center justify-center"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+
+                <div className="bg-black/30 border border-white/20 rounded-xl p-3 shadow-xl">
+                  <div className="text-sm text-gray-200 font-medium mb-2 text-center">
+                    {zoomMarkerTitle}
+                  </div>
+                  <img
+                    src={zoomMarkerUrl}
+                    alt={zoomMarkerTitle}
+                    className="w-full max-h-[80vh] object-contain rounded-lg"
+                  />
                 </div>
               </div>
             </div>
@@ -749,6 +772,9 @@ type PageCardProps = {
   activeAudioPageId: string | null;
   onToggleAudio: (pageId?: string) => void;
   getDisplayUrl: (url?: string | null) => string;
+
+  // ✅ click marker thumbnail -> zoom
+  onMarkerZoom: (markerRawUrl: string, title?: string) => void;
 };
 
 function PageCard({
@@ -757,30 +783,43 @@ function PageCard({
   activeAudioPageId,
   onToggleAudio,
   getDisplayUrl,
+  onMarkerZoom,
 }: PageCardProps) {
   if (!page) {
     return (
       <div
-        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${side === "left" ? "origin-right" : "origin-left"
-          }`}
+        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${
+          side === "left" ? "origin-right" : "origin-left"
+        }`}
       >
         Trang trống
       </div>
     );
   }
 
+  const isImageUrl = (url?: string | null) => {
+    if (!url) return false;
+    const u = url.trim();
+    return (
+      u.startsWith("gs://") ||
+      u.includes("firebasestorage.googleapis.com") ||
+      /^https?:\/\/.+\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(u)
+    );
+  };
+
   const hasMarker = !!page.hasMarker;
+  const markerThumbRaw = page.markerImageUrl ?? null;
+  const markerThumbOk = isImageUrl(markerThumbRaw);
+  const markerThumbSrc = markerThumbOk ? getDisplayUrl(markerThumbRaw!) : "";
+
   const audio = page.audio ?? null;
   const illustration = page.illustration ?? null;
   const isPlaying = activeAudioPageId === page.pageId;
   const isPicturePage = page.pageType === "PICTURE";
 
   const audioSrc = audio ? getDisplayUrl(audio.audioUrl) : "";
-  const illustrationSrc = illustration
-    ? getDisplayUrl(illustration.imageUrl)
-    : "";
+  const illustrationSrc = illustration ? getDisplayUrl(illustration.imageUrl) : "";
 
-  // content là URL ảnh (dùng cho trang ảnh không có bản ghi illustration)
   const contentLooksLikeUrl =
     typeof page.content === "string" &&
     (page.content.trim().startsWith("http://") ||
@@ -788,11 +827,8 @@ function PageCard({
       page.content.trim().startsWith("gs://"));
 
   const contentImageSrc =
-    isPicturePage && contentLooksLikeUrl
-      ? getDisplayUrl(page.content.trim())
-      : "";
+    isPicturePage && contentLooksLikeUrl ? getDisplayUrl(page.content.trim()) : "";
 
-  // content là HTML (dùng cho trang chữ)
   const isHtmlContent =
     !isPicturePage &&
     typeof page.content === "string" &&
@@ -807,13 +843,14 @@ function PageCard({
         shadow-xl overflow-hidden 
         px-4 py-4 
         flex flex-col
-        ${side === "left"
-          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+        ${
+          side === "left"
+            ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+            : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
         }
       `}
     >
-      {/* Marker / Audio / Illustration icons */}
+      {/* Icons */}
       <div className="absolute top-2 right-2 flex gap-1">
         {!isPicturePage && (illustration || contentImageSrc) && (
           <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600/90 text-white shadow">
@@ -827,8 +864,7 @@ function PageCard({
         )}
       </div>
 
-
-      {/* Header: chapter + page number + audio icon cạnh tên chương */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="text-xs text-purple-300 font-medium truncate">
@@ -839,10 +875,11 @@ function PageCard({
             <button
               type="button"
               onClick={() => onToggleAudio(page.pageId)}
-              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${isPlaying
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${
+                isPlaying
                   ? "bg-emerald-500 text-white"
                   : "bg-emerald-600/90 text-white hover:bg-emerald-500"
-                }`}
+              }`}
             >
               <Volume2 className="w-4 h-4" />
             </button>
@@ -856,18 +893,39 @@ function PageCard({
 
       <div className="border-t border-white/10 my-2" />
 
-      {/* Illustration (ưu tiên bản ghi illustration, fallback sang URL trong content nếu là trang ảnh) */}
+      {/* Illustration / Picture */}
       {(illustrationSrc || contentImageSrc) && (
-        <div className="mb-3 rounded-md overflow-hidden bg-black/30 max-h-64">
+        <div className="mb-3 rounded-md overflow-hidden bg-black/30 max-h-64 relative">
           <img
             src={illustrationSrc || contentImageSrc}
             alt={illustration?.title || `Trang ${page.pageNumber}`}
             className="w-full h-full object-contain"
           />
+
+          {/* ✅ Marker thumbnail overlay (chỉ show cho trang ảnh PICTURE có marker) */}
+          {isPicturePage && hasMarker && markerThumbSrc && (
+            <button
+              type="button"
+              onClick={() =>
+                onMarkerZoom(
+                  markerThumbRaw!,
+                  `Marker - Trang ${page.pageNumber}`
+                )
+              }
+              className="absolute top-2 right-2 z-10 cursor-zoom-in rounded-md overflow-hidden border border-white/30 bg-black/30 backdrop-blur-sm shadow-lg hover:scale-[1.03] transition"
+              title="Xem marker"
+            >
+              <img
+                src={markerThumbSrc}
+                alt={`Marker trang ${page.pageNumber}`}
+                className="w-16 h-16 object-contain p-1"
+              />
+            </button>
+          )}
         </div>
       )}
 
-      {/* Content text (ẩn với trang ảnh, chỉ hiện với trang chữ) */}
+      {/* Content text */}
       {!isPicturePage && (
         <div className="flex-1 overflow-auto pr-1">
           {isHtmlContent ? (

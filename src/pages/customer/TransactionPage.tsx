@@ -189,13 +189,13 @@ export default function TransactionPage() {
     return "Yêu cầu huỷ đơn hàng/hoàn tiền của bạn đã được xử lý. Tiền hoàn sẽ được cập nhật vào ví theo giao dịch hoàn tiền.";
   }
 
-  // 🧩 Fetch danh sách order theo cartId
+  //  Fetch danh sách order theo cartId
   useEffect(() => {
     async function fetchOrders() {
       try {
         if (!user?.email) return;
 
-        // 1️⃣ Lấy userId
+        //  Lấy userId
         const userRes = await getUserByEmail(user.email);
         const userId = userRes?.userId;
         if (!userId) {
@@ -203,7 +203,7 @@ export default function TransactionPage() {
           return;
         }
 
-        // 2️⃣ Lấy cartId theo userId
+        //  Lấy cartId theo userId
         const cart = await CartService.getCartByUserId(userId);
         const cartId = Array.isArray(cart) ? cart[0]?.cartId : cart?.cartId;
         if (!cartId) {
@@ -211,7 +211,7 @@ export default function TransactionPage() {
           return;
         }
 
-        // 3️⃣ Gọi BE lấy danh sách order theo cartId
+        //  Gọi BE lấy danh sách order theo cartId
         const res = await OrderService.getOrderByCartId(cartId);
         if (Array.isArray(res)) {
           const now = new Date();
@@ -243,7 +243,7 @@ export default function TransactionPage() {
     }
 
     fetchOrders();
-  }, [user, filter]); // 🆕 Thêm filter vào dependency
+  }, [user, filter]); //  Thêm filter vào dependency
 
   useEffect(() => {
     if (!returnImageUrl) {
@@ -286,7 +286,7 @@ export default function TransactionPage() {
 
     console.log("RAW TRANSACTION SEARCH:", res);
 
-    // ⚡ CASE 1: BE trả về dạng { content: [...] }
+    //  CASE 1: BE trả về dạng { content: [...] }
     const list = Array.isArray(res?.content) ? res.content : [];
 
     // Tìm transaction PAYMENT
@@ -325,7 +325,7 @@ export default function TransactionPage() {
     try {
       toast.loading("Đang xử lý trả hàng & tạo hoàn tiền...");
 
-      // ✅ 1) Update ORDER -> RETURNED (7) + reason + imageUrl
+      //  1) Update ORDER -> RETURNED (7) + reason + imageUrl
       await OrderService.updateOrder(order.orderId, {
         status: ORDER_STATUS.RETURNED,
         reason,
@@ -341,7 +341,7 @@ export default function TransactionPage() {
         )
       );
 
-      // ✅ 2) Lấy PAYMENT transaction để lấy paymentMethodId + walletId
+      //  2) Lấy PAYMENT transaction để lấy paymentMethodId + walletId
       const paymentTrans = await getPaymentTransaction(order.orderId);
       if (!paymentTrans) {
         toast.error(
@@ -350,7 +350,7 @@ export default function TransactionPage() {
         return;
       }
 
-      // ✅ 3) Create REFUND transaction (NOT_PAID)
+      //  3) Create REFUND transaction (NOT_PAID)
       const payload: TransactionRequest = {
         totalPrice: order.totalPrice,
         status: TRANS_STATUS.NOT_PAID, // 0
@@ -366,7 +366,7 @@ export default function TransactionPage() {
       toast.success("Đã gửi yêu cầu trả hàng & tạo giao dịch hoàn tiền!");
       onSuccess?.();
     } catch (err) {
-      console.error("❌ Lỗi trả hàng/hoàn tiền:", err);
+      console.error(" Lỗi trả hàng/hoàn tiền:", err);
       toast.error("Không thể xử lý yêu cầu trả hàng & hoàn tiền.");
     } finally {
       toast.dismiss();
@@ -396,14 +396,14 @@ export default function TransactionPage() {
       toast.success("Cảm ơn bạn! Đã xác nhận nhận hàng.");
       onSuccess?.();
     } catch (err) {
-      console.error("❌ Lỗi xác nhận đơn:", err);
+      console.error(" Lỗi xác nhận đơn:", err);
       toast.error("Không thể xác nhận đơn hàng.");
     } finally {
       toast.dismiss();
     }
   }
 
-  // 🧾 Xem chi tiết
+  //  Xem chi tiết
   const handleOpenDetail = async (payment: any) => {
     setSelected(payment);
     setIsLoading(true);
@@ -460,10 +460,10 @@ export default function TransactionPage() {
           setPaymentMethodDesc(null);
         }
       } catch (err) {
-        console.error("❌ Lỗi khi tải feedback của user:", err);
+        console.error(" Lỗi khi tải feedback của user:", err);
       }
     } catch (err) {
-      console.error("❌ Lỗi khi lấy order details:", err);
+      console.error(" Lỗi khi lấy order details:", err);
       toast("Không thể tải chi tiết đơn hàng!");
     } finally {
       setIsLoading(false);
@@ -561,7 +561,7 @@ export default function TransactionPage() {
 
   return (
     <div className="p-6">
-      {/* 🆕 Bộ lọc */}
+      {/*  Bộ lọc */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-800">LỊCH SỬ ĐƠN HÀNG</h1>
         <select
@@ -735,7 +735,7 @@ export default function TransactionPage() {
                                     setRating("5");
                                   }}
                                 >
-                                  ✍️ Đánh giá
+                                   Đánh giá
                                 </Button>
                               )}
                           </div>
@@ -837,10 +837,10 @@ export default function TransactionPage() {
 
               return (
                 <div className="space-y-5">
-                  {/* ✅ Timeline giống ảnh */}
+                  {/*  Timeline giống ảnh */}
                   <RefundTimeline step={step} endLabel={endLabel} />
 
-                  {/* ✅ Text mô tả dưới timeline */}
+                  {/*  Text mô tả dưới timeline */}
                   <p className="text-sm text-gray-600 leading-relaxed">
                     {message}
                   </p>
@@ -916,7 +916,7 @@ export default function TransactionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 🔹 DIALOG FEEDBACK HOÀN CHỈNH */}
+      {/*  DIALOG FEEDBACK HOÀN CHỈNH */}
       <Dialog open={openFeedback} onOpenChange={setOpenFeedback}>
         <DialogContent className="max-w-md bg-white text-gray-800">
           <DialogHeader>
@@ -951,7 +951,7 @@ export default function TransactionPage() {
             </span>
           </div>
 
-          {/* ✍️ Nội dung đánh giá */}
+          {/*  Nội dung đánh giá */}
           <div className="mt-4 space-y-2">
             <label className="text-sm font-medium">Nội dung</label>
             <textarea
@@ -964,7 +964,7 @@ export default function TransactionPage() {
             />
           </div>
 
-          {/* ⚙️ Các nút hành động */}
+          {/*  Các nút hành động */}
 
           <div className="flex justify-end gap-2 mt-5">
             <Button
@@ -979,7 +979,7 @@ export default function TransactionPage() {
               Đóng
             </Button>
 
-            {/* ✅ Nếu chưa có feedback → gửi mới */}
+            {/*  Nếu chưa có feedback → gửi mới */}
             {!existingFeedback ? (
               <Button
                 className="bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white hover:opacity-90"
@@ -1010,7 +1010,7 @@ export default function TransactionPage() {
                     setContent("");
                     setRating("5");
                   } catch (err) {
-                    console.error("❌ Lỗi khi gửi feedback:", err);
+                    console.error(" Lỗi khi gửi feedback:", err);
                     toast.error("Không thể gửi đánh giá.");
                   } finally {
                     setIsSubmitting(false);
@@ -1021,7 +1021,7 @@ export default function TransactionPage() {
                 {isSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
               </Button>
             ) : (
-              /* ✏️ Nếu đã có feedback → xem hoặc chỉnh sửa */
+              /*  Nếu đã có feedback → xem hoặc chỉnh sửa */
               <Button
                 className={`${isEditing
                   ? "bg-linear-to-l from-[#764BA2] to-[#667EEA]"
@@ -1041,10 +1041,10 @@ export default function TransactionPage() {
                           rating,
                         }
                       );
-                      toast.success("✅ Đã cập nhật đánh giá!");
+                      toast.success(" Đã cập nhật đánh giá!");
                       setIsEditing(false);
                     } catch (err) {
-                      console.error("❌ Lỗi khi cập nhật feedback:", err);
+                      console.error(" Lỗi khi cập nhật feedback:", err);
                       toast.error("Không thể cập nhật đánh giá.");
                     } finally {
                       setIsSubmitting(false);
@@ -1056,15 +1056,15 @@ export default function TransactionPage() {
                 {isEditing
                   ? isSubmitting
                     ? "Đang lưu..."
-                    : "💾 Lưu thay đổi"
-                  : "✏️ Chỉnh sửa"}
+                    : " Lưu thay đổi"
+                  : " Chỉnh sửa"}
               </Button>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* 🔹 DIALOG TRẢ HÀNG */}
+      {/*  DIALOG TRẢ HÀNG */}
       <Dialog open={openReturnDialog} onOpenChange={setOpenReturnDialog}>
         <DialogContent className="max-w-md bg-white text-gray-800">
           <DialogHeader>

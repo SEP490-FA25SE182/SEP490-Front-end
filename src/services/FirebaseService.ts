@@ -9,14 +9,14 @@ export const UploadService = {
 
       await uploadBytes(fileRef, file);
 
-      // ✅ Thay vì getDownloadURL → trả về gs://
+      //  Thay vì getDownloadURL → trả về gs://
       const bucket = storage.app.options.storageBucket;
       const gsUrl = `gs://${bucket}/${filePath}`;
-      console.log("✅ Uploaded to Firebase:", gsUrl);
+      console.log(" Uploaded to Firebase:", gsUrl);
 
       return gsUrl;
     } catch (err) {
-      console.error("❌ Upload error:", err);
+      console.error(" Upload error:", err);
       throw err;
     }
   },

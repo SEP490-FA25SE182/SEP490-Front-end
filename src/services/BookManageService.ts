@@ -26,7 +26,7 @@ export interface Chapter {
     bookId: string;
     isActived?: string;
 
-    // 🆕 thêm các field dưới đây
+    //  thêm các field dưới đây
     progressStatus?: number;      // vì bạn đang dùng 0, 1, 3 => number
     publishedDate?: string;       // kiểu string (ISO date) cho an toàn
     review?: string | null;       // giống bên Book

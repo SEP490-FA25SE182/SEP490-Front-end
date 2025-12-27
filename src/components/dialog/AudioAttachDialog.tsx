@@ -35,8 +35,6 @@ export default function AudioAttachDialog({
     isActived: "ACTIVE",
   });
 
-  // ✅ FIX: sort audios by updatedAt newest first (fallback createdAt), avoid mutating query cache
-  // Also supports response shape: Array OR { content: Array }
   const audioList = useMemo(() => {
     const raw = Array.isArray(audiosData)
       ? audiosData

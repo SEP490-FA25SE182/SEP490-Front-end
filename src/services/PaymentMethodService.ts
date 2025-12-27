@@ -29,7 +29,7 @@ export const getAllPaymentMethods = async (): Promise<PaymentMethod[]> => {
     // BE trả Page => lấy content
     return res.data?.content ?? [];
   } catch (error) {
-    console.error("❌ Lỗi khi lấy danh sách phương thức thanh toán:", error);
+    console.error(" Lỗi khi lấy danh sách phương thức thanh toán:", error);
     return [];
   }
 };

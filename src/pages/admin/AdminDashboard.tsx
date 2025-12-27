@@ -46,7 +46,7 @@ import { BlogService } from "@/services/BlogService";
 import { CommentService } from "@/services/BlogService";
 
 /* =========================================================
-        🔢 TYPES & HELPERS
+         TYPES & HELPERS
 ========================================================= */
 
 type RevenueFilter = "day" | "week" | "month" | "quarter" | "year";
@@ -268,7 +268,7 @@ export default function AdminDashboardPage() {
           successOrderIds.has(d.orderId)
         );
 
-        /* ✅ DOANH THU ĐÚNG (KHÔNG TÍNH SHIPPING) */
+        /*  DOANH THU ĐÚNG (KHÔNG TÍNH SHIPPING) */
         let actualRevenue = 0;
         for (const d of details) {
           actualRevenue += d.quantity * d.price;
@@ -276,7 +276,7 @@ export default function AdminDashboardPage() {
 
         setTotalRevenue(actualRevenue);
 
-        // 🆕 TÍNH DOANH THU THEO THÁNG (1–12) DỰA TRÊN updatedAt CỦA ORDER
+        //  TÍNH DOANH THU THEO THÁNG (1–12) DỰA TRÊN updatedAt CỦA ORDER
         const revenueByOrderId: Record<string, number> = {};
 
         // Gom doanh thu theo từng orderId
@@ -336,7 +336,7 @@ export default function AdminDashboardPage() {
 
         setAuthorPaidAmount(paidAuthorTotal);
 
-        /* ✅ LỢI NHUẬN */
+        /*  LỢI NHUẬN */
         setProfit(actualRevenue - paidAuthorTotal);
 
         /* ========= BOOK STATS ========= */
@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
   }, [books]);
 
   /* =========================================================
-                  🔥 RENDER UI
+                   RENDER UI
     ========================================================== */
 
   return (

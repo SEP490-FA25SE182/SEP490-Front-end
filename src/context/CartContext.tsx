@@ -26,12 +26,12 @@ async function syncCartLinesWithLatestBook(
           ...line,
           book: {
             ...line.book,
-            ...latestBook, // 🔥 update toàn bộ field từ DB
+            ...latestBook, //  update toàn bộ field từ DB
           },
-          price: latestBook.price, // 🔥 giá luôn mới
+          price: latestBook.price, //  giá luôn mới
         };
       } catch (err) {
-        console.error("❌ Không sync được book:", line.book.bookId, err);
+        console.error(" Không sync được book:", line.book.bookId, err);
         return line; // fallback an toàn
       }
     })
@@ -89,7 +89,7 @@ type CartContextValue = {
   remove: (bookId: string) => Promise<void>;
   setQty: (bookId: string, qty: number, price?: number) => Promise<void>;
   clear: () => Promise<void>;
-  clearUI: () => void; // ✅ thêm
+  clearUI: () => void; //  thêm
   subtotal: number;
   count: number;
 };
@@ -108,13 +108,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
 
-  // 🔑 Lấy userId từ localStorage (đã được set khi login) + sync khi storage thay đổi
+  //  Lấy userId từ localStorage (đã được set khi login) + sync khi storage thay đổi
   useEffect(() => {
     if (!isInitialized) return;
     dispatch({ type: "INIT", cartId: null, lines: [] });
   }, [userId, isInitialized]);
 
-  // 🛒 Load Cart sau khi Auth sẵn sàng và có userId
+  //  Load Cart sau khi Auth sẵn sàng và có userId
   useEffect(() => {
     if (!isInitialized) return;
     if (!userId) return;
@@ -141,12 +141,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
         );
 
-        // ✅ SYNC THEO DB: update book + update price
+        //  SYNC THEO DB: update book + update price
         const syncedLines = await syncCartLinesWithLatestBook(rawLines);
 
         dispatch({ type: "INIT", cartId: cart.cartId, lines: syncedLines });
       } catch (err) {
-        console.error("❌ Lỗi fetchCart:", err);
+        console.error(" Lỗi fetchCart:", err);
       }
     };
 
@@ -155,7 +155,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isInitialized, userId]);
 
 
-  // 💾 Lưu giỏ hàng vào localStorage
+  //  Lưu giỏ hàng vào localStorage
   useEffect(() => {
     localStorage.setItem("cart_state", JSON.stringify(state));
   }, [state]);
@@ -194,7 +194,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.success(`Đã thêm “${book.bookName}” vào giỏ hàng`);
       }
     } catch (err) {
-      console.error("❌ Lỗi khi thêm sản phẩm:", err);
+      console.error(" Lỗi khi thêm sản phẩm:", err);
       toast.error("Không thể thêm sản phẩm vào giỏ hàng");
     }
   };

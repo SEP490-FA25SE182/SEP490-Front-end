@@ -53,8 +53,8 @@ export default function TextPageCreate() {
     userId: user.userId,
     isActived: "ACTIVE",
     page: 0,
-    size: 9999,                 // ✅ lấy hết (hoặc đủ lớn)
-    sort: ["updatedAt,desc"],  // ✅ mới nhất trước (nếu BE support)
+    size: 9999,                 //  lấy hết (hoặc đủ lớn)
+    sort: ["updatedAt,desc"],  //  mới nhất trước (nếu BE support)
   });
 
 
@@ -107,7 +107,7 @@ export default function TextPageCreate() {
     }
 
     try {
-      // 1️⃣ Cập nhật nội dung trang
+      //  Cập nhật nội dung trang
       await updatePage.mutateAsync({
         id: pageId,
         data: {
@@ -118,7 +118,7 @@ export default function TextPageCreate() {
         },
       });
 
-      // 2️⃣ Liên kết audio nếu có chọn
+      //  Liên kết audio nếu có chọn
       if (showAudioForm && selectedAudio) {
         await createPageAudio.mutateAsync([
           {
@@ -134,7 +134,7 @@ export default function TextPageCreate() {
       });
       navigate(-1);
     } catch (err: any) {
-      console.error("❌ Lỗi khi lưu:", err);
+      console.error(" Lỗi khi lưu:", err);
       toast({
         title: "Lỗi khi lưu",
         description: err?.response?.data?.message || "Không thể cập nhật trang.",

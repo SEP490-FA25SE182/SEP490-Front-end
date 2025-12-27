@@ -49,7 +49,7 @@ export default function CartPage() {
           setCoin(wallet.coin);
         }
       } catch (err) {
-        console.error("❌ Lỗi load coin:", err);
+        console.error(" Lỗi load coin:", err);
       }
     }
 
@@ -100,7 +100,7 @@ export default function CartPage() {
         return;
       }
 
-      // ✅ CHỈ ĐẨY STATE SANG CHECKOUT
+      //  CHỈ ĐẨY STATE SANG CHECKOUT
       navigate("/checkout", {
         state: {
           cartId: state.cartId,
@@ -110,7 +110,7 @@ export default function CartPage() {
         },
       });
     } catch (error: any) {
-      console.error("❌ Lỗi khi chuyển sang checkout:", error);
+      console.error(" Lỗi khi chuyển sang checkout:", error);
       toast.error(error?.message || "Không thể chuyển sang checkout.");
     }
   };
@@ -150,7 +150,7 @@ export default function CartPage() {
                     key={line.cartItemId}
                     className="rounded-xl border border-white/10 bg-white/5 p-4 flex gap-4 items-center "
                   >
-                    {/* ✅ Checkbox chọn sách */}
+                    {/*  Checkbox chọn sách */}
 
                     <div className="flex items-center justify-center">
                       <button

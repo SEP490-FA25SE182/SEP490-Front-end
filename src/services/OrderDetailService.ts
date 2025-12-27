@@ -20,7 +20,7 @@ export interface OrderDetailResponse {
 }
 
 export const OrderDetailService = {
-  // 🆕 Tạo mới Order Detail
+  //  Tạo mới Order Detail
   async createOrderDetail(details: CreateOrderDetailRequest[]): Promise<any> {
     const res = await axios.post(`${API_RK}/users/order/order-details`, details, {
       headers: { "Content-Type": "application/json" },
@@ -28,31 +28,31 @@ export const OrderDetailService = {
     return res.data;
   },
 
-  // 🔍 Lấy toàn bộ order detail
+  //  Lấy toàn bộ order detail
   async getAllOrderDetails(): Promise<OrderDetailResponse[]> {
     const res = await axios.get(`${API_RK}/users/order/order-details`);
     return res.data;
   },
 
-  // 🔍 Lấy order detail theo ID
+  //  Lấy order detail theo ID
   async getOrderDetailById(id: string): Promise<OrderDetailResponse> {
     const res = await axios.get(`${API_RK}/users/order/order-details/${id}`);
     return res.data;
   },
 
-  // 🔍 Lấy danh sách order detail theo orderId
+  //  Lấy danh sách order detail theo orderId
   async getOrderDetailsByOrderId(orderId: string): Promise<OrderDetailResponse[]> {
     const res = await axios.get(`${API_RK}/users/order/order-details/order/${orderId}`);
     return res.data;
   },
 
-  // ✏️ Cập nhật order detail
+  //  Cập nhật order detail
   async updateOrderDetail(id: string, data: Partial<CreateOrderDetailRequest>): Promise<OrderDetailResponse> {
     const res = await axios.put(`${API_RK}/users/order/order-details/${id}`, data);
     return res.data;
   },
 
-  // ❌ Xóa order detail
+  //  Xóa order detail
   async deleteOrderDetail(id: string): Promise<void> {
     await axios.delete(`${API_RK}/users/order/order-details/${id}`);
   },

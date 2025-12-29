@@ -130,6 +130,6 @@ export async function askGemini(
     opts.userId
   );
 
-  // ✅ BE mới trả về field "content"
+  //  BE mới trả về field "content"
   return res.content;
 }

@@ -1,67 +1,110 @@
-// src/services/gemini.ts
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const MODEL = "gemini-2.0-flash";
+import axios from "axios";
+import { API_AI } from "@/config";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-//  parse dataURL -> { mimeType, base64 }
-function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
-  const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
-  if (!match) throw new Error("Invalid data URL");
-  return { mimeType: match[1], base64: match[2] };
+/** =======================
+ *  DTO match BE
+ *  POST /api/rookie/chat
+ *  GET  /api/rookie/chat/history
+ ======================= */
+export type ChatRequestDTO = {
+  sessionId?: string | null;
+  message?: string;
+  imageUrls?: string[];
+  fileUrls?: string[];
+};
+
+export type ChatResponseDTO = {
+  sessionId: string;
+  content: string;
+  createdAt?: string;       
+  imageUrls?: string[];     
+  fileUrls?: string[];      
+  role?: string;            
+};
+
+function resolveChatBaseURL(api: string) {
+  const base = (api || "").replace(/\/+$/, "");
+
+  return `${base}/chat`;
 }
 
-export async function askGemini(message: string, imageDataUrl?: string): Promise<string> {
-  try {
-    //  Khuyến nghị dùng v1beta theo docs generateContent mới nhất
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`; // :contentReference[oaicite:1]{index=1}
+const chatHttp = axios.create({
+  baseURL: resolveChatBaseURL(API_AI),
+  timeout: 60_000,
+});
 
-    const systemInstruction =
-      "Bạn là trợ lý AI hỗ trợ người Việt. Luôn trả lời bằng TIẾNG VIỆT, rõ ràng, ngắn gọn.";
+function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } {
+  const [meta, b64] = dataUrl.split(",");
+  const mime = meta?.match(/data:(.*?);base64/i)?.[1] || "application/octet-stream";
 
-    const parts: any[] = [];
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-    const text = (message ?? "").trim();
-    if (text) {
-      parts.push({ text: `Câu hỏi của người dùng: ${text}` });
-    }
+  return { blob: new Blob([bytes], { type: mime }), mime };
+}
 
-    if (imageDataUrl) {
-      const { mimeType, base64 } = parseDataUrl(imageDataUrl);
-      parts.push({
-        inline_data: {
-          mime_type: mimeType,
-          data: base64,
-        },
-      });
-    }
+function guessExtFromMime(mime: string) {
+  const m = mime.toLowerCase();
+  if (m.includes("png")) return "png";
+  if (m.includes("jpeg") || m.includes("jpg")) return "jpg";
+  if (m.includes("webp")) return "webp";
+  if (m.includes("gif")) return "gif";
+  return "bin";
+}
 
-    if (parts.length === 0) return "⚠ Bạn chưa nhập gì để gửi.";
+export async function uploadChatImageDataUrl(imageDataUrl: string, userId: string): Promise<string> {
+  const { blob, mime } = dataUrlToBlob(imageDataUrl);
+  const ext = guessExtFromMime(mime);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        //  system instruction tách riêng (đỡ bị trộn vào câu hỏi)
-        systemInstruction: { parts: [{ text: systemInstruction }] }, // :contentReference[oaicite:2]{index=2}
-        contents: [
-          {
-            role: "user",
-            parts,
-          },
-        ],
-      }),
-    });
+  const path = `chat-images/${userId}/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
 
-    const result = await response.json();
+  const storage = getStorage();
+  const r = ref(storage, path);
 
-    return (
-      result?.candidates?.[0]?.content?.parts
-        ?.map((p: any) => p?.text)
-        ?.filter(Boolean)
-        ?.join("\n") ||
-      "⚠ AI không thể phản hồi lúc này."
-    );
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "⚠ Lỗi khi gọi Gemini API.";
-  }
+  await uploadBytes(r, blob, { contentType: mime });
+  return getDownloadURL(r);
+}
+
+export async function chatGeminiBE(req: ChatRequestDTO, userId: string): Promise<ChatResponseDTO> {
+  const { data } = await chatHttp.post<ChatResponseDTO>("", req, {
+    headers: { "X-User-Id": userId },
+  });
+  return data;
+}
+
+export async function getGeminiHistoryBE(userId: string) {
+  const { data } = await chatHttp.get<ChatResponseDTO[]>("/history", {
+    headers: { "X-User-Id": userId },
+  });
+  return data;
+}
+
+export async function askGemini(
+  message: string,
+  imageDataUrl?: string,
+  opts?: { userId: string; sessionId: string }
+): Promise<string> {
+  if (!opts?.userId) throw new Error("Missing userId");
+  if (!opts?.sessionId) throw new Error("Missing sessionId");
+
+  const finalMessage = (message || "").trim() || (imageDataUrl ? "Hãy mô tả ảnh này" : "");
+  if (!finalMessage && !imageDataUrl) throw new Error("Empty message");
+
+  let imageUrl: string | undefined;
+  if (imageDataUrl) imageUrl = await uploadChatImageDataUrl(imageDataUrl, opts.userId);
+
+  const res = await chatGeminiBE(
+    {
+      sessionId: opts.sessionId,
+      message: finalMessage,
+      imageUrls: imageUrl ? [imageUrl] : [],
+      fileUrls: [], // giữ đúng form request “chuẩn” của bạn
+    },
+    opts.userId
+  );
+
+  //  BE mới trả content
+  return res.content;
 }

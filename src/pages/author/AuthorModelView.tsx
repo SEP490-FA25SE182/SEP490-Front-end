@@ -11,6 +11,7 @@ import {
   useCreateARScene,
   useCreateARSceneItems,
   useSearchAsset3D,
+  useGetLatestARSceneByMarkerId,
   type Marker,
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
@@ -59,6 +60,8 @@ export default function AuthorModelView() {
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user.userId;
+
+  const { data: latestScene } = useGetLatestARSceneByMarkerId(markerId);
 
   // Tải danh sách asset 3D của user
   const {
@@ -112,15 +115,8 @@ export default function AuthorModelView() {
     }
 
     try {
-      // 1) Gọi backend lấy dữ liệu quiz để play
       const quizPlay = await getQuizPlayById(quizId);
-
-      // 2) Convert sang JSON string
       const json = JSON.stringify(quizPlay);
-
-      // 3) Gửi sang Unity
-      //  - GameObject: "QuizGameManager"
-      //  - Method: LoadQuizFromJson(string json)
       sendMessage("QuizGameManager", "LoadQuizFromJson", json);
 
       toast({
@@ -202,13 +198,11 @@ export default function AuthorModelView() {
       }
     };
 
-    // react-unity-webgl event (giữ nguyên)
     try {
       addEventListener?.("OnSelectObject", onSelect);
       addEventListener?.("OnSyncSceneObjects", onSync);
-    } catch (e) { }
+    } catch (e) {}
 
-    // BRIDGE cho Application.ExternalCall("OnSelectObject"/"OnSyncSceneObjects")
     window.OnSelectObject = (json: any) => {
       onSelect(json);
     };
@@ -220,7 +214,7 @@ export default function AuthorModelView() {
       try {
         removeEventListener?.("OnSelectObject", onSelect);
         removeEventListener?.("OnSyncSceneObjects", onSync);
-      } catch (e) { }
+      } catch (e) {}
 
       delete window.OnSelectObject;
       delete window.OnSyncSceneObjects;
@@ -231,67 +225,83 @@ export default function AuthorModelView() {
   // Load initial scene for marker
   // =====================
   useEffect(() => {
-    const loadInitialScene = async () => {
-      if (!markerId || !isLoaded) return;
+    if (!markerId || !isLoaded) return;
 
-      setSceneObjects([]);
-      setSelectedLocalId(null);
+    setSceneObjects([]);
+    setSelectedLocalId(null);
 
-      try {
-        sendMessage("SceneManager", "ClearAll", "");
-      } catch (e) { }
+    try {
+      sendMessage("SceneManager", "ClearAll", "");
+    } catch (e) {}
+  }, [markerId, isLoaded, sendMessage]);
 
-      try {
-        const res = await fetch(`/api/markers/${markerId}/active-scene`);
-        if (!res.ok) {
-          setCurrentSceneId(null);
-          return;
-        }
+  // B) Load latest scene (DRAFT/PUBLISHED đều được) khi có data
+  useEffect(() => {
+    if (!markerId || !isLoaded) return;
+    if (typeof latestScene === "undefined") return;
 
-        const scene = await res.json();
-        if (!scene) {
-          setCurrentSceneId(null);
-          return;
-        }
+    if (!latestScene) {
+      setCurrentSceneId(null);
+      return;
+    }
 
-        setCurrentSceneId(scene.sceneId);
+    // latestScene backend trả dạng { scene, marker, assets, items }
+    const sceneMeta = (latestScene as any).scene ?? latestScene; // fallback nếu API cũ trả flat
+    const markerMeta = (latestScene as any).marker ?? null;
 
-        const importDto = {
-          sceneId: scene.sceneId,
-          markerId: scene.markerId,
-          name: scene.name,
-          description: scene.description,
-          items: (scene.items || []).map((it: any) => ({
-            asset3DId: it.asset3DId,
-            assetUrl: it.assetUrl,
-            orderIndex: it.orderIndex,
-            posX: it.posX,
-            posY: it.posY,
-            posZ: it.posZ,
-            rotX: it.rotX,
-            rotY: it.rotY,
-            rotZ: it.rotZ,
-            scaleX: it.scaleX,
-            scaleY: it.scaleY,
-            scaleZ: it.scaleZ,
-            behaviorJson: it.behaviorJson,
-          })),
+    const sceneId =
+      sceneMeta?.sceneId || sceneMeta?.arSceneId || sceneMeta?.id || null;
+
+    setCurrentSceneId(sceneId);
+
+    // build map asset3DId -> assetUrl từ latestScene.assets
+    const apiAssets: any[] = (latestScene as any).assets ?? [];
+    const urlMap = new Map<string, string>();
+    for (const a of apiAssets) {
+      const id = a?.asset3DId ?? a?.id;
+      if (id && a?.assetUrl) urlMap.set(id, a.assetUrl);
+    }
+
+    //  items không có assetUrl => join bằng asset3DId
+    const apiItems: any[] = (latestScene as any).items ?? [];
+
+    const items = apiItems
+      .map((it: any, i: number) => {
+        const asset3DId = it.asset3DId ?? it.asset3dId;
+        const assetUrl = asset3DId ? urlMap.get(asset3DId) : undefined;
+
+        return {
+          asset3DId,
+          assetUrl, //  đã join đúng
+          orderIndex: it.orderIndex ?? i,
+          posX: it.posX ?? 0,
+          posY: it.posY ?? 0,
+          posZ: it.posZ ?? 0,
+          rotX: it.rotX ?? 0,
+          rotY: it.rotY ?? 0,
+          rotZ: it.rotZ ?? 0,
+          scaleX: it.scaleX ?? 1,
+          scaleY: it.scaleY ?? 1,
+          scaleZ: it.scaleZ ?? 1,
+          behaviorJson: it.behaviorJson ?? "",
         };
+      })
+      //  thiếu url thì bỏ (tránh Unity fallback ra cube)
+      .filter((x: any) => !!x.asset3DId && !!x.assetUrl);
 
-        try {
-          sendMessage(
-            "SceneManager",
-            "LoadSceneFromJson",
-            JSON.stringify(importDto)
-          );
-        } catch (e) { }
-      } catch (error) {
-        console.error("Load initial scene error", error);
-      }
+    //  meta lấy từ scene/marker đúng
+    const importDto = {
+      sceneId,
+      markerId: markerMeta?.markerId || sceneMeta?.markerId || markerId,
+      name: sceneMeta?.name ?? "",
+      description: sceneMeta?.description ?? "",
+      items,
     };
 
-    loadInitialScene();
-  }, [markerId, isLoaded, sendMessage]);
+    try {
+      sendMessage("SceneManager", "LoadSceneFromJson", JSON.stringify(importDto));
+    } catch (e) {}
+  }, [markerId, isLoaded, latestScene, sendMessage]);
 
   const selectedObject =
     sceneObjects.find((s) => s.localId === selectedLocalId) ?? null;
@@ -318,7 +328,7 @@ export default function AuthorModelView() {
           },
         });
         sendMessage("SceneManager", "UpdateObjectTransform", payload);
-      } catch (e) { }
+      } catch (e) {}
 
       return next;
     });
@@ -331,23 +341,21 @@ export default function AuthorModelView() {
     try {
       const meta = {
         markerId,
-        userId,               //  thêm dòng này
-        fileName: file.name,  // optional: cho backend biết tên file
-        format: "GLB",        // optional: clear format
+        userId,
+        fileName: file.name,
+        format: "GLB",
       };
 
       const res = await uploadMut.mutateAsync({ file, meta });
 
-      const asset3DId =
-        (res as any).asset3DId ?? (res as any).id ?? undefined;
-      const assetUrl = (res as any).assetUrl ?? ""; // bớt lặp
+      const asset3DId = (res as any).asset3DId ?? (res as any).id ?? undefined;
+      const assetUrl = (res as any).assetUrl ?? "";
 
       try {
         const payload = JSON.stringify({ asset3DId, assetUrl });
         sendMessage("SceneManager", "AddAssetFromUrl", payload);
-      } catch (e) { }
+      } catch (e) {}
 
-      // ⬇️ sẽ refetch list (bước 2 ở dưới)
       await refetchAssets?.();
 
       toast({
@@ -362,7 +370,6 @@ export default function AuthorModelView() {
     }
   };
 
-
   // Scene save/publish
   const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
   const [sceneDialogMode, setSceneDialogMode] =
@@ -374,12 +381,12 @@ export default function AuthorModelView() {
   ) => {
     const effectiveMarkerId = exportDto?.markerId || markerId;
     if (!effectiveMarkerId) {
-      toast({
-        title: "Lỗi",
-        description: "Marker chưa chọn/không tồn tại.",
-      });
+      toast({ title: "Lỗi", description: "Marker chưa chọn/không tồn tại." });
       return;
     }
+
+    const exportedItems = exportDto?.items || [];
+    console.log("[SAVE] exportDto items:", exportedItems.length, exportedItems);
 
     try {
       const sceneReq = {
@@ -388,50 +395,87 @@ export default function AuthorModelView() {
         description: exportDto?.description || "",
         version: 1,
         status,
-        // hidden on UI, always set ACTIVE when saving/publishing
         isActived: "ACTIVE",
       };
 
       const scene = await createSceneMut.mutateAsync(sceneReq);
+
       const sceneId =
         (scene as any).arSceneId ||
         (scene as any).sceneId ||
-        (scene as any).id;
+        (scene as any).id ||
+        (scene as any).scene_id;
+
+      if (!sceneId) {
+        console.error("[SAVE] Scene created but sceneId missing. scene=", scene);
+        toast({
+          title: "Lỗi khi lưu scene",
+          description:
+            "Tạo scene thành công nhưng không lấy được sceneId từ response.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setCurrentSceneId(sceneId);
 
-      const items = (exportDto?.items || []).map((it: any, idx: number) => ({
-        sceneId,
-        asset3DId: it.asset3DId,
-        orderIndex: it.orderIndex ?? idx,
-        posX: it.posX ?? 0,
-        posY: it.posY ?? 0,
-        posZ: it.posZ ?? 0,
-        rotX: it.rotX ?? 0,
-        rotY: it.rotY ?? 0,
-        rotZ: it.rotZ ?? 0,
-        scaleX: it.scaleX ?? 1,
-        scaleY: it.scaleY ?? 1,
-        scaleZ: it.scaleZ ?? 1,
-        behaviorJson: it.behaviorJson ?? null,
-      }));
+      const itemsReq = exportedItems
+        .map((it: any, idx: number) => {
+          const asset3DId = it.asset3DId ?? it.asset3dId;
+          if (!asset3DId) return null;
 
-      if (items.length) {
-        await createSceneItemsMut.mutateAsync(items);
-        toast({
-          title: "Scene saved",
-          description: `Scene ${sceneId} và ${items.length} item(s) đã lưu`,
-        });
+          return {
+            sceneId,
+            asset3DId,
+            assetUrl: it.assetUrl ?? null,
+            orderIndex: it.orderIndex ?? idx,
+            posX: it.posX ?? 0,
+            posY: it.posY ?? 0,
+            posZ: it.posZ ?? 0,
+            rotX: it.rotX ?? 0,
+            rotY: it.rotY ?? 0,
+            rotZ: it.rotZ ?? 0,
+            scaleX: it.scaleX ?? 1,
+            scaleY: it.scaleY ?? 1,
+            scaleZ: it.scaleZ ?? 1,
+            behaviorJson: it.behaviorJson ?? "",
+          };
+        })
+        .filter(Boolean);
+
+      console.log("[SAVE] itemsReq:", itemsReq.length, itemsReq);
+
+      if (itemsReq.length > 0) {
+        const created = await createSceneItemsMut.mutateAsync(itemsReq as any);
+
+        console.log("[SAVE] created items resp:", created);
+
+        if (!created || (Array.isArray(created) && created.length === 0)) {
+          toast({
+            title: "Cảnh báo",
+            description:
+              "API tạo scene-items trả về rỗng. Kiểm tra payload / backend mapping.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Scene saved",
+            description: `Scene ${sceneId} + ${itemsReq.length} item(s) đã lưu`,
+          });
+        }
       } else {
         toast({
           title: "Scene saved",
-          description: `Scene ${sceneId} đã lưu (không có item)`,
+          description: `Scene ${sceneId} đã lưu (export không có item nào có asset3DId)`,
         });
       }
     } catch (err: any) {
+      console.error("[SAVE] error", err);
       toast({
         title: "Lỗi khi lưu scene",
-        description: err?.message || "Unknown error",
+        description:
+          err?.response?.data?.message || err?.message || "Unknown error",
+        variant: "destructive",
       });
     }
   };
@@ -456,9 +500,8 @@ export default function AuthorModelView() {
 
     try {
       addEventListener?.("OnSceneExport", onSceneExport);
-    } catch (e) { }
+    } catch (e) {}
 
-    // Bridge cho Application.ExternalCall("OnSceneExport", json)
     window.OnSceneExport = (json: any) => {
       onSceneExport(json);
     };
@@ -466,7 +509,7 @@ export default function AuthorModelView() {
     return () => {
       try {
         removeEventListener?.("OnSceneExport", onSceneExport);
-      } catch (e) { }
+      } catch (e) {}
 
       delete window.OnSceneExport;
     };
@@ -514,19 +557,15 @@ export default function AuthorModelView() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      // Nếu focus đang ở input / textarea / contenteditable
       if (
         target.closest("input, textarea, [contenteditable='true']") ||
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA"
       ) {
-        // Chặn Unity bắt phím
         e.stopImmediatePropagation();
-        // KHÔNG preventDefault, để browser vẫn nhập vào input
       }
     };
 
-    // capture = true để chạy trước listener của Unity
     document.addEventListener("keydown", handler, true);
 
     return () => {
@@ -534,12 +573,11 @@ export default function AuthorModelView() {
     };
   }, []);
 
-
   const projectTitle = loadingMarker
     ? "Project (đang tải marker...)"
     : markerDetail?.markerCode
-      ? `Project ${markerDetail.markerCode}`
-      : "Project";
+    ? `Project ${markerDetail.markerCode}`
+    : "Project";
 
   // Handler thêm model vào scene
   const handleAddExistingModel = (asset: any, assetUrl: string) => {
@@ -593,6 +631,16 @@ export default function AuthorModelView() {
               </Button>
               <Button
                 onClick={() => {
+                  setSceneDialogMode("DRAFT");
+                  setSceneDialogOpen(true);
+                }}
+                className="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2"
+              >
+                Lưu
+              </Button>
+
+              <Button
+                onClick={() => {
                   setSceneDialogMode("PUBLISHED");
                   setSceneDialogOpen(true);
                 }}
@@ -633,11 +681,9 @@ export default function AuthorModelView() {
               onOpenCreateAIDialog={() => setAssetDialogOpenLocal(true)}
               currentChapterId={getCurrentChapterId()}
               onQuizFullyCreated={(quizId) => {
-                // khi tạo quiz mới xong thì preview luôn
                 previewQuizInUnity(quizId);
               }}
               onPreviewQuiz={(quizId) => {
-                // khi chọn quiz có sẵn trong dialog
                 previewQuizInUnity(quizId);
               }}
             />

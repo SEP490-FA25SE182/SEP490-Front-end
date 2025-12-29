@@ -204,7 +204,7 @@ export default function CheckoutPage() {
   const linesToPay = useMemo(() => {
     if (isBuyNow) return [location.state!.buyNowLine!];
 
-    // ✅ chỉ lấy các line được chọn từ cart
+    //  chỉ lấy các line được chọn từ cart
     const chosen = cartState.lines.filter(
       (l) => l.cartItemId && selectedCartItemIds.includes(l.cartItemId)
     );
@@ -393,7 +393,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // ✅ Match địa chỉ đã lưu → autofill
+    //  Match địa chỉ đã lưu → autofill
     setSelectedAddressId(matched.userAddressId);
 
     const parts = matched.addressInfor.split(",").map((p) => p.trim());
@@ -536,7 +536,7 @@ export default function CheckoutPage() {
 
       localStorage.setItem("lastOrder", JSON.stringify({
     orderId,
-    orderCode: response.orderCode, // ✅ thêm dòng này
+    orderCode: response.orderCode, //  thêm dòng này
   }));
       const checkoutUrl = response?.checkoutUrl;
 

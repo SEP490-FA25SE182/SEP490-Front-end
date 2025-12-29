@@ -425,6 +425,13 @@ export interface ARScene {
   updatedAt?: string;
 }
 
+export interface ARSceneLatestResponse {
+  scene?: ARScene & { sceneId?: string }; // backend dùng sceneId
+  marker?: Marker;
+  assets?: Asset3D[];
+  items?: ARSceneItem[]; // items không có assetUrl
+}
+
 export interface ARSceneSearchParams {
   markerId?: string;
   status?: string;
@@ -497,6 +504,29 @@ export const useSearchARScenes = (params?: ARSceneSearchParams) => {
   return useQuery({
     queryKey: ["ar-scenes", "search", params],
     queryFn: () => searchARScenes(params),
+  });
+};
+
+export const getLatestARSceneByMarkerId = async (
+  markerId: string
+): Promise<ARSceneLatestResponse | null> => {
+  try {
+    const response = await axios.get(
+      `${API_AR}/ar-scenes/latest/by-marker-id/${markerId}`
+    );
+    return response.data;
+  } catch (e: any) {
+    if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+    throw e;
+  }
+};
+
+export const useGetLatestARSceneByMarkerId = (markerId?: string) => {
+  return useQuery({
+    queryKey: ["ar-scenes", "latest-by-marker-id", markerId],
+    queryFn: () => getLatestARSceneByMarkerId(markerId as string),
+    enabled: !!markerId,
+    staleTime: 30 * 1000,
   });
 };
 

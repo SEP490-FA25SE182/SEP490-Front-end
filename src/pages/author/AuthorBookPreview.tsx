@@ -301,7 +301,7 @@ function centeredPage(children: Paragraph[], opts?: { withHeader?: boolean }) {
       new TableRow({
         height: {
           value: convertInchesToTwip(Math.max(5, heightIn)),
-          rule: HeightRule.ATLEAST, // ✅ tránh bị “đẩy” sang trang mới => sinh trang trống
+          rule: HeightRule.ATLEAST, //  tránh bị “đẩy” sang trang mới => sinh trang trống
         },
         children: [
           new TableCell({
@@ -680,7 +680,7 @@ export default function AuthorBookPreview() {
 
     /* =========================
        Cover section (tên + mô tả + ảnh bìa)
-       ✅ bỏ PageBreak cuối section để tránh sinh trang trống
+        bỏ PageBreak cuối section để tránh sinh trang trống
     ========================= */
     {
       const children: Paragraph[] = [];
@@ -822,8 +822,8 @@ export default function AuthorBookPreview() {
 
       /* =========================
          SECTION 2: Nội dung chương
-         ✅ CHỈ trang ảnh (PICTURE) không marker mới center
-         ✅ Không tự sinh trang trống
+          CHỈ trang ảnh (PICTURE) không marker mới center
+          Không tự sinh trang trống
       ========================= */
       {
         const pageBlocks: Array<Array<Paragraph | Table>> = [];
@@ -925,10 +925,10 @@ export default function AuthorBookPreview() {
             }
           }
 
-          // ✅ nếu trang thật sự không có gì -> bỏ qua để không sinh trang trống
+          //  nếu trang thật sự không có gì -> bỏ qua để không sinh trang trống
           if (pageParas.length === 0) continue;
 
-          const shouldCenter = isPicturePage && !p.hasMarker; // ✅ đúng yêu cầu của bạn
+          const shouldCenter = isPicturePage && !p.hasMarker; //  đúng yêu cầu của bạn
           const nodes: Array<Paragraph | Table> = [];
 
           if (shouldCenter) {

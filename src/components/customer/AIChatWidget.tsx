@@ -17,7 +17,10 @@ import { useAuth } from "@/context/AuthContext";
 type ChatMessage = {
   sender: "user" | "ai";
   text?: string;
-  imageDataUrl?: string; // chỉ để hiển thị preview ở FE
+  imageDataUrl?: string;
+  imageUrls?: string[];
+  fileUrls?: string[];
+  createdAt?: number; // ✅ thêm để sort messages theo thời gian
 };
 
 type Conversation = {
@@ -41,7 +44,7 @@ function uid() {
 }
 
 function toSender(role?: string): "user" | "ai" {
-  return (role || "").toLowerCase() === "user" ? "user" : "ai"; // "model" -> ai
+  return (role || "").toLowerCase() === "user" ? "user" : "ai";
 }
 
 export default function AIChatWidgetDock() {
@@ -103,9 +106,8 @@ export default function AIChatWidgetDock() {
 
     try {
       const list = await getGeminiHistoryBE(String(userId));
-      // list: ChatResponseDTO[] (content, role, createdAt, sessionId)
+      // list: ChatResponseDTO[] (content, role, createdAt, sessionId, imageUrls, fileUrls)
 
-      // group theo sessionId
       const map = new Map<
         string,
         {
@@ -127,7 +129,15 @@ export default function AIChatWidgetDock() {
         }
 
         const bucket = map.get(sid)!;
-        bucket.messages.push({ sender, text });
+
+        // ✅ (1) map thêm ảnh/file từ BE vào message
+        bucket.messages.push({
+          sender,
+          text,
+          imageUrls: item.imageUrls || [],
+          fileUrls: item.fileUrls || [],
+          createdAt: ts,
+        });
 
         if (!bucket.firstAnyText && text.trim()) bucket.firstAnyText = text.trim();
         if (sender === "user" && !bucket.firstUserText && text.trim()) {
@@ -141,11 +151,16 @@ export default function AIChatWidgetDock() {
         const baseTitle = b.firstUserText || b.firstAnyText || `Phiên ${sid.slice(0, 8)}…`;
         const title = baseTitle.slice(0, 28) + (baseTitle.length > 28 ? "…" : "");
 
+        // ✅ (2) sort messages theo thời gian trong mỗi session
+        const sortedMsgs = [...b.messages].sort(
+          (m1, m2) => (m1.createdAt ?? 0) - (m2.createdAt ?? 0)
+        );
+
         return {
           id: sid,
           title,
           createdAt: b.lastAt,
-          messages: b.messages, // đã đúng thứ tự do BE trả theo thời gian tăng dần
+          messages: sortedMsgs,
         };
       });
 
@@ -213,13 +228,21 @@ export default function AIChatWidgetDock() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      if (activeId) updateMessagesById(activeId, (prev) => [...prev, { sender: "ai", text: "⚠ Vui lòng chọn đúng file ảnh." }]);
+      if (activeId)
+        updateMessagesById(activeId, (prev) => [
+          ...prev,
+          { sender: "ai", text: "⚠ Vui lòng chọn đúng file ảnh." },
+        ]);
       return;
     }
 
     const MAX_MB = 4;
     if (file.size > MAX_MB * 1024 * 1024) {
-      if (activeId) updateMessagesById(activeId, (prev) => [...prev, { sender: "ai", text: `⚠ Ảnh quá nặng. Chọn ảnh < ${MAX_MB}MB.` }]);
+      if (activeId)
+        updateMessagesById(activeId, (prev) => [
+          ...prev,
+          { sender: "ai", text: `⚠ Ảnh quá nặng. Chọn ảnh < ${MAX_MB}MB.` },
+        ]);
       return;
     }
 
@@ -234,7 +257,11 @@ export default function AIChatWidgetDock() {
 
     const now = Date.now();
     if (now - lastSendRef.current < 2000) {
-      if (activeId) updateMessagesById(activeId, (prev) => [...prev, { sender: "ai", text: "⏳ Chờ 2 giây rồi gửi tiếp nhé." }]);
+      if (activeId)
+        updateMessagesById(activeId, (prev) => [
+          ...prev,
+          { sender: "ai", text: "⏳ Chờ 2 giây rồi gửi tiếp nhé." },
+        ]);
       return;
     }
     lastSendRef.current = now;
@@ -242,7 +269,12 @@ export default function AIChatWidgetDock() {
     // chưa có session -> tạo mới
     let convId = activeId;
     if (!convId) {
-      const c: Conversation = { id: uid(), title: "Cuộc chat mới", createdAt: Date.now(), messages: [] };
+      const c: Conversation = {
+        id: uid(),
+        title: "Cuộc chat mới",
+        createdAt: Date.now(),
+        messages: [],
+      };
       setConversations((prev) => [c, ...prev]);
       setActiveId(c.id);
       convId = c.id;
@@ -271,13 +303,18 @@ export default function AIChatWidgetDock() {
       if (text) {
         const newTitle = text.slice(0, 28) + (text.length > 28 ? "…" : "");
         setConversations((prev) =>
-          prev.map((c) => (c.id === convId && c.title === "Cuộc chat mới" ? { ...c, title: newTitle } : c))
+          prev.map((c) =>
+            c.id === convId && c.title === "Cuộc chat mới" ? { ...c, title: newTitle } : c
+          )
         );
       }
 
       setImageDataUrl(null);
     } catch {
-      updateMessagesById(convId, (prev) => [...prev, { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé." }]);
+      updateMessagesById(convId, (prev) => [
+        ...prev,
+        { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé." },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -320,10 +357,18 @@ export default function AIChatWidgetDock() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setOpen(false)} className="rounded-md p-1 hover:bg-white/15" title="Thu nhỏ">
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-md p-1 hover:bg-white/15"
+                title="Thu nhỏ"
+              >
                 <ChevronRight size={20} />
               </button>
-              <button onClick={() => setOpen(false)} className="rounded-md p-1 hover:bg-white/15" title="Đóng">
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-md p-1 hover:bg-white/15"
+                title="Đóng"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -376,19 +421,13 @@ export default function AIChatWidgetDock() {
                       title={c.title}
                     >
                       <div className="font-medium truncate">{c.title}</div>
-                      <div className="opacity-60">
-                        {new Date(c.createdAt).toLocaleString()}
-                      </div>
+                      <div className="opacity-60">{new Date(c.createdAt).toLocaleString()}</div>
                     </button>
                   ))}
 
                   {!serverLoading && conversations.length === 0 && (
                     <div className="text-[11px] opacity-70 p-2">Chưa có lịch sử trên server.</div>
                   )}
-                </div>
-
-                <div className="p-2 text-[11px] opacity-70 border-t">
-                  (Lấy từ /api/rookie/chat/history)
                 </div>
               </div>
             )}
@@ -406,9 +445,30 @@ export default function AIChatWidgetDock() {
                     }`}
                   >
                     {m.text && <div>{m.text}</div>}
-                    {m.imageDataUrl && (
-                      <img src={m.imageDataUrl} alt="uploaded" className="mt-2 max-w-full rounded-md border" />
-                    )}
+
+                    {/* ✅ (3) render ảnh: preview FE (imageDataUrl) + ảnh từ BE (imageUrls) */}
+                    {(() => {
+                      const imgs = [
+                        ...(m.imageDataUrl ? [m.imageDataUrl] : []),
+                        ...(m.imageUrls || []),
+                      ];
+                      const uniq = Array.from(new Set(imgs)).filter(Boolean);
+
+                      if (uniq.length === 0) return null;
+
+                      return (
+                        <div className="mt-2 space-y-2">
+                          {uniq.map((src, idx) => (
+                            <img
+                              key={idx}
+                              src={src}
+                              alt="uploaded"
+                              className="max-w-full rounded-md border"
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
 

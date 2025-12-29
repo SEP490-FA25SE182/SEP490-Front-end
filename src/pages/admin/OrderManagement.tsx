@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu, X, Loader2, Trash2 } from "lucide-react";
+import { Menu, X, Loader2, Trash2, MoreVertical } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,15 +51,26 @@ export default function OrderManagementPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ===== Refund dialog state (giữ nguyên) =====
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundOrder, setRefundOrder] = useState<OrderResponse | null>(null);
   const [refundDetails, setRefundDetails] = useState<any[]>([]);
   const [convertedImageUrl, setConvertedImageUrl] = useState("");
+  const [openApproveConfirm, setOpenApproveConfirm] = useState(false);
+
+  // ===== Delete confirm state (giữ nguyên) =====
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
   const [selectedDeleteOrderId, setSelectedDeleteOrderId] = useState<
     string | null
   >(null);
-  const [openApproveConfirm, setOpenApproveConfirm] = useState(false);
+
+  // ===== NEW: Detail dialog state (giữ cấu trúc y chang Refund dialog) =====
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<OrderResponse | null>(null);
+  const [detailDetails, setDetailDetails] = useState<any[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailImageUrl, setDetailImageUrl] = useState("");
 
   const TRANS_STATUS = {
     NOT_PAID: 0,
@@ -134,9 +145,9 @@ export default function OrderManagementPage() {
       case ORDER_STATUS.SHIPPING:
         return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED];
       case ORDER_STATUS.DELIVERED:
-        return [ORDER_STATUS.RECEIVED]; // thường user xác nhận, nhưng admin vẫn có thể set nếu cần
+        return [ORDER_STATUS.RECEIVED];
       default:
-        return []; // 0,5,6,7 không cho đổi
+        return [];
     }
   };
 
@@ -179,13 +190,56 @@ export default function OrderManagementPage() {
     fetchOrders();
   }, []);
 
+  // refund image
   useEffect(() => {
     if (refundOrder?.imageUrl) {
       resolveFirebaseUrl(refundOrder.imageUrl).then((url) => {
         setConvertedImageUrl(url);
       });
+    } else {
+      setConvertedImageUrl("");
     }
   }, [refundOrder]);
+
+  // detail image
+  useEffect(() => {
+    if (detailOrder?.imageUrl) {
+      resolveFirebaseUrl(detailOrder.imageUrl).then((url) => {
+        setDetailImageUrl(url);
+      });
+    } else {
+      setDetailImageUrl("");
+    }
+  }, [detailOrder]);
+
+  // ===============================
+  //  OPEN DETAIL DIALOG (NEW)
+  // ===============================
+  const openDetailDialog = async (order: OrderResponse) => {
+    setDetailOrder(order);
+    setDetailDetails([]);
+    setDetailOpen(true);
+
+    setLoadingDetail(true);
+    try {
+      const details = await OrderDetailService.getOrderDetailsByOrderId(
+        order.orderId
+      );
+
+      const enriched = await Promise.all(
+        details.map(async (d: any) => ({
+          ...d,
+          book: await getBookById(d.bookId).catch(() => null),
+        }))
+      );
+
+      setDetailDetails(enriched);
+    } catch {
+      toast.error("Không thể tải chi tiết đơn hàng");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   // ===============================
   //  OPEN REFUND DIALOG
@@ -208,7 +262,7 @@ export default function OrderManagementPage() {
       setRefundTrans(trans);
 
       const enriched = await Promise.all(
-        details.map(async (d) => ({
+        details.map(async (d: any) => ({
           ...d,
           book: await getBookById(d.bookId).catch(() => null),
         }))
@@ -255,22 +309,19 @@ export default function OrderManagementPage() {
         return;
       }
 
-      //  Cập nhật REFUND → SETTLEMENT + PAID (3)
+      //  Cập nhật REFUND → PAID (3)
       await TransactionService.update(refundTrans.transactionId, {
         totalPrice: refundTrans.totalPrice,
         status: TRANS_STATUS.PAID, // 3
         orderId: refundTrans.orderId,
         paymentMethodId: refundTrans.paymentMethodId,
         walletId: refundTrans.walletId ?? refundOrder.walletId,
-        transType: "REFUND", //  ép giữ REFUND
+        transType: "REFUND",
         isActived: refundTrans.isActived ?? "ACTIVE",
       });
 
-      console.log("refundTrans:", refundTrans);
-
       //  Lấy ví user
       const walletId = refundOrder.walletId; // CHUẨN NHẤT
-
       const wallet = await getWalletById(walletId);
 
       //  Cộng tiền hoàn vào ví
@@ -297,7 +348,7 @@ export default function OrderManagementPage() {
       setRefundOrder(null);
       setRefundTrans(null);
     } catch (error) {
-      console.error(" Lỗi duyệt hoàn tiền:", error);
+      console.error("Lỗi duyệt hoàn tiền:", error);
       toast.error("Không thể duyệt hoàn tiền.");
     } finally {
       toast.dismiss();
@@ -308,11 +359,11 @@ export default function OrderManagementPage() {
   //  FILTERED LIST
   // ===============================
   const filteredOrders = orders
-    .slice() // tránh mutate state gốc
+    .slice()
     .sort((a, b) => {
       const t1 = new Date(b.updatedAt ?? "").getTime();
       const t2 = new Date(a.updatedAt ?? "").getTime();
-      return t1 - t2; // mới nhất lên đầu
+      return t1 - t2;
     })
     .filter((order) => {
       const matchStatus =
@@ -493,20 +544,31 @@ export default function OrderManagementPage() {
                             <TableCell>
                               {order.updatedAt
                                 ? new Date(order.updatedAt).toLocaleString(
-                                    "vi-VN"
-                                  )
+                                  "vi-VN"
+                                )
                                 : "-"}
                             </TableCell>
 
                             <TableCell className="text-right flex gap-2 justify-end">
-                              {Number(order.status) ===
-                                ORDER_STATUS.RETURNED && (
+                              {Number(order.status) !== ORDER_STATUS.RETURNED && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-gray-700 hover:bg-gray-100"
+                                  onClick={() => openDetailDialog(order)}
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              )}
+
+                              {/* ✅ Nút hoàn tiền (chỉ hiện khi RETURNED) */}
+                              {Number(order.status) === ORDER_STATUS.RETURNED && (
                                 <Button
                                   size="sm"
                                   className="bg-purple-600 text-white"
                                   onClick={() => openRefundDialog(order)}
                                 >
-                                  Chi tiết
+                                  Chi tiết hoàn
                                 </Button>
                               )}
 
@@ -524,13 +586,11 @@ export default function OrderManagementPage() {
                                   <Button
                                     variant="destructive"
                                     size="icon"
-                                    disabled={
-                                      statusNum === 4 || statusNum === 5
-                                    }
+                                    disabled={statusNum === 4 || statusNum === 5}
                                     onClick={() => {
                                       setSelectedDeleteOrderId(order.orderId);
                                       setOpenDeleteConfirm(true);
-                                      window.location.reload();
+                                      // ❌ bỏ reload để không reset state/UI
                                     }}
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -559,9 +619,7 @@ export default function OrderManagementPage() {
                                       className="bg-red-600 hover:bg-red-700 text-white"
                                       onClick={async () => {
                                         if (!selectedDeleteOrderId) return;
-                                        await handleDelete(
-                                          selectedDeleteOrderId
-                                        );
+                                        await handleDelete(selectedDeleteOrderId);
                                         setOpenDeleteConfirm(false);
                                         setSelectedDeleteOrderId(null);
                                       }}
@@ -585,7 +643,129 @@ export default function OrderManagementPage() {
       </div>
 
       {/* ===============================
-          REFUND DIALOG (ĐƯA RA NGOÀI TABLE)
+          DETAIL DIALOG (GIỐNG STYLE REFUND)
+      =============================== */}
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setDetailOrder(null);
+            setDetailDetails([]);
+            setDetailImageUrl("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-white text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Chi tiết đơn hàng</DialogTitle>
+          </DialogHeader>
+
+          {detailOrder && (
+            <div className="space-y-4">
+              <p>
+                <b>Mã đơn:</b> {shortOrderCode(detailOrder.orderId)}
+              </p>
+
+              <p>
+                <b>Tổng tiền:</b> {formatVND(detailOrder.totalPrice)}
+              </p>
+
+              <p>
+                <b>Trạng thái:</b>{" "}
+                <span
+                  className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(
+                    Number(detailOrder.status)
+                  )}`}
+                >
+                  {mapOrderStatus(Number(detailOrder.status))}
+                </span>
+              </p>
+
+              <p>
+                <b>Cập nhật lúc:</b>{" "}
+                {detailOrder.updatedAt
+                  ? new Date(detailOrder.updatedAt).toLocaleString("vi-VN")
+                  : "-"}
+              </p>
+
+              {/* Nếu có lý do/ảnh (đơn RETURNED) thì cũng hiển thị */}
+              {detailOrder.reason && (
+                <div className="bg-gray-100 p-3 rounded-lg border">
+                  <p className="font-semibold text-gray-700">Lý do trả hàng:</p>
+                  <p className="text-gray-800 whitespace-pre-wrap mt-1">
+                    {detailOrder.reason}
+                  </p>
+                </div>
+              )}
+
+              {detailOrder.imageUrl && (
+                <div>
+                  <p className="font-semibold text-gray-700 mb-2">
+                    Ảnh minh chứng:
+                  </p>
+                  <img
+                    src={detailImageUrl}
+                    alt="Ảnh minh chứng"
+                    className="w-full max-h-80 object-contain rounded-lg border"
+                  />
+                </div>
+              )}
+
+              <h4 className="font-semibold">Sản phẩm trong đơn:</h4>
+
+              {loadingDetail ? (
+                <div className="flex items-center text-gray-600">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang tải chi tiết...
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {detailDetails.length === 0 ? (
+                    <div className="text-sm text-gray-600">
+                      Không có sản phẩm.
+                    </div>
+                  ) : (
+                    detailDetails.map((item) => (
+                      <div
+                        key={item.orderDetailId}
+                        className="flex justify-between text-sm border-b py-3"
+                      >
+                        <span>{item.book?.bookName ?? item.bookId}</span>
+                        <span>
+                          {item.quantity} × {formatVND(item.price)}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end mt-4 gap-2">
+                <Button variant="outline" onClick={() => setDetailOpen(false)}>
+                  Đóng
+                </Button>
+
+                {/* Nếu muốn “xem hoàn tiền” giống flow cũ, cho nút mở refund dialog */}
+                {Number(detailOrder.status) === ORDER_STATUS.RETURNED && (
+                  <Button
+                    className="bg-purple-600 text-white"
+                    onClick={() => {
+                      setDetailOpen(false);
+                      openRefundDialog(detailOrder);
+                    }}
+                  >
+                    Xem duyệt hoàn tiền
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ===============================
+          REFUND DIALOG (ĐƯA RA NGOÀI TABLE) - GIỮ NGUYÊN
       =============================== */}
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
         <DialogContent className="max-w-lg bg-white text-gray-900">

@@ -3,7 +3,7 @@ import { API_AI } from "@/config";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 /** =======================
- *  DTO match BE
+ *  DTO match BE (ai-service)
  *  POST /api/rookie/chat
  *  GET  /api/rookie/chat/history
  ======================= */
@@ -17,14 +17,13 @@ export type ChatRequestDTO = {
 export type ChatResponseDTO = {
   sessionId: string;
   content: string;
-  createdAt?: string;
-  imageUrls?: string[];
-  fileUrls?: string[];
-  role?: string;
+  role?: string;       // "user" | "model"
+  createdAt?: string;  // ISO string (Instant)
 };
 
 function resolveChatBaseURL(api: string) {
   const base = (api || "").replace(/\/+$/, "");
+
   return `${base}/chat`;
 }
 
@@ -35,11 +34,13 @@ const chatHttp = axios.create({
 
 function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } {
   const [meta, b64] = dataUrl.split(",");
-  const mime = meta?.match(/data:(.*?);base64/i)?.[1] || "application/octet-stream";
+  const mime =
+    meta?.match(/data:(.*?);base64/i)?.[1] || "application/octet-stream";
 
   const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
 
   return { blob: new Blob([bytes], { type: mime }), mime };
 }
@@ -53,11 +54,17 @@ function guessExtFromMime(mime: string) {
   return "bin";
 }
 
-export async function uploadChatImageDataUrl(imageDataUrl: string, userId: string): Promise<string> {
+/** Upload ảnh chat lên Firebase -> trả về downloadURL public */
+export async function uploadChatImageDataUrl(
+  imageDataUrl: string,
+  userId: string
+): Promise<string> {
   const { blob, mime } = dataUrlToBlob(imageDataUrl);
   const ext = guessExtFromMime(mime);
 
-  const path = `chat-images/${userId}/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+  const path = `chat-images/${userId}/${Date.now()}-${Math.random()
+    .toString(16)
+    .slice(2)}.${ext}`;
 
   const storage = getStorage();
   const r = ref(storage, path);
@@ -66,13 +73,20 @@ export async function uploadChatImageDataUrl(imageDataUrl: string, userId: strin
   return getDownloadURL(r);
 }
 
-export async function chatGeminiBE(req: ChatRequestDTO, userId: string): Promise<ChatResponseDTO> {
-  const { data } = await chatHttp.post<ChatResponseDTO>("", req, {
-    headers: { "X-User-Id": userId },
-  });
+/** Call BE chat */
+export async function chatGeminiBE(
+  req: ChatRequestDTO,
+  userId: string
+): Promise<ChatResponseDTO> {
+  const { data } = await chatHttp.post<ChatResponseDTO>(
+    "", // POST /api/rookie/chat
+    req,
+    { headers: { "X-User-Id": userId } }
+  );
   return data;
 }
 
+/** Lấy history từ BE */
 export async function getGeminiHistoryBE(userId: string) {
   const { data } = await chatHttp.get<ChatResponseDTO[]>("/history", {
     headers: { "X-User-Id": userId },
@@ -80,30 +94,42 @@ export async function getGeminiHistoryBE(userId: string) {
   return data;
 }
 
+/**
+ * API tương thích UI:
+ * - FE có imageDataUrl -> upload Firebase lấy URL
+ * - Gửi URL vào imageUrls cho BE
+ */
 export async function askGemini(
   message: string,
   imageDataUrl?: string,
-  opts?: { userId: string; sessionId: string }
+  opts?: { userId: string; sessionId?: string | null }
 ): Promise<string> {
   if (!opts?.userId) throw new Error("Missing userId");
-  if (!opts?.sessionId) throw new Error("Missing sessionId");
 
-  const finalMessage = (message || "").trim() || (imageDataUrl ? "Hãy mô tả ảnh này" : "");
-  if (!finalMessage && !imageDataUrl) throw new Error("Empty message");
+  const finalMessage =
+    (message || "").trim() ||
+    (imageDataUrl ? "Hãy mô tả ảnh này" : "");
+
+  if (!finalMessage && !imageDataUrl) {
+    throw new Error("Empty message");
+  }
 
   let imageUrl: string | undefined;
-  if (imageDataUrl) imageUrl = await uploadChatImageDataUrl(imageDataUrl, opts.userId);
+
+  if (imageDataUrl) {
+    imageUrl = await uploadChatImageDataUrl(imageDataUrl, opts.userId);
+  }
 
   const res = await chatGeminiBE(
     {
-      sessionId: opts.sessionId,
+      sessionId: opts.sessionId ?? undefined,
       message: finalMessage,
-      imageUrls: imageUrl ? [imageUrl] : [],
-      fileUrls: [],
+      imageUrls: imageUrl ? [imageUrl] : undefined,
+      fileUrls: [], // optional, để đúng form “chuẩn” bạn hay test
     },
     opts.userId
   );
 
-  //  BE mới trả content
+  // ✅ BE mới trả về field "content"
   return res.content;
 }

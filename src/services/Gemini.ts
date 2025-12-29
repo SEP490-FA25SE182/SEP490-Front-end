@@ -17,15 +17,16 @@ export type ChatRequestDTO = {
 export type ChatResponseDTO = {
   sessionId: string;
   content: string;
-  createdAt?: string;
-  imageUrls?: string[];
-  fileUrls?: string[];
-  role?: string;
+  createdAt?: string;       
+  imageUrls?: string[];     
+  fileUrls?: string[];      
+  role?: string;            
 };
 
 function resolveChatBaseURL(api: string) {
   const base = (api || "").replace(/\/+$/, "");
-  return `${base}/api/rookie/chat`;
+
+  return `${base}/chat`;
 }
 
 const chatHttp = axios.create({
@@ -104,6 +105,6 @@ export async function askGemini(
     opts.userId
   );
 
-  //  BE mới trả về field "content"
+  //  BE mới trả content
   return res.content;
 }

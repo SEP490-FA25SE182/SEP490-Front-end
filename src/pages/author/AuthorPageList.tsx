@@ -49,7 +49,11 @@ import { PageCreateDialog } from "@/components/dialog/PageCreateDialog";
 import MarkerCreateDialog from "@/components/dialog/MarkerCreateDialog";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import CreateAudioDialog from "@/components/dialog/CreateAudioDialog";
-import { useSearchMarkers, type Marker, getMarkerById } from "@/services/ARService";
+import {
+  useSearchMarkers,
+  type Marker,
+  getMarkerById,
+} from "@/services/ARService";
 import EmptyPageDialog from "@/components/dialog/EmptyPageDialog";
 
 import {
@@ -62,7 +66,8 @@ import { useAuth } from "@/context/AuthContext";
 import { getCurrentUserId } from "@/utils/authStorage";
 import { getUserByEmail } from "@/services/UserService";
 import { useUpdateChapter } from "@/services/BookManageService";
-
+import { getCurrentBookId, setCurrentBookId } from "@/utils/authStorage";
+import { Download } from "lucide-react";
 
 const AuthorPageList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -71,18 +76,21 @@ const AuthorPageList = () => {
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
   const [openAudioDialog, setOpenAudioDialog] = useState(false);
   const [openEmptyDialog, setOpenEmptyDialog] = useState(false);
-  const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(undefined);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | undefined>(
+    undefined
+  );
   const { chapterId } = useParams<{ chapterId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const updateChapter = useUpdateChapter();
 
-
   //  lấy authorId giống AuthorIncome
   const { user } = useAuth();
   const [authorId, setAuthorId] = useState<string | null>(null);
-
+  const [bookId, setBookIdState] = useState<string | null>(() =>
+    getCurrentBookId()
+  );
 
   useEffect(() => {
     const fetchAuthorId = async () => {
@@ -117,21 +125,30 @@ const AuthorPageList = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch data
-  const { data: chapter, isLoading: loadingChapter } = useGetChapterById(chapterId || "");
+  const { data: chapter, isLoading: loadingChapter } = useGetChapterById(
+    chapterId || ""
+  );
   const { data: pagesResp, isLoading: loadingPages } = useGetAllPages(
     chapterId ? { chapterId } : undefined
   );
 
+  useEffect(() => {
+    const bid = chapter?.bookId ?? null;
+    if (!bid) return;
 
-  //  Markers (right panel) - lọc theo userId của author
+    setBookIdState(bid);
+    setCurrentBookId(bid);
+  }, [chapter?.bookId]);
+
   const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
-    authorId
+    authorId && bookId
       ? {
-        userId: authorId,
-        page: 0,
-        size: 9999,
-        sort: ["createdAt,desc"],
-      }
+          userId: authorId,
+          bookId,
+          page: 0,
+          size: 9999,
+          sort: ["createdAt,desc"],
+        }
       : undefined
   );
 
@@ -156,8 +173,8 @@ const AuthorPageList = () => {
     return Array.isArray(illustrationsResp)
       ? (illustrationsResp as Illustration[])
       : Array.isArray((illustrationsResp as any).content)
-        ? ((illustrationsResp as any).content as Illustration[])
-        : [];
+      ? ((illustrationsResp as any).content as Illustration[])
+      : [];
   }, [illustrationsResp]);
 
   //  Map nhanh pageId → imageUrl
@@ -208,7 +225,9 @@ const AuthorPageList = () => {
         title: "Xóa thành công",
         description: `Đã xóa trang ${deletingPage.pageNumber}.`,
       });
-      await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+      await queryClient.invalidateQueries({
+        queryKey: ["pages", { chapterId }],
+      });
     } catch (err) {
       toast({
         title: "Xóa thất bại",
@@ -227,8 +246,8 @@ const AuthorPageList = () => {
     const list = Array.isArray(pagesResp)
       ? pagesResp
       : Array.isArray((pagesResp as any)?.content)
-        ? (pagesResp as any).content
-        : [];
+      ? (pagesResp as any).content
+      : [];
 
     return list
       .filter((p: any) => p.isActived !== "INACTIVE")
@@ -255,7 +274,6 @@ const AuthorPageList = () => {
       .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)); //  DESC
   }, [markersResp]);
 
-
   const isImageUrl = (url?: string) => {
     if (!url) return false;
     return (
@@ -272,7 +290,6 @@ const AuthorPageList = () => {
 
     return page.pageType === "PICTURE" || contentIsImage || !!relationUrl;
   };
-
 
   const getDisplayImageUrl = (url?: string): string => {
     if (!url) return "";
@@ -316,7 +333,7 @@ const AuthorPageList = () => {
           progressStatus: 0,
           isActived: chapter.isActived,
           publishedDate: chapter.publishedDate,
-          review: chapter.review
+          review: chapter.review,
         },
       });
 
@@ -326,7 +343,6 @@ const AuthorPageList = () => {
       });
 
       await queryClient.invalidateQueries({ queryKey: ["chapter", chapterId] });
-
     } catch (error) {
       toast({
         title: "Thất bại",
@@ -336,6 +352,48 @@ const AuthorPageList = () => {
     }
   };
 
+  const downloadBlob = async (url: string, filename: string) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objUrl);
+  };
+
+  const handleDownloadMarker = async (m: Marker) => {
+    try {
+      const url = m.printablePdfUrl || m.imageUrl;
+      if (!url) {
+        toast({
+          title: "Không có file",
+          description: "Marker này chưa có printablePdfUrl / imageUrl.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const isPdf = !!m.printablePdfUrl;
+      const safeName = (m.markerCode || "marker").replace(
+        /[^a-zA-Z0-9-_]/g,
+        "_"
+      );
+      const filename = isPdf ? `${safeName}.pdf` : `${safeName}.png`;
+
+      await downloadBlob(url, filename);
+    } catch (e) {
+      toast({
+        title: "Tải xuống thất bại",
+        description: "Không thể tải file. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
@@ -369,7 +427,11 @@ const AuthorPageList = () => {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="text-white hover:bg-white/10"
               >
-                {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+                {sidebarOpen ? (
+                  <ChevronLeft className="w-6 h-6" />
+                ) : (
+                  <ChevronRight className="w-6 h-6" />
+                )}
               </Button>
               <div className="ml-4 text-white">
                 <div className="text-sm">Danh sách trang</div>
@@ -434,15 +496,15 @@ const AuthorPageList = () => {
                   {chapter?.decription || "Không có"}
                 </span>
               </div>
-              {(chapter?.progressStatus === 1 || chapter?.progressStatus === 3)
-                && (
-                  <Button
-                    className="ml-2 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={handleSubmitForReview}
-                  >
-                    Hoàn thành chương → Gửi duyệt
-                  </Button>
-                )}
+              {(chapter?.progressStatus === 1 ||
+                chapter?.progressStatus === 3) && (
+                <Button
+                  className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleSubmitForReview}
+                >
+                  Hoàn thành chương → Gửi duyệt
+                </Button>
+              )}
             </div>
           </div>
 
@@ -519,7 +581,6 @@ const AuthorPageList = () => {
                         </DropdownMenu>
                       </div>
 
-
                       <div className="flex flex-col items-center space-y-2">
                         <div className="relative w-16 h-20 flex items-center justify-center rounded overflow-hidden bg-white/5">
                           {isImage ? (
@@ -555,10 +616,11 @@ const AuthorPageList = () => {
                         </div>
 
                         <div
-                          className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
-                            ? "bg-blue-500/20 text-blue-300"
-                            : "bg-purple-500/20 text-purple-300"
-                            }`}
+                          className={`text-[10px] px-2 py-0.5 rounded-full ${
+                            isImage
+                              ? "bg-blue-500/20 text-blue-300"
+                              : "bg-purple-500/20 text-purple-300"
+                          }`}
                         >
                           {isImage ? "Trang Ảnh" : "Trang Chữ"}
                         </div>
@@ -574,7 +636,9 @@ const AuthorPageList = () => {
             )}
             {!loadingPages && currentPages.length === 0 && (
               <div className="text-center py-12 text-gray-400">
-                {searchTerm ? "Không tìm thấy trang nào." : "Chưa có trang nào."}
+                {searchTerm
+                  ? "Không tìm thấy trang nào."
+                  : "Chưa có trang nào."}
               </div>
             )}
 
@@ -588,19 +652,21 @@ const AuthorPageList = () => {
                         <PaginationItem>
                           <PaginationPrevious
                             onClick={handlePrev}
-                            className={`text-white hover:bg-white/10 ${currentPage === 1
-                              ? "opacity-50 pointer-events-none"
-                              : ""
-                              }`}
+                            className={`text-white hover:bg-white/10 ${
+                              currentPage === 1
+                                ? "opacity-50 pointer-events-none"
+                                : ""
+                            }`}
                           />
                         </PaginationItem>
                         <PaginationItem>
                           <PaginationNext
                             onClick={handleNext}
-                            className={`text-white hover:bg-white/10 ${currentPage === totalPages
-                              ? "opacity-50 pointer-events-none"
-                              : ""
-                              }`}
+                            className={`text-white hover:bg-white/10 ${
+                              currentPage === totalPages
+                                ? "opacity-50 pointer-events-none"
+                                : ""
+                            }`}
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -642,7 +708,9 @@ const AuthorPageList = () => {
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-purple-600 text-white">
                   <Plus className="w-6 h-6" />
                 </div>
-                <div className="mt-3 text-sm text-white">Tạo project 3D mới</div>
+                <div className="mt-3 text-sm text-white">
+                  Tạo project 3D mới
+                </div>
               </div>
 
               {/* Marker cards */}
@@ -654,10 +722,7 @@ const AuthorPageList = () => {
                     try {
                       const marker = await getMarkerById(m.markerId as string);
                       navigate(`/author/model-view/${marker.markerId}`, {
-                        state: {
-                          marker,
-                          chapterId: chapterId, // truyền thêm chapterId
-                        },
+                        state: { marker, chapterId },
                       });
                     } catch (err) {
                       toast({
@@ -668,6 +733,19 @@ const AuthorPageList = () => {
                     }
                   }}
                 >
+                  {/* Download button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadMarker(m);
+                    }}
+                    className="absolute top-2 right-2 z-10 inline-flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Tải marker"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+
                   <div className="w-full h-28 bg-white/5 flex items-center justify-center overflow-hidden">
                     {m.imageUrl ? (
                       <img
@@ -687,12 +765,11 @@ const AuthorPageList = () => {
                       {m.markerCode || "Untitled"}
                     </div>
                     <div className="text-xs text-gray-400">
-                      {m.markerType}
+                      Tag Id của Sách: {m.tagId}
                     </div>
                   </div>
                 </div>
               ))}
-
             </div>
           </div>
         </aside>
@@ -704,7 +781,9 @@ const AuthorPageList = () => {
         onClose={() => setOpenCreateDialog(false)}
         chapterId={chapterId}
         onCreated={async () => {
-          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+          await queryClient.invalidateQueries({
+            queryKey: ["pages", { chapterId }],
+          });
         }}
       />
 
@@ -713,7 +792,9 @@ const AuthorPageList = () => {
         onClose={() => setMarkerDialogOpen(false)}
         {...({
           onCreated: async (created: any) => {
-            await queryClient.invalidateQueries({ queryKey: ["markers", "all"] });
+            await queryClient.invalidateQueries({
+              queryKey: ["markers", "all"],
+            });
             setMarkerDialogOpen(false);
             if (created?.markerId) {
               setSelectedMarkerId(created.markerId);
@@ -728,7 +809,9 @@ const AuthorPageList = () => {
         onClose={() => setAssetDialogOpen(false)}
         markerId={selectedMarkerId}
         onCreated={async () => {
-          await queryClient.invalidateQueries({ queryKey: ["asset3d", "search"] });
+          await queryClient.invalidateQueries({
+            queryKey: ["asset3d", "search"],
+          });
           setAssetDialogOpen(false);
         }}
       />
@@ -738,7 +821,9 @@ const AuthorPageList = () => {
         onClose={() => setOpenAudioDialog(false)}
         chapterId={chapterId}
         onCreated={async () => {
-          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+          await queryClient.invalidateQueries({
+            queryKey: ["pages", { chapterId }],
+          });
         }}
       />
 
@@ -748,7 +833,9 @@ const AuthorPageList = () => {
         chapterId={chapterId}
         onCreated={async () => {
           // refresh pages list after created
-          await queryClient.invalidateQueries({ queryKey: ["pages", { chapterId }] });
+          await queryClient.invalidateQueries({
+            queryKey: ["pages", { chapterId }],
+          });
           setOpenEmptyDialog(false);
         }}
       />
@@ -759,7 +846,8 @@ const AuthorPageList = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             <AlertDialogDescription>
-              Xóa trang <strong>{deletingPage?.pageNumber}</strong>? Không thể hoàn tác.
+              Xóa trang <strong>{deletingPage?.pageNumber}</strong>? Không thể
+              hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

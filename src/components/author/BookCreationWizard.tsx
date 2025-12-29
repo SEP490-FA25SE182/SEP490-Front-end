@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getUserByEmail } from "@/services/UserService";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
-import { getCurrentUserId } from "@/utils/authStorage";
+import { getCurrentUserId, setCurrentBookId } from "@/utils/authStorage";
 import { UploadService } from "@/services/FirebaseService";
 
 type WizardProps = { onCreated?: (bookId: string) => void };
@@ -24,8 +24,9 @@ export default function BookCreationWizard(props: WizardProps) {
     authorId: "", // sẽ được set tự động
   });
 
-
-  const [selectedCoverPreview, setSelectedCoverPreview] = useState<string | null>(null);
+  const [selectedCoverPreview, setSelectedCoverPreview] = useState<
+    string | null
+  >(null);
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
 
@@ -88,7 +89,9 @@ export default function BookCreationWizard(props: WizardProps) {
       const parts = url.split("/");
       const bucket = parts[2];
       const path = parts.slice(3).join("/");
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+        path
+      )}?alt=media`;
     }
     return url;
   };
@@ -120,7 +123,9 @@ export default function BookCreationWizard(props: WizardProps) {
     if (lengthErrors.length > 0) {
       toast({
         title: "Vượt giới hạn ký tự",
-        description: `Các trường sau vượt giới hạn: ${lengthErrors.join(", ")}.`,
+        description: `Các trường sau vượt giới hạn: ${lengthErrors.join(
+          ", "
+        )}.`,
         variant: "destructive",
       });
       return;
@@ -132,12 +137,19 @@ export default function BookCreationWizard(props: WizardProps) {
       setIsUploadingCover(true);
       try {
         toast({ title: "Đang upload ảnh bìa..." });
-        const gsUrl = await UploadService.uploadImageToFirebase(selectedCoverFile, "book");
+        const gsUrl = await UploadService.uploadImageToFirebase(
+          selectedCoverFile,
+          "book"
+        );
         payload = { ...payload, coverUrl: gsUrl };
         toast({ title: "Upload ảnh bìa thành công" });
       } catch (err) {
         console.error("Upload cover failed:", err);
-        toast({ title: "Upload thất bại", description: "Không thể upload ảnh bìa.", variant: "destructive" });
+        toast({
+          title: "Upload thất bại",
+          description: "Không thể upload ảnh bìa.",
+          variant: "destructive",
+        });
         setIsUploadingCover(false);
         return;
       } finally {
@@ -152,10 +164,15 @@ export default function BookCreationWizard(props: WizardProps) {
         description: `“${book.bookName}” đã được tạo.`,
       });
       if (res?.bookId) {
+        const createdId = res.bookId;
+
+        // lưu current book id để dialog tạo marker lấy được
+        setCurrentBookId(createdId);
+
         // clear selection
         setSelectedCoverFile(null);
         setSelectedCoverPreview(null);
-        const createdId = res.bookId;
+
         props.onCreated?.(createdId);
         navigate("/author/authorbooklist");
       } else {
@@ -188,7 +205,6 @@ export default function BookCreationWizard(props: WizardProps) {
     descTooLong ||
     isUploadingCover;
 
-
   return (
     <div>
       <div className="mb-4 flex justify-between items-center">
@@ -204,16 +220,13 @@ export default function BookCreationWizard(props: WizardProps) {
         />
         <div className="flex justify-between text-xs mt-1">
           <div
-            className={`text-gray-400 ${titleTooLong ? "text-red-400" : ""
-              }`}
+            className={`text-gray-400 ${titleTooLong ? "text-red-400" : ""}`}
           >
             {" "}
             {(book.bookName ?? "").length} / {MAX_TITLE}
           </div>
           {titleTooLong && (
-            <div className="text-red-400">
-              Vượt tối đa {MAX_TITLE} ký tự
-            </div>
+            <div className="text-red-400">Vượt tối đa {MAX_TITLE} ký tự</div>
           )}
         </div>
 
@@ -243,10 +256,14 @@ export default function BookCreationWizard(props: WizardProps) {
         </div>
 
         <div className="flex justify-between text-xs mt-1">
-          <div className={`text-gray-400 ${coverTooLong ? "text-red-400" : ""}`}>
+          <div
+            className={`text-gray-400 ${coverTooLong ? "text-red-400" : ""}`}
+          >
             {(book.coverUrl ?? "").length} / {MAX_COVER}
           </div>
-          {coverTooLong && <div className="text-red-400">Vượt tối đa {MAX_COVER} ký tự</div>}
+          {coverTooLong && (
+            <div className="text-red-400">Vượt tối đa {MAX_COVER} ký tự</div>
+          )}
         </div>
 
         {selectedCoverPreview && (
@@ -282,17 +299,12 @@ export default function BookCreationWizard(props: WizardProps) {
           className="w-full bg-transparent border border-white/20 text-white rounded-md p-2 resize-y focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
         <div className="flex justify-between text-xs mt-1">
-          <div
-            className={`text-gray-400 ${descTooLong ? "text-red-400" : ""
-              }`}
-          >
+          <div className={`text-gray-400 ${descTooLong ? "text-red-400" : ""}`}>
             {" "}
             {(book.decription ?? "").length} / {MAX_DESC}
           </div>
           {descTooLong && (
-            <div className="text-red-400">
-              Vượt tối đa {MAX_DESC} ký tự
-            </div>
+            <div className="text-red-400">Vượt tối đa {MAX_DESC} ký tự</div>
           )}
         </div>
 

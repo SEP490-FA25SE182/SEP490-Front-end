@@ -7,14 +7,17 @@ import { API_AR } from "@/config";
 export interface Marker {
   markerId?: string;
   markerCode: string;
-  markerType: string;
+  markerType?: string;          // response có "APRILTAG"
   imageUrl?: string;
-  physicalWidthM?: number;      // new
-  printablePdfUrl?: string;     // new
-  isActived?: string;           // new (e.g. "ACTIVE")
+  physicalWidthM?: number;
+  printablePdfUrl?: string;
+  isActived?: string;           // "ACTIVE"
   createdAt?: string;
-  updatedAt?: string;    
-  userId?: string;        // new
+  updatedAt?: string;
+  userId?: string;
+  bookId?: string;
+  tagFamily?: string;
+  tagId?: number;
 }
 
 export interface MarkerSearchParams {
@@ -22,9 +25,18 @@ export interface MarkerSearchParams {
   markerType?: string;
   pageId?: string;   // added
   userId?: string;   // added
+  bookId?: string;
   page?: number;
   size?: number;
   sort?: string[];
+}
+
+export interface CreateAprilTagMarkerRequest {
+  bookId: string;
+  userId: string;
+  markerCode: string;
+  physicalWidthM: number;
+  tagFamily: string; // e.g. "tag36h11"
 }
 
 export interface PagedResponse<T> {
@@ -54,8 +66,10 @@ export interface PagedResponse<T> {
  * Tạo marker (POST /markers)
  * Swagger sample shows a single object in request body — dùng Marker (không phải mảng)
  */
-export const createMarker = async (data: Marker): Promise<Marker> => {
-  const response = await axios.post(`${API_AR}/markers`, data);
+export const createMarker = async (
+  data: CreateAprilTagMarkerRequest
+): Promise<Marker> => {
+  const response = await axios.post(`${API_AR}/markers/apriltag`, data);
   return response.data;
 };
 
@@ -97,17 +111,21 @@ export const searchMarkers = async (
 /** Hook: Tạo marker */
 export const useCreateMarker = () => {
   return useMutation({
-    mutationFn: (data: Marker) => createMarker(data),
+    mutationFn: (data: CreateAprilTagMarkerRequest) => createMarker(data),
   });
 };
 
 /** Hook: Lấy marker theo ID (sử dụng useQuery để cache và enabled theo id) */
-export const useGetMarkerById = (id?: string, _p0?: { initialData: Marker | undefined; }) => {
+export const useGetMarkerById = (
+  id?: string,
+  options?: { initialData?: Marker }
+) => {
   return useQuery({
     queryKey: ["markers", id],
     queryFn: () => getMarkerById(id as string),
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
+    initialData: options?.initialData,
   });
 };
 
@@ -158,6 +176,7 @@ export const attachMarkerToPage = async (
 ): Promise<void> => {
   await axios.post(`${API_AR}/markers/${markerId}/pages/${pageId}`);
 };
+
 
 export const useAttachMarkerToPage = () => {
   return useMutation({

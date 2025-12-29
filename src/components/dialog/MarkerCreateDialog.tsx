@@ -11,94 +11,48 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useCreateMarker, useGetAllMarkers } from "@/services/ARService";
 import { useToast } from "@/components/ui/use-toast";
-import { useSearchIllustrations } from "@/services/AIService";
+import { getCurrentUserId, getCurrentBookId } from "@/utils/authStorage";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  // onCreated removed — MarkerCreateDialog chỉ tạo marker và đóng dialog.
 }
+
+const DEFAULT_PHYSICAL_WIDTH = 0.1;
+const DEFAULT_TAG_FAMILY = "tag36h11";
 
 const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const { toast } = useToast();
 
   const [markerCode, setMarkerCode] = useState("");
-  const [selectedIllustrationId, setSelectedIllustrationId] =
-    useState<string | null>(null);
+  const [physicalWidthM, setPhysicalWidthM] = useState<string>(""); // input string để dễ nhập
 
   const createMarker = useCreateMarker();
   const { data: markers = [] } = useGetAllMarkers();
 
-  // ----- lấy danh sách illustration của user -----
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user?.userId;
-
-  const {
-    data: illustrations = [],
-    isLoading: loadingIllustrations,
-  } = useSearchIllustrations({
-    userId,
-    page: 0,
-    size: 9999,
-    sort: ["updatedAt,desc"], 
-  });
+  const userId = getCurrentUserId();
+  const bookId = getCurrentBookId();
 
   // reset state khi đóng dialog
   useEffect(() => {
     if (!isOpen) {
       setMarkerCode("");
-      setSelectedIllustrationId(null);
+      setPhysicalWidthM("");
     }
   }, [isOpen]);
-
-  // convert gs:// -> https (dùng chung nhiều nơi)
-  const gsToHttp = (url?: string | null) => {
-    if (!url) return "";
-    if (!url.startsWith("gs://")) return url;
-    const withoutGs = url.replace("gs://", "");
-    const parts = withoutGs.split("/");
-    const bucket = parts.shift();
-    const path = parts.join("/");
-    if (!bucket || !path) return url;
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
-      path
-    )}?alt=media`;
-  };
 
   // normalize markerCode: trim + đổi space thành '-' + bỏ ký tự lạ + lowercase
   const normalizeCode = (code: string) =>
     code
       .trim()
       .replace(/\s+/g, "-")
-      .replace(/[^a-zA-Z0-9\-]/g, "")
+      .replace(/[^a-zA-Z0-9-]/g, "")
       .toLowerCase();
 
-  // map illustration data cho UI
-  const illustrationList = useMemo(() => {
-    if (!Array.isArray(illustrations)) return [];
-
-    // thiếu createdAt => đẩy xuống cuối
-    const toTime = (d?: string) =>
-      d ? new Date(d).getTime() : Number.POSITIVE_INFINITY;
-
-    return illustrations
-      .filter((it: any) => it.isActived === "ACTIVE" && !!(it.illustrationId ?? it.id))
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt))
-      .map((it: any) => ({
-        id: it.illustrationId ?? it.id,
-        title: it.title,
-        url: it.imageUrl,
-        updatedAt: it.updatedAt,
-      }));
-  }, [illustrations]);
-
-  const selectedIllustration = illustrationList.find(
-    (i) => i.id === selectedIllustrationId
-  );
-  const previewUrl = selectedIllustration ? gsToHttp(selectedIllustration.url) : "";
+  const normalized = useMemo(() => normalizeCode(markerCode), [markerCode]);
 
   const handleSubmit = async () => {
-    // ----- validate -----
+    // validate markerCode
     if (!markerCode.trim()) {
       toast({
         title: "Thiếu thông tin",
@@ -117,21 +71,31 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       return;
     }
 
-    if (!selectedIllustrationId) {
+    // validate userId / bookId
+    if (!userId) {
       toast({
-        title: "Chưa chọn ảnh",
-        description: "Vui lòng chọn một illustration để làm marker.",
+        title: "Thiếu userId",
+        description: "Không xác định được tài khoản hiện tại. Vui lòng đăng nhập lại.",
         variant: "destructive",
       });
       return;
     }
 
-    const normalized = normalizeCode(markerCode);
+    if (!bookId) {
+      toast({
+        title: "Thiếu bookId",
+        description:
+          "Chưa có bookId hiện tại. Hãy tạo/chọn sách trước (book wizard cần lưu currentBookId).",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    // check duplicate markerCode (nếu API getAllMarkers trả toàn hệ thống thì ok, nếu trả theo user thì càng tốt)
     const duplicated = Array.isArray(markers)
       ? (markers as any[]).some(
-        (m) => (m.markerCode || "").toLowerCase() === normalized
-      )
+          (m) => (m.markerCode || "").toLowerCase() === normalized
+        )
       : false;
 
     if (duplicated) {
@@ -143,26 +107,33 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       return;
     }
 
-    const rawImageUrl = selectedIllustration?.url;
-    if (!rawImageUrl) {
-      toast({
-        title: "Không tìm thấy ảnh",
-        description: "Không thể lấy được URL ảnh để tạo marker.",
-        variant: "destructive",
-      });
-      return;
+    // physicalWidthM: default 0.1 nếu bỏ trống
+    let width = DEFAULT_PHYSICAL_WIDTH;
+    const raw = physicalWidthM.trim();
+
+    if (raw) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        toast({
+          title: "PhysicalWidthM không hợp lệ",
+          description: "Vui lòng nhập số > 0 (ví dụ 0.1).",
+          variant: "destructive",
+        });
+        return;
+      }
+      width = parsed;
     }
 
     try {
-      const payload: any = {
+      const payload = {
+        bookId,
+        userId,
         markerCode: normalized,
-        markerType: "fiducial",                // như swagger
-        imageUrl: gsToHttp(rawImageUrl),       // convert gs:// nếu cần
-        physicalWidthM: 0.001,                 // như swagger
-        userId,                                // lấy từ localStorage ở trên
+        physicalWidthM: width,
+        tagFamily: DEFAULT_TAG_FAMILY,
       };
 
-      console.log("Create marker payload = ", payload);
+      console.log("Create apriltag marker payload = ", payload);
 
       const res = await createMarker.mutateAsync(payload);
       console.log("Create marker response = ", res);
@@ -200,80 +171,47 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
           {/* Marker Code */}
           <div>
             <Label className="mb-1 block">
-              Marker Code
-              <span className="text-xs text-gray-400 ml-1">
-                (sẽ tự chuyển khoảng trắng thành dấu gạch ngang)
-              </span>
+              Mã Marker
             </Label>
             <Input
               value={markerCode}
               onChange={(e) => setMarkerCode(e.target.value)}
-              placeholder="ví dụ: book-1"
+              placeholder="ví dụ: dieu-bi-mat"
             />
             {markerCode && (
               <p className="mt-1 text-xs text-gray-400">
                 Mã sẽ được lưu dưới dạng:{" "}
                 <span className="font-mono">
-                  {normalizeCode(markerCode) || "<trống>"}
+                  {normalized || "<trống>"}
                 </span>
               </p>
             )}
           </div>
 
-          {/* Chọn illustration */}
+          {/* Physical width */}
           <div>
-            <Label className="mb-2 block">
-              Chọn ảnh illustration làm hình marker
+            <Label className="mb-1 block">
+              Kích thước (m)
             </Label>
-
-            {loadingIllustrations && (
-              <div className="text-sm text-gray-500">Đang tải ảnh...</div>
-            )}
-
-            {!loadingIllustrations && illustrationList.length === 0 && (
-              <div className="text-sm text-gray-500">
-                Bạn chưa có illustration nào.
-              </div>
-            )}
-
-            {!loadingIllustrations && illustrationList.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 max-h-56 overflow-auto">
-                {illustrationList.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    onClick={() => setSelectedIllustrationId(it.id)}
-                    className={`rounded border p-0 overflow-hidden focus:outline-none ${selectedIllustrationId === it.id
-                      ? "ring-2 ring-purple-300 border-purple-500"
-                      : "border-white/10 hover:border-gray-300"
-                      }`}
-                  >
-                    <div className="w-20 h-20 bg-gray-100 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={gsToHttp(it.url)}
-                        alt={it.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <Input
+              value={physicalWidthM}
+              onChange={(e) => setPhysicalWidthM(e.target.value)}
+              placeholder={`ví dụ: ${DEFAULT_PHYSICAL_WIDTH}`}
+              inputMode="decimal"
+            />
           </div>
 
-          {/* Preview */}
-          {previewUrl && (
-            <div>
-              <Label className="mb-1 block">Preview</Label>
-              <div className="w-36 h-24 rounded overflow-hidden border border-white/10 bg-gray-900">
-                <img
-                  src={previewUrl}
-                  alt="preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          )}
+          {/* Tag family hidden: tag36h11 */}
+          <div className="hidden">
+            <Input value={DEFAULT_TAG_FAMILY} readOnly />
+          </div>
+
+          {/* debug hint (optional) */}
+          {/* <div className="text-xs text-gray-500">
+            <div>userId: <span className="font-mono">{userId ?? "null"}</span></div>
+            <div>bookId: <span className="font-mono">{bookId ?? "null"}</span></div>
+            <div>tagFamily: <span className="font-mono">{DEFAULT_TAG_FAMILY}</span></div>
+          </div> */}
         </div>
 
         <DialogFooter className="mt-4">
@@ -282,7 +220,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={createMarker.isPending || !selectedIllustrationId}
+            disabled={createMarker.isPending}
             className="bg-purple-600 hover:bg-purple-700 text-white"
           >
             {createMarker.isPending ? "Đang xử lý..." : "Tạo marker"}

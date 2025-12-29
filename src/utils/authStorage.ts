@@ -3,6 +3,7 @@ export const AUTH_TOKEN_KEY = "rookie.auth.token";
 export const CURRENT_USER_ID_KEY = "rookie.auth.currentUserId";
 export const CURRENT_USER_KEY = "rookie.auth.currentUser";
 export const LEGACY_USER_KEY = "user";
+export const CURRENT_BOOK_ID_KEY = "rookie.auth.currentBookId";
 
 export type StoredUser = {
   userId: string;
@@ -49,6 +50,7 @@ export function clearAuth() {
   safeRemove(CURRENT_USER_ID_KEY);
   safeRemove(CURRENT_USER_KEY);
   safeRemove(LEGACY_USER_KEY);
+  safeRemove(CURRENT_BOOK_ID_KEY);
 }
 
 
@@ -63,4 +65,12 @@ export function getUserRole(): string | null {
   }
 
   return null;
+}
+
+export function setCurrentBookId(bookId?: string) {
+  if (bookId) safeSet(CURRENT_BOOK_ID_KEY, bookId);
+}
+
+export function getCurrentBookId(): string | null {
+  return safeGet(CURRENT_BOOK_ID_KEY);
 }

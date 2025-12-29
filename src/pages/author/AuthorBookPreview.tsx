@@ -45,6 +45,12 @@ import {
   ShadingType,
   TextRun,
   convertInchesToTwip,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  HeightRule,
+  VerticalAlign,
 } from "docx";
 import { saveAs } from "file-saver";
 
@@ -193,7 +199,7 @@ function createDefaultNumbering() {
         })),
       },
     ],
-  } as any; // ✅ tương thích typings nhiều version
+  } as any; //  tương thích typings nhiều version
 }
 
 function parseStyle(styleStr?: string | null): Record<string, string> {
@@ -270,6 +276,51 @@ type InlineCtx = {
 };
 
 type ParagraphChild = TextRun | ImageRun | ExternalHyperlink;
+
+// A4 height (inches) = 11.69, margin top/bottom đang set 0.9 / 0.7
+const A4_HEIGHT_IN = 11.69;
+const PAGE_MARGIN_TOP_IN = 0.9;
+const PAGE_MARGIN_BOTTOM_IN = 0.7;
+const CONTENT_HEIGHT_IN = A4_HEIGHT_IN - PAGE_MARGIN_TOP_IN - PAGE_MARGIN_BOTTOM_IN;
+
+/** Bọc content vào 1 table cao full trang để canh giữa theo chiều dọc */
+// chừa chỗ cho header ở các trang nội dung (Word cần khoảng trống này)
+const HEADER_GUARD_IN = 0.85;
+
+/** Bọc content vào 1 table cao gần full trang để canh giữa theo chiều dọc */
+function centeredPage(children: Paragraph[], opts?: { withHeader?: boolean }) {
+  const safeChildren = children.length
+    ? children
+    : [new Paragraph({ children: [new TextRun(" ")] })];
+
+  const heightIn = CONTENT_HEIGHT_IN - (opts?.withHeader ? HEADER_GUARD_IN : 0);
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        height: {
+          value: convertInchesToTwip(Math.max(5, heightIn)),
+          rule: HeightRule.ATLEAST, // ✅ tránh bị “đẩy” sang trang mới => sinh trang trống
+        },
+        children: [
+          new TableCell({
+            verticalAlign: VerticalAlign.CENTER,
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            },
+            children: safeChildren,
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+
 
 /* =========================
    HTML -> docx
@@ -504,7 +555,7 @@ export default function AuthorBookPreview() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeAudioPageId, setActiveAudioPageId] = useState<string | null>(null);
 
-  // ✅ modal zoom marker
+  //  modal zoom marker
   const [zoomMarkerUrl, setZoomMarkerUrl] = useState<string | null>(null);
   const [zoomMarkerTitle, setZoomMarkerTitle] = useState<string>("");
 
@@ -553,104 +604,209 @@ export default function AuthorBookPreview() {
   ========================= */
 
   const handleExportDocx = async () => {
-    if (exporting) return;
+  if (exporting) return;
 
-    if (!book) {
-      toast({ title: "Không có sách", description: "Không tìm thấy thông tin sách.", variant: "destructive" });
-      return;
+  if (!book) {
+    toast({
+      title: "Không có sách",
+      description: "Không tìm thấy thông tin sách.",
+      variant: "destructive",
+    });
+    return;
+  }
+  if (pages.length === 0) {
+    toast({
+      title: "Chưa có trang",
+      description: "Sách chưa có trang nào để xuất.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setExporting(true);
+  toast({ title: "Đang xuất .docx", description: "Đang tạo file Word chuẩn..." });
+
+  try {
+    const limit = createLimiter(8);
+    const numbering = createDefaultNumbering();
+
+    const sortedPages = [...pages].sort((a, b) => {
+      const c1 = a.chapterNumber ?? 0;
+      const c2 = b.chapterNumber ?? 0;
+      if (c1 !== c2) return c1 - c2;
+      return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
+    });
+
+    const chapterMap = new Map<string, Chapter>();
+    chapters.forEach((c) => c.chapterId && chapterMap.set(c.chapterId, c));
+
+    const pagesByChapter = new Map<string, EnrichedPage[]>();
+    for (const p of sortedPages) {
+      const cid = p.chapterId || "unknown";
+      if (!pagesByChapter.has(cid)) pagesByChapter.set(cid, []);
+      pagesByChapter.get(cid)!.push(p);
     }
-    if (pages.length === 0) {
-      toast({ title: "Chưa có trang", description: "Sách chưa có trang nào để xuất.", variant: "destructive" });
-      return;
+
+    // order chương theo chapters, unknown để cuối
+    const orderedChapterIds: string[] = [];
+    for (const ch of chapters) {
+      if (ch.chapterId && pagesByChapter.has(ch.chapterId)) orderedChapterIds.push(ch.chapterId);
     }
+    if (pagesByChapter.has("unknown")) orderedChapterIds.push("unknown");
 
-    setExporting(true);
-    toast({ title: "Đang xuất .docx", description: "Đang tạo file Word chuẩn..." });
+    const imageBox = { maxW: 520, maxH: 720 };
+    const markerBox = { maxW: 140, maxH: 140 };
 
-    try {
-      const limit = createLimiter(8);
-      const numbering = createDefaultNumbering();
+    const sections: any[] = [];
 
-      const sortedPages = [...pages].sort((a, b) => {
-        const c1 = a.chapterNumber ?? 0;
-        const c2 = b.chapterNumber ?? 0;
-        if (c1 !== c2) return c1 - c2;
-        return (a.pageNumber ?? 0) - (b.pageNumber ?? 0);
+    const linkPara = (label: string, link: string) =>
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 120 },
+        children: [
+          new TextRun({ text: `${label}: `, color: "555555" }),
+          new ExternalHyperlink({
+            link,
+            children: [
+              new TextRun({
+                text: "Xem",
+                underline: {},
+                color: "0563C1",
+              }),
+            ],
+          }),
+        ],
       });
 
-      const chapterMap = new Map<string, Chapter>();
-      chapters.forEach((c) => c.chapterId && chapterMap.set(c.chapterId, c));
+    /* =========================
+       Cover section (tên + mô tả + ảnh bìa)
+       ✅ bỏ PageBreak cuối section để tránh sinh trang trống
+    ========================= */
+    {
+      const children: Paragraph[] = [];
 
-      const pagesByChapter = new Map<string, EnrichedPage[]>();
-      for (const p of sortedPages) {
-        const cid = p.chapterId || "unknown";
-        if (!pagesByChapter.has(cid)) pagesByChapter.set(cid, []);
-        pagesByChapter.get(cid)!.push(p);
-      }
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: book.bookName || "Không tên", bold: true, size: 52 })],
+        })
+      );
 
-      // order chương theo chapters, unknown để cuối
-      const orderedChapterIds: string[] = [];
-      for (const ch of chapters) {
-        if (ch.chapterId && pagesByChapter.has(ch.chapterId)) orderedChapterIds.push(ch.chapterId);
-      }
-      if (pagesByChapter.has("unknown")) orderedChapterIds.push("unknown");
-
-      const imageBox = { maxW: 520, maxH: 720 };
-      const markerBox = { maxW: 140, maxH: 140 };
-
-      const sections: any[] = [];
-
-      // ✅ Cover section (tên + mô tả + ảnh bìa)
-      {
-        const children: Paragraph[] = [];
+      if (book.decription) {
         children.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 400, after: 200 },
-            children: [new TextRun({ text: book.bookName || "Không tên", bold: true, size: 52 })],
+            spacing: { after: 260 },
+            children: [new TextRun({ text: String(book.decription), size: 24, color: "555555" })],
           })
         );
+      }
 
-        if (book.decription) {
+      if (book.coverUrl) {
+        const coverUrl = getDisplayUrl(book.coverUrl);
+        try {
+          const [bytes, size] = await Promise.all([
+            limit(() => fetchAsUint8Array(coverUrl)),
+            limit(() => getImageSize(coverUrl)),
+          ]);
+          const fitted = size ? fitToBox(size.w, size.h, 360, 520) : { width: 360, height: 480 };
           children.push(
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              spacing: { after: 260 },
-              children: [new TextRun({ text: String(book.decription), size: 24, color: "555555" })],
+              spacing: { after: 200 },
+              children: [
+                new ImageRun({
+                  type: guessImageType(coverUrl),
+                  data: bytes,
+                  transformation: fitted,
+                }),
+              ],
+            })
+          );
+        } catch {
+          children.push(linkPara("Bìa", coverUrl));
+        }
+      }
+
+      // ❌ KHÔNG push PageBreak ở đây nữa
+
+      sections.push({
+        properties: {
+          page: {
+            size: { width: convertInchesToTwip(8.27), height: convertInchesToTwip(11.69) },
+            margin: {
+              top: convertInchesToTwip(0.9),
+              bottom: convertInchesToTwip(0.7),
+              left: convertInchesToTwip(0.8),
+              right: convertInchesToTwip(0.8),
+            },
+          },
+        },
+        children,
+      });
+    }
+
+    /* =========================
+       Nội dung theo chương
+    ========================= */
+    for (const chapterId of orderedChapterIds) {
+      const chapterPages = pagesByChapter.get(chapterId) || [];
+      if (chapterPages.length === 0) continue;
+
+      const ch = chapterMap.get(chapterId);
+      const chapterTitle = ch
+        ? `Chương ${ch.chapterNumber ?? ""}: ${ch.chapterName ?? ""}`
+        : `Chương: ${chapterId}`;
+
+      const chapterIntro =
+        (ch as any)?.description ||
+        (ch as any)?.introduction ||
+        (ch as any)?.chapterIntro ||
+        "";
+
+      // Header chỉ cho các trang nội dung (section 2)
+      const headerForContentPages = new Header({
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: chapterTitle, bold: true, size: 22 })],
+            spacing: { after: 80 },
+          }),
+          new Paragraph({
+            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" } },
+          }),
+        ],
+      });
+
+      /* =========================
+         SECTION 1: Trang giới thiệu chương (center giữa trang)
+         - không header
+      ========================= */
+      {
+        const introParas: Paragraph[] = [];
+
+        introParas.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: chapterTitle, bold: true, size: 44 })],
+            spacing: { after: 240 },
+          })
+        );
+
+        if (chapterIntro) {
+          introParas.push(
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: String(chapterIntro), size: 24, color: "555555" })],
+              spacing: { after: 200 },
             })
           );
         }
 
-        if (book.coverUrl) {
-          const coverUrl = getDisplayUrl(book.coverUrl);
-          try {
-            const [bytes, size] = await Promise.all([
-              limit(() => fetchAsUint8Array(coverUrl)),
-              limit(() => getImageSize(coverUrl)),
-            ]);
-            const fitted = size ? fitToBox(size.w, size.h, 360, 520) : { width: 360, height: 480 };
-            children.push(
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 200 },
-                children: [new ImageRun({ type: guessImageType(coverUrl), data: bytes, transformation: fitted })],
-              })
-            );
-          } catch {
-            // ignore cover image fail
-          }
-        }
-
-        // page break sang nội dung
-        children.push(new Paragraph({ children: [new PageBreak()] }));
-
         sections.push({
           properties: {
             page: {
-              size: {
-                width: convertInchesToTwip(8.27),
-                height: convertInchesToTwip(11.69),
-              },
+              size: { width: convertInchesToTwip(8.27), height: convertInchesToTwip(11.69) },
               margin: {
                 top: convertInchesToTwip(0.9),
                 bottom: convertInchesToTwip(0.7),
@@ -659,61 +815,24 @@ export default function AuthorBookPreview() {
               },
             },
           },
-          children,
+          headers: { default: new Header({ children: [] }) },
+          children: [centeredPage(introParas)], // intro không header
         });
       }
 
-      // ✅ Nội dung theo chương
-      for (const chapterId of orderedChapterIds) {
-        const chapterPages = pagesByChapter.get(chapterId) || [];
-        if (chapterPages.length === 0) continue;
+      /* =========================
+         SECTION 2: Nội dung chương
+         ✅ CHỈ trang ảnh (PICTURE) không marker mới center
+         ✅ Không tự sinh trang trống
+      ========================= */
+      {
+        const pageBlocks: Array<Array<Paragraph | Table>> = [];
 
-        const ch = chapterMap.get(chapterId);
-        const chapterTitle = ch
-          ? `Chương ${ch.chapterNumber ?? ""}: ${ch.chapterName ?? ""}`
-          : `Chương: ${chapterId}`;
-
-        const chapterIntro =
-          (ch as any)?.description || (ch as any)?.introduction || (ch as any)?.chapterIntro || "";
-
-        const firstHeader = new Header({
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: chapterTitle, bold: true, size: 26 })],
-              spacing: { after: 80 },
-            }),
-            ...(chapterIntro
-              ? [
-                  new Paragraph({
-                    children: [new TextRun({ text: String(chapterIntro), size: 22, color: "555555" })],
-                    spacing: { after: 120 },
-                  }),
-                ]
-              : []),
-            new Paragraph({
-              border: {
-                bottom: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
-              },
-            }),
-          ],
-        });
-
-        const children: Paragraph[] = [];
-
-        for (let i = 0; i < chapterPages.length; i++) {
-          const p = chapterPages[i];
+        for (const p of chapterPages) {
           const isPicturePage = p.pageType === "PICTURE";
+          const pageParas: Paragraph[] = [];
 
-          children.push(
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              heading: HeadingLevel.HEADING_3,
-              spacing: { after: 180 },
-              children: [new TextRun({ text: `Trang ${p.pageNumber ?? ""}`, bold: true })],
-            })
-          );
-
-          // illustration: ưu tiên record -> fallback content url nếu trang ảnh
+          // illustration / ảnh trang
           let illustrationRaw: string | null = null;
           if (p.illustration?.imageUrl) {
             illustrationRaw = p.illustration.imageUrl;
@@ -733,30 +852,36 @@ export default function AuthorBookPreview() {
                 ? fitToBox(size.w, size.h, imageBox.maxW, imageBox.maxH)
                 : defaultTransform(imageBox);
 
-              children.push(
+              pageParas.push(
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
                   spacing: { after: 200 },
-                  children: [new ImageRun({ type: guessImageType(url), data: bytes, transformation: fitted })],
+                  children: [
+                    new ImageRun({
+                      type: guessImageType(url),
+                      data: bytes,
+                      transformation: fitted,
+                    }),
+                  ],
                 })
               );
-            } catch (e) {
-              console.error("Không tải được ảnh:", e);
+            } catch {
+              pageParas.push(linkPara("Ảnh", url));
             }
           }
 
-          // content: chỉ cho trang chữ
+          // content chữ (chỉ cho trang không phải PICTURE)
           if (!isPicturePage && typeof p.content === "string") {
             const content = p.content.trim();
             if (content) {
               if (isLikelyHtml(content)) {
                 const safe = sanitizeHtmlBasic(content);
                 const ps = await htmlToDocxParagraphs(safe, getDisplayUrl, limit, imageBox);
-                children.push(...ps);
+                pageParas.push(...ps);
               } else {
                 const lines = content.split("\n");
                 for (const line of lines) {
-                  children.push(
+                  pageParas.push(
                     new Paragraph({
                       spacing: { after: 80 },
                       children: [new TextRun({ text: line || " ", size: 24 })],
@@ -767,7 +892,7 @@ export default function AuthorBookPreview() {
             }
           }
 
-          // marker: embed nếu là ảnh (không phải pdf)
+          // marker image (nếu có và không phải pdf)
           if (p.markerImageUrl) {
             const url = getDisplayUrl(p.markerImageUrl);
             if (url && !isPdfUrl(url)) {
@@ -781,32 +906,52 @@ export default function AuthorBookPreview() {
                   ? fitToBox(size.w, size.h, markerBox.maxW, markerBox.maxH)
                   : { width: 120, height: 120 };
 
-                children.push(
+                pageParas.push(
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
                     spacing: { before: 240 },
-                    children: [new ImageRun({ type: guessImageType(url), data: bytes, transformation: fitted })],
+                    children: [
+                      new ImageRun({
+                        type: guessImageType(url),
+                        data: bytes,
+                        transformation: fitted,
+                      }),
+                    ],
                   })
                 );
               } catch {
-                // ignore marker fail
+                pageParas.push(linkPara("Marker", url));
               }
             }
           }
 
-          if (i !== chapterPages.length - 1) {
-            children.push(new Paragraph({ children: [new PageBreak()] }));
+          // ✅ nếu trang thật sự không có gì -> bỏ qua để không sinh trang trống
+          if (pageParas.length === 0) continue;
+
+          const shouldCenter = isPicturePage && !p.hasMarker; // ✅ đúng yêu cầu của bạn
+          const nodes: Array<Paragraph | Table> = [];
+
+          if (shouldCenter) {
+            nodes.push(centeredPage(pageParas, { withHeader: true })); // nội dung có header
+          } else {
+            nodes.push(...pageParas);
+          }
+
+          pageBlocks.push(nodes);
+        }
+
+        const contentChildren: Array<Paragraph | Table> = [];
+        for (let i = 0; i < pageBlocks.length; i++) {
+          contentChildren.push(...pageBlocks[i]);
+          if (i !== pageBlocks.length - 1) {
+            contentChildren.push(new Paragraph({ children: [new PageBreak()] }));
           }
         }
 
         sections.push({
           properties: {
-            titlePage: true,
             page: {
-              size: {
-                width: convertInchesToTwip(8.27),
-                height: convertInchesToTwip(11.69),
-              },
+              size: { width: convertInchesToTwip(8.27), height: convertInchesToTwip(11.69) },
               margin: {
                 top: convertInchesToTwip(0.9),
                 bottom: convertInchesToTwip(0.7),
@@ -815,28 +960,31 @@ export default function AuthorBookPreview() {
               },
             },
           },
-          headers: {
-            first: firstHeader,
-            default: new Header({ children: [] }),
-          },
-          children,
+          headers: { default: headerForContentPages },
+          children: contentChildren,
         });
       }
-
-      const doc = new Document({ numbering, sections });
-      const blob = await Packer.toBlob(doc);
-
-      const filenameBase = (book.bookName || book.bookId || "book").replace(/[\\/:*?"<>|]+/g, "_");
-      saveAs(blob, `${filenameBase}.docx`);
-
-      toast({ title: "Xuất thành công", description: "Đã tải về file .docx chuẩn." });
-    } catch (e) {
-      console.error("Export docx error:", e);
-      toast({ title: "Xuất thất bại", description: "Không thể xuất .docx.", variant: "destructive" });
-    } finally {
-      setExporting(false);
     }
-  };
+
+    const doc = new Document({ numbering, sections });
+    const blob = await Packer.toBlob(doc);
+
+    const filenameBase = (book.bookName || book.bookId || "book").replace(/[\\/:*?"<>|]+/g, "_");
+    saveAs(blob, `${filenameBase}.docx`);
+
+    toast({ title: "Xuất thành công", description: "Đã tải về file .docx chuẩn." });
+  } catch (e) {
+    console.error("Export docx error:", e);
+    toast({
+      title: "Xuất thất bại",
+      description: "Không thể xuất .docx.",
+      variant: "destructive",
+    });
+  } finally {
+    setExporting(false);
+  }
+};
+
 
   /* =========================
      Fetch + Enrich (tối ưu)
@@ -913,7 +1061,7 @@ export default function AuthorBookPreview() {
                 const markerRes: any = await searchMarkers({ pageId: pid, page: 0, size: 1 });
                 const marker = markerRes?.content?.[0];
 
-                // ✅ ưu tiên imageUrl; nếu printablePdfUrl mà không phải pdf thì có thể dùng như ảnh
+                //  ưu tiên imageUrl; nếu printablePdfUrl mà không phải pdf thì có thể dùng như ảnh
                 const imageCandidate: string | null =
                   marker?.imageUrl ||
                   (marker?.printablePdfUrl && !isPdfUrl(marker.printablePdfUrl) ? marker.printablePdfUrl : null) ||
@@ -1195,7 +1343,7 @@ export default function AuthorBookPreview() {
             </div>
           )}
 
-          {/* ✅ MODAL ZOOM MARKER */}
+          {/*  MODAL ZOOM MARKER */}
           {zoomMarkerUrl && (
             <div
               className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
@@ -1234,7 +1382,7 @@ type PageCardProps = {
   onToggleAudio: (pageId?: string) => void;
   getDisplayUrl: (url?: string | null) => string;
 
-  // ✅ click marker thumbnail -> zoom
+  //  click marker thumbnail -> zoom
   onMarkerZoom: (markerRawUrl: string, title?: string) => void;
 };
 
@@ -1249,9 +1397,8 @@ const MemoPageCard = memo(function PageCard({
   if (!page) {
     return (
       <div
-        className={`flex-1 bg-gradient-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${
-          side === "left" ? "origin-right" : "origin-left"
-        }`}
+        className={`flex-1 bg-gradient-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${side === "left" ? "origin-right" : "origin-left"
+          }`}
       >
         Trang trống
       </div>
@@ -1300,10 +1447,9 @@ const MemoPageCard = memo(function PageCard({
         shadow-xl overflow-hidden
         px-4 py-4
         flex flex-col
-        ${
-          side === "left"
-            ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-            : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+        ${side === "left"
+          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
         }
       `}
     >
@@ -1330,9 +1476,8 @@ const MemoPageCard = memo(function PageCard({
             <button
               type="button"
               onClick={() => onToggleAudio(page.pageId)}
-              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${
-                isPlaying ? "bg-emerald-500 text-white" : "bg-emerald-600/90 text-white hover:bg-emerald-500"
-              }`}
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${isPlaying ? "bg-emerald-500 text-white" : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+                }`}
             >
               <Volume2 className="w-4 h-4" />
             </button>

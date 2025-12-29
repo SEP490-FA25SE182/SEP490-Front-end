@@ -2,7 +2,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function RoleGate({
   children,
-  allow = ["customer"],
+  allow = ["customer","author"],
 }: {
   children: React.ReactNode;
   allow?: string[];

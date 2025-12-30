@@ -201,7 +201,7 @@ export default function AuthorModelView() {
     try {
       addEventListener?.("OnSelectObject", onSelect);
       addEventListener?.("OnSyncSceneObjects", onSync);
-    } catch (e) {}
+    } catch (e) { }
 
     window.OnSelectObject = (json: any) => {
       onSelect(json);
@@ -214,7 +214,7 @@ export default function AuthorModelView() {
       try {
         removeEventListener?.("OnSelectObject", onSelect);
         removeEventListener?.("OnSyncSceneObjects", onSync);
-      } catch (e) {}
+      } catch (e) { }
 
       delete window.OnSelectObject;
       delete window.OnSyncSceneObjects;
@@ -232,7 +232,7 @@ export default function AuthorModelView() {
 
     try {
       sendMessage("SceneManager", "ClearAll", "");
-    } catch (e) {}
+    } catch (e) { }
   }, [markerId, isLoaded, sendMessage]);
 
   // B) Load latest scene (DRAFT/PUBLISHED đều được) khi có data
@@ -300,7 +300,7 @@ export default function AuthorModelView() {
 
     try {
       sendMessage("SceneManager", "LoadSceneFromJson", JSON.stringify(importDto));
-    } catch (e) {}
+    } catch (e) { }
   }, [markerId, isLoaded, latestScene, sendMessage]);
 
   const selectedObject =
@@ -328,7 +328,7 @@ export default function AuthorModelView() {
           },
         });
         sendMessage("SceneManager", "UpdateObjectTransform", payload);
-      } catch (e) {}
+      } catch (e) { }
 
       return next;
     });
@@ -354,7 +354,7 @@ export default function AuthorModelView() {
       try {
         const payload = JSON.stringify({ asset3DId, assetUrl });
         sendMessage("SceneManager", "AddAssetFromUrl", payload);
-      } catch (e) {}
+      } catch (e) { }
 
       await refetchAssets?.();
 
@@ -500,7 +500,7 @@ export default function AuthorModelView() {
 
     try {
       addEventListener?.("OnSceneExport", onSceneExport);
-    } catch (e) {}
+    } catch (e) { }
 
     window.OnSceneExport = (json: any) => {
       onSceneExport(json);
@@ -509,7 +509,7 @@ export default function AuthorModelView() {
     return () => {
       try {
         removeEventListener?.("OnSceneExport", onSceneExport);
-      } catch (e) {}
+      } catch (e) { }
 
       delete window.OnSceneExport;
     };
@@ -576,8 +576,8 @@ export default function AuthorModelView() {
   const projectTitle = loadingMarker
     ? "Project (đang tải marker...)"
     : markerDetail?.markerCode
-    ? `Project ${markerDetail.markerCode}`
-    : "Project";
+      ? `Project ${markerDetail.markerCode}`
+      : "Project";
 
   // Handler thêm model vào scene
   const handleAddExistingModel = (asset: any, assetUrl: string) => {
@@ -696,8 +696,19 @@ export default function AuthorModelView() {
           <PropertiesPanel
             selectedObject={selectedObject}
             onChangeTransform={applyTransformToObject}
-            onUnselect={() => setSelectedLocalId(null)}
+            onUnselect={() => {
+              if (!selectedObject) return;
+              try {
+                // Xóa object khỏi Unity theo localId
+                sendMessage("SceneManager", "RemoveObject", selectedObject.localId);
+              } catch (e) { }
+
+              // Xóa luôn khỏi state React (tránh UI lag)
+              setSceneObjects((prev) => prev.filter((x) => x.localId !== selectedObject.localId));
+              setSelectedLocalId(null);
+            }}
           />
+
         </div>
 
         {/* Hidden input upload glb */}

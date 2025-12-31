@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ChevronLeft, ChevronRight, UploadCloud } from "lucide-react";
+import { UploadCloud, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useUnityContext } from "react-unity-webgl";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -604,19 +604,6 @@ export default function AuthorModelView() {
         {/* Header */}
         <header className="bg-[#1a2332] border-b border-white/10 shadow-lg">
           <div className="flex items-center px-6 py-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {sidebarOpen ? (
-                <ChevronLeft className="w-6 h-6" />
-              ) : (
-                <ChevronRight className="w-6 h-6" />
-              )}
-            </Button>
-
             <h2 className="ml-4 text-white text-lg font-medium">
               {projectTitle}
             </h2>
@@ -741,6 +728,15 @@ export default function AuthorModelView() {
           }
         />
       </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
     </div>
   );
 }

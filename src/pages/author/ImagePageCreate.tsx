@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -158,17 +158,19 @@ export default function ImagePageCreate() {
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-[#1a2332] border-b border-white/10 shadow-lg">
           <div className="flex items-center justify-between px-6 py-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
-            </Button>
             <h2 className="text-white text-lg font-medium">Tạo nội dung ảnh</h2>
           </div>
         </header>

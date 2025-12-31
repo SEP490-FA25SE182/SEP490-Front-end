@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getBookById, updateBook } from "@/services/BookService";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { getAllChapters } from "@/services/BookManageService";
 import { UploadService } from "@/services/FirebaseService";
 
@@ -15,7 +15,7 @@ export default function AuthorEditBook() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [sidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [book, setBook] = useState<any>({
     bookName: "",
@@ -199,17 +199,27 @@ export default function AuthorEditBook() {
   return (
     <div className="flex h-screen bg-[#1a1a2e] text-white">
       <AuthorSidebar isOpen={sidebarOpen} />
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`
+          absolute z-50 top-4
+          h-9 w-9 rounded-full
+          bg-[#0b1220]/70 backdrop-blur
+          border border-white/10
+          text-white hover:bg-white/10
+          transition-all
+          ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}
+        `}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10 flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
             <h1 className="text-xl font-semibold text-white">Chỉnh sửa sách</h1>
           </div>
 

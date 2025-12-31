@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Edit, Save, UploadCloud } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Edit, Save, UploadCloud } from "lucide-react";
 
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -281,18 +281,6 @@ export default function AuthorProfile() {
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-white hover:bg-white/10"
-              >
-                {sidebarOpen ? (
-                  <ChevronLeft className="w-6 h-6" />
-                ) : (
-                  <ChevronRight className="w-6 h-6" />
-                )}
-              </Button>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-white">
                   Hồ sơ tác giả
@@ -771,6 +759,15 @@ export default function AuthorProfile() {
           )}
         </div>
       </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
     </div>
   );
 }

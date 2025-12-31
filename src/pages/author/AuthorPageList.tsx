@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
+  PanelLeftClose, PanelLeftOpen,
   Edit,
   Trash2,
   Search,
@@ -143,12 +142,12 @@ const AuthorPageList = () => {
   const { data: markersResp, isLoading: loadingMarkers } = useSearchMarkers(
     authorId && bookId
       ? {
-          userId: authorId,
-          bookId,
-          page: 0,
-          size: 9999,
-          sort: ["createdAt,desc"],
-        }
+        userId: authorId,
+        bookId,
+        page: 0,
+        size: 9999,
+        sort: ["createdAt,desc"],
+      }
       : undefined
   );
 
@@ -173,8 +172,8 @@ const AuthorPageList = () => {
     return Array.isArray(illustrationsResp)
       ? (illustrationsResp as Illustration[])
       : Array.isArray((illustrationsResp as any).content)
-      ? ((illustrationsResp as any).content as Illustration[])
-      : [];
+        ? ((illustrationsResp as any).content as Illustration[])
+        : [];
   }, [illustrationsResp]);
 
   //  Map nhanh pageId → imageUrl
@@ -246,8 +245,8 @@ const AuthorPageList = () => {
     const list = Array.isArray(pagesResp)
       ? pagesResp
       : Array.isArray((pagesResp as any)?.content)
-      ? (pagesResp as any).content
-      : [];
+        ? (pagesResp as any).content
+        : [];
 
     return list
       .filter((p: any) => p.isActived !== "INACTIVE")
@@ -415,24 +414,33 @@ const AuthorPageList = () => {
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
 
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`
+                absolute z-50 top-4
+                h-9 w-9 rounded-full
+                bg-[#0b1220]/70 backdrop-blur
+                border border-white/10
+                text-white hover:bg-white/10
+                transition-all
+                ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}
+              `}
+      >
+        {sidebarOpen ? (
+          <PanelLeftClose className="w-5 h-5" />
+        ) : (
+          <PanelLeftOpen className="w-5 h-5" />
+        )}
+      </Button>
+
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT: Page list (2/3) */}
         <div className="w-2/3 flex flex-col">
           {/* Header */}
           <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
             <div className="flex items-center px-6 py-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-white hover:bg-white/10"
-              >
-                {sidebarOpen ? (
-                  <ChevronLeft className="w-6 h-6" />
-                ) : (
-                  <ChevronRight className="w-6 h-6" />
-                )}
-              </Button>
               <div className="ml-4 text-white">
                 <div className="text-sm">Danh sách trang</div>
               </div>
@@ -498,13 +506,13 @@ const AuthorPageList = () => {
               </div>
               {(chapter?.progressStatus === 1 ||
                 chapter?.progressStatus === 3) && (
-                <Button
-                  className="ml-2 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={handleSubmitForReview}
-                >
-                  Hoàn thành chương → Gửi duyệt
-                </Button>
-              )}
+                  <Button
+                    className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleSubmitForReview}
+                  >
+                    Hoàn thành chương → Gửi duyệt
+                  </Button>
+                )}
             </div>
           </div>
 
@@ -616,11 +624,10 @@ const AuthorPageList = () => {
                         </div>
 
                         <div
-                          className={`text-[10px] px-2 py-0.5 rounded-full ${
-                            isImage
+                          className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
                               ? "bg-blue-500/20 text-blue-300"
                               : "bg-purple-500/20 text-purple-300"
-                          }`}
+                            }`}
                         >
                           {isImage ? "Trang Ảnh" : "Trang Chữ"}
                         </div>
@@ -652,21 +659,19 @@ const AuthorPageList = () => {
                         <PaginationItem>
                           <PaginationPrevious
                             onClick={handlePrev}
-                            className={`text-white hover:bg-white/10 ${
-                              currentPage === 1
+                            className={`text-white hover:bg-white/10 ${currentPage === 1
                                 ? "opacity-50 pointer-events-none"
                                 : ""
-                            }`}
+                              }`}
                           />
                         </PaginationItem>
                         <PaginationItem>
                           <PaginationNext
                             onClick={handleNext}
-                            className={`text-white hover:bg-white/10 ${
-                              currentPage === totalPages
+                            className={`text-white hover:bg-white/10 ${currentPage === totalPages
                                 ? "opacity-50 pointer-events-none"
                                 : ""
-                            }`}
+                              }`}
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -752,6 +757,7 @@ const AuthorPageList = () => {
                         src={getDisplayImageUrl(m.imageUrl)}
                         alt={m.markerCode}
                         className="w-full h-full object-cover"
+                        style={{ imageRendering: "pixelated" }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetPageById } from "@/services/BookManageService";
 import { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 
@@ -202,27 +202,22 @@ const AuthorPageDetail = () => {
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
 
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center px-6 py-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {sidebarOpen ? (
-                <ChevronLeft className="w-6 h-6" />
-              ) : (
-                <ChevronRight className="w-6 h-6" />
-              )}
-            </Button>
-
             <div className="ml-4 text-white text-lg font-medium">
               Chi tiết trang {page.pageNumber}
             </div>
-
             <div className="ml-auto flex items-center gap-3">
               <Button
                 variant="outline"

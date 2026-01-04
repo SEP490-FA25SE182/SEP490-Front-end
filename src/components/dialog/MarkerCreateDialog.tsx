@@ -19,7 +19,7 @@ interface Props {
 }
 
 const DEFAULT_PHYSICAL_WIDTH = 0.1;
-const DEFAULT_TAG_FAMILY = "tag36h11";
+const DEFAULT_TAG_FAMILY = "tagStandard41h12";
 
 const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const { toast } = useToast();

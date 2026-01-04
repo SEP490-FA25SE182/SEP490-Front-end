@@ -1,10 +1,15 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UploadCloud, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useUnityContext } from "react-unity-webgl";
+
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+
 import {
   useGetMarkerById,
   useUploadAsset3D,
@@ -14,8 +19,8 @@ import {
   useGetLatestARSceneByMarkerId,
   type Marker,
 } from "@/services/ARService";
-import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 
+import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
 import ContentSidebar from "@/components/author/model-editor/ContentSidebar";
 import AssetToolPanel from "@/components/author/model-editor/AssetToolPanel";
 import UnityStage from "@/components/author/model-editor/UnityStage";
@@ -46,6 +51,9 @@ export default function AuthorModelView() {
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
 
+  // trigger re-render khi bbox cache đổi (để panel hiển thị cm)
+  const [dimsVersion, setDimsVersion] = useState(0);
+
   const navigate = useNavigate();
   const { markerId: paramMarkerId } = useParams<{ markerId?: string }>();
   const location = useLocation();
@@ -75,7 +83,7 @@ export default function AuthorModelView() {
   const { data: markerDetail, isLoading: loadingMarker } = useGetMarkerById(
     markerId,
     {
-      initialData: initialMarker, // Dữ liệu có ngay, không flash loading
+      initialData: initialMarker,
     }
   );
 
@@ -104,6 +112,128 @@ export default function AuthorModelView() {
     codeUrl: "/build/webgl/ar_rookie_build.wasm.unityweb",
   });
 
+  // =========================================================
+  // AR-SAFE SCALE (không cần Unity C#)
+  // =========================================================
+  const gltfLoaderRef = useRef(new GLTFLoader());
+  const assetMaxDimCacheRef = useRef<Record<string, number>>({});
+  const inflightDimRef = useRef<Set<string>>(new Set());
+
+  // queue: model vừa Add vào Unity -> chờ Unity sync trả localId -> set scale ngay
+  const pendingAutoScaleRef = useRef<Array<{ asset3DId: string; scale: number }>>(
+    []
+  );
+  const lastSyncLocalIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      // @ts-ignore
+      gltfLoaderRef.current.setCrossOrigin?.("anonymous");
+    } catch {}
+  }, []);
+
+  const clamp = (v: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, v));
+
+  const markerWidthM = useMemo(() => {
+    const w =
+      (markerDetail as any)?.physicalWidthM ??
+      (initialMarker as any)?.physicalWidthM ??
+      0.08; // fallback 8cm
+    const n = Number(w);
+    return Number.isFinite(n) && n > 0 ? n : 0.08;
+  }, [markerDetail, initialMarker]);
+
+  // mục tiêu: model không vượt quá 80% bề rộng tag (và tối thiểu 3cm)
+  const targetMaxM = useMemo(() => Math.max(0.03, markerWidthM * 0.8), [markerWidthM]);
+
+  const recommendScaleFromMaxDim = (maxDim: number) => {
+    const safeMaxDim = Math.max(maxDim, 1e-6);
+    return clamp(targetMaxM / safeMaxDim, 0.001, 2.0);
+  };
+
+  const calcMaxDimFromScene = (scene: THREE.Object3D) => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    return Math.max(size.x, size.y, size.z) || 1;
+  };
+
+  const getMaxDimFromFile = async (file: File) => {
+    const loader = gltfLoaderRef.current;
+    const url = URL.createObjectURL(file);
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        loader.load(
+          url,
+          (gltf) => {
+            try {
+              resolve(calcMaxDimFromScene(gltf.scene));
+            } catch (e) {
+              reject(e);
+            }
+          },
+          undefined,
+          (err) => reject(err)
+        );
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const getMaxDimFromUrl = async (url: string) => {
+    const loader = gltfLoaderRef.current;
+    return await new Promise<number>((resolve, reject) => {
+      loader.load(
+        url,
+        (gltf) => {
+          try {
+            resolve(calcMaxDimFromScene(gltf.scene));
+          } catch (e) {
+            reject(e);
+          }
+        },
+        undefined,
+        (err) => reject(err)
+      );
+    });
+  };
+
+  const ensureMaxDimCached = async (asset3DId: string, assetUrl?: string) => {
+    if (!asset3DId) return;
+    if (assetMaxDimCacheRef.current[asset3DId]) return;
+    if (!assetUrl) return;
+    if (inflightDimRef.current.has(asset3DId)) return;
+
+    inflightDimRef.current.add(asset3DId);
+    try {
+      const md = await getMaxDimFromUrl(assetUrl);
+      if (Number.isFinite(md) && md > 0) {
+        assetMaxDimCacheRef.current[asset3DId] = md;
+        setDimsVersion((v) => v + 1);
+      }
+    } catch {
+      // ignore (CORS/404/etc)
+    } finally {
+      inflightDimRef.current.delete(asset3DId);
+    }
+  };
+
+  // Prefetch bbox cho assets trong scene đang load
+  useEffect(() => {
+    if (!latestScene) return;
+    const apiAssets: any[] = (latestScene as any).assets ?? [];
+    for (const a of apiAssets) {
+      const id = String(a?.asset3DId ?? a?.id ?? "");
+      const url = a?.assetUrl;
+      if (id && url) ensureMaxDimCached(id, url);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestScene]);
+
+  // =========================================================
+  // Quiz preview
+  // =========================================================
   const previewQuizInUnity = async (quizId: string) => {
     if (!isLoaded) {
       toast({
@@ -116,13 +246,8 @@ export default function AuthorModelView() {
 
     try {
       const quizPlay = await getQuizPlayById(quizId);
-      const json = JSON.stringify(quizPlay);
-      sendMessage("QuizGameManager", "LoadQuizFromJson", json);
-
-      toast({
-        title: "Đã gửi quiz sang Unity",
-        description: `QuizId: ${quizId}`,
-      });
+      sendMessage("QuizGameManager", "LoadQuizFromJson", JSON.stringify(quizPlay));
+      toast({ title: "Đã gửi quiz sang Unity", description: `QuizId: ${quizId}` });
     } catch (err: any) {
       console.error("previewQuizInUnity error", err);
       toast({
@@ -134,9 +259,9 @@ export default function AuthorModelView() {
     }
   };
 
-  // =====================
-  // Unity events: select + sync
-  // =====================
+  // =========================================================
+  // Unity events: select + sync (+ auto-scale)
+  // =========================================================
   useEffect(() => {
     const onSelect = (payload: any) => {
       try {
@@ -145,6 +270,7 @@ export default function AuthorModelView() {
 
         setSceneObjects((prev) => {
           const idx = prev.findIndex((p) => p.localId === data.localId);
+
           const item: SceneObject = {
             localId: data.localId,
             asset3DId: data.asset3DId,
@@ -160,6 +286,7 @@ export default function AuthorModelView() {
             scaleY: data.scale?.y ?? 1,
             scaleZ: data.scale?.z ?? 1,
           };
+
           if (idx >= 0) {
             const copy = [...prev];
             copy[idx] = item;
@@ -167,6 +294,7 @@ export default function AuthorModelView() {
           }
           return [...prev, item];
         });
+
         setSelectedLocalId(data.localId);
       } catch (err) {
         console.error("OnSelectObject handler error", err);
@@ -177,6 +305,7 @@ export default function AuthorModelView() {
       try {
         const data = typeof payload === "string" ? JSON.parse(payload) : payload;
         if (!Array.isArray(data)) return;
+
         const mapped: SceneObject[] = data.map((d: any, i: number) => ({
           localId: d.localId ?? `u-${i}`,
           asset3DId: d.asset3DId,
@@ -192,7 +321,74 @@ export default function AuthorModelView() {
           scaleY: d.scale?.y ?? 1,
           scaleZ: d.scale?.z ?? 1,
         }));
-        setSceneObjects(mapped);
+
+        // ✅ auto-scale chỉ khi có pending (tránh phá scene load lại)
+        if (pendingAutoScaleRef.current.length > 0) {
+          const prevIds = lastSyncLocalIdsRef.current;
+          const newOnes = mapped.filter((o) => !prevIds.has(o.localId));
+
+          const updates: Array<{
+            localId: string;
+            scale: number;
+            posX: number;
+            posY: number;
+            posZ: number;
+            rotX: number;
+            rotY: number;
+            rotZ: number;
+          }> = [];
+
+          const pending = pendingAutoScaleRef.current;
+
+          const mapped2 = mapped.map((o) => {
+            const isNew = newOnes.some((n) => n.localId === o.localId);
+            if (!isNew) return o;
+
+            const aId = String(o.asset3DId ?? "");
+            if (!aId) return o;
+
+            const idx = pending.findIndex((p) => p.asset3DId === aId);
+            if (idx < 0) return o;
+
+            const scale = pending[idx].scale;
+            pending.splice(idx, 1);
+
+            updates.push({
+              localId: o.localId,
+              scale,
+              posX: o.posX ?? 0,
+              posY: o.posY ?? 0,
+              posZ: o.posZ ?? 0,
+              rotX: o.rotX ?? 0,
+              rotY: o.rotY ?? 0,
+              rotZ: o.rotZ ?? 0,
+            });
+
+            return { ...o, scaleX: scale, scaleY: scale, scaleZ: scale };
+          });
+
+          setSceneObjects(mapped2);
+
+          // gửi update thật xuống Unity (không đụng pos/rot)
+          for (const u of updates) {
+            try {
+              sendMessage(
+                "SceneManager",
+                "UpdateObjectTransform",
+                JSON.stringify({
+                  localId: u.localId,
+                  pos: { x: u.posX, y: u.posY, z: u.posZ },
+                  rot: { x: u.rotX, y: u.rotY, z: u.rotZ },
+                  scale: { x: u.scale, y: u.scale, z: u.scale },
+                })
+              );
+            } catch {}
+          }
+        } else {
+          setSceneObjects(mapped);
+        }
+
+        lastSyncLocalIdsRef.current = new Set(mapped.map((x) => x.localId));
       } catch (err) {
         console.error("OnSyncSceneObjects handler error", err);
       }
@@ -201,41 +397,38 @@ export default function AuthorModelView() {
     try {
       addEventListener?.("OnSelectObject", onSelect);
       addEventListener?.("OnSyncSceneObjects", onSync);
-    } catch (e) { }
+    } catch {}
 
-    window.OnSelectObject = (json: any) => {
-      onSelect(json);
-    };
-    window.OnSyncSceneObjects = (json: any) => {
-      onSync(json);
-    };
+    window.OnSelectObject = (json: any) => onSelect(json);
+    window.OnSyncSceneObjects = (json: any) => onSync(json);
 
     return () => {
       try {
         removeEventListener?.("OnSelectObject", onSelect);
         removeEventListener?.("OnSyncSceneObjects", onSync);
-      } catch (e) { }
+      } catch {}
 
       delete window.OnSelectObject;
       delete window.OnSyncSceneObjects;
     };
-  }, [addEventListener, removeEventListener]);
+  }, [addEventListener, removeEventListener, sendMessage]);
 
-  // =====================
+  // =========================================================
   // Load initial scene for marker
-  // =====================
+  // =========================================================
   useEffect(() => {
     if (!markerId || !isLoaded) return;
 
     setSceneObjects([]);
     setSelectedLocalId(null);
+    lastSyncLocalIdsRef.current = new Set();
 
     try {
       sendMessage("SceneManager", "ClearAll", "");
-    } catch (e) { }
+    } catch {}
   }, [markerId, isLoaded, sendMessage]);
 
-  // B) Load latest scene (DRAFT/PUBLISHED đều được) khi có data
+  // Load latest scene
   useEffect(() => {
     if (!markerId || !isLoaded) return;
     if (typeof latestScene === "undefined") return;
@@ -245,8 +438,7 @@ export default function AuthorModelView() {
       return;
     }
 
-    // latestScene backend trả dạng { scene, marker, assets, items }
-    const sceneMeta = (latestScene as any).scene ?? latestScene; // fallback nếu API cũ trả flat
+    const sceneMeta = (latestScene as any).scene ?? latestScene;
     const markerMeta = (latestScene as any).marker ?? null;
 
     const sceneId =
@@ -259,20 +451,19 @@ export default function AuthorModelView() {
     const urlMap = new Map<string, string>();
     for (const a of apiAssets) {
       const id = a?.asset3DId ?? a?.id;
-      if (id && a?.assetUrl) urlMap.set(id, a.assetUrl);
+      if (id && a?.assetUrl) urlMap.set(String(id), a.assetUrl);
     }
 
-    //  items không có assetUrl => join bằng asset3DId
     const apiItems: any[] = (latestScene as any).items ?? [];
 
     const items = apiItems
       .map((it: any, i: number) => {
-        const asset3DId = it.asset3DId ?? it.asset3dId;
+        const asset3DId = String(it.asset3DId ?? it.asset3dId ?? "");
         const assetUrl = asset3DId ? urlMap.get(asset3DId) : undefined;
 
         return {
           asset3DId,
-          assetUrl, //  đã join đúng
+          assetUrl,
           orderIndex: it.orderIndex ?? i,
           posX: it.posX ?? 0,
           posY: it.posY ?? 0,
@@ -286,10 +477,8 @@ export default function AuthorModelView() {
           behaviorJson: it.behaviorJson ?? "",
         };
       })
-      //  thiếu url thì bỏ (tránh Unity fallback ra cube)
       .filter((x: any) => !!x.asset3DId && !!x.assetUrl);
 
-    //  meta lấy từ scene/marker đúng
     const importDto = {
       sceneId,
       markerId: markerMeta?.markerId || sceneMeta?.markerId || markerId,
@@ -300,11 +489,19 @@ export default function AuthorModelView() {
 
     try {
       sendMessage("SceneManager", "LoadSceneFromJson", JSON.stringify(importDto));
-    } catch (e) { }
+    } catch {}
   }, [markerId, isLoaded, latestScene, sendMessage]);
 
   const selectedObject =
     sceneObjects.find((s) => s.localId === selectedLocalId) ?? null;
+
+  const estimatedMaxDim = useMemo(() => {
+    const aId = String(selectedObject?.asset3DId ?? "");
+    if (!aId) return null;
+    // dimsVersion để re-render khi cache update
+    void dimsVersion;
+    return assetMaxDimCacheRef.current[aId] ?? null;
+  }, [selectedObject?.asset3DId, dimsVersion]);
 
   const applyTransformToObject = (
     localId: string,
@@ -317,18 +514,21 @@ export default function AuthorModelView() {
       const obj = next.find((x) => x.localId === localId)!;
 
       try {
-        const payload = JSON.stringify({
-          localId,
-          pos: { x: obj.posX ?? 0, y: obj.posY ?? 0, z: obj.posZ ?? 0 },
-          rot: { x: obj.rotX ?? 0, y: obj.rotY ?? 0, z: obj.rotZ ?? 0 },
-          scale: {
-            x: obj.scaleX ?? 1,
-            y: obj.scaleY ?? 1,
-            z: obj.scaleZ ?? 1,
-          },
-        });
-        sendMessage("SceneManager", "UpdateObjectTransform", payload);
-      } catch (e) { }
+        sendMessage(
+          "SceneManager",
+          "UpdateObjectTransform",
+          JSON.stringify({
+            localId,
+            pos: { x: obj.posX ?? 0, y: obj.posY ?? 0, z: obj.posZ ?? 0 },
+            rot: { x: obj.rotX ?? 0, y: obj.rotY ?? 0, z: obj.rotZ ?? 0 },
+            scale: {
+              x: obj.scaleX ?? 1,
+              y: obj.scaleY ?? 1,
+              z: obj.scaleZ ?? 1,
+            },
+          })
+        );
+      } catch {}
 
       return next;
     });
@@ -336,44 +536,107 @@ export default function AuthorModelView() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Upload GLB + auto-scale
   const handleUploadGlb = async (file?: File) => {
     if (!file || !markerId) return;
-    try {
-      const meta = {
-        markerId,
-        userId,
-        fileName: file.name,
-        format: "GLB",
-      };
 
+    // 1) đo bbox trước (client-side)
+    let maxDim: number | null = null;
+    try {
+      maxDim = await getMaxDimFromFile(file);
+    } catch {
+      maxDim = null;
+    }
+
+    try {
+      const meta = { markerId, userId, fileName: file.name, format: "GLB" };
       const res = await uploadMut.mutateAsync({ file, meta });
 
-      const asset3DId = (res as any).asset3DId ?? (res as any).id ?? undefined;
+      const asset3DId = String((res as any).asset3DId ?? (res as any).id ?? "");
       const assetUrl = (res as any).assetUrl ?? "";
 
-      try {
-        const payload = JSON.stringify({ asset3DId, assetUrl });
-        sendMessage("SceneManager", "AddAssetFromUrl", payload);
-      } catch (e) { }
+      if (asset3DId) {
+        if (maxDim && Number.isFinite(maxDim)) {
+          assetMaxDimCacheRef.current[asset3DId] = maxDim;
+          setDimsVersion((v) => v + 1);
+        }
+        const usedMaxDim = assetMaxDimCacheRef.current[asset3DId] ?? 1;
+        const recommendedScale = recommendScaleFromMaxDim(usedMaxDim);
+
+        pendingAutoScaleRef.current.push({
+          asset3DId,
+          scale: recommendedScale,
+        });
+
+        // Add vào Unity
+        try {
+          sendMessage(
+            "SceneManager",
+            "AddAssetFromUrl",
+            JSON.stringify({ asset3DId, assetUrl })
+          );
+        } catch {}
+      }
 
       await refetchAssets?.();
 
       toast({
         title: "Upload thành công",
-        description: `Asset được upload`,
+        description: "Đã thêm model vào scene (auto-scale theo marker).",
       });
     } catch (err: any) {
       toast({
         title: "Upload thất bại",
         description: err?.message ?? "Lỗi",
+        variant: "destructive",
       });
     }
   };
 
-  // Scene save/publish
+  // =========================================================
+  // Save/Publish
+  // =========================================================
   const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
-  const [sceneDialogMode, setSceneDialogMode] =
-    useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const [sceneDialogMode, setSceneDialogMode] = useState<"DRAFT" | "PUBLISHED">(
+    "DRAFT"
+  );
+
+  // normalize để AR không bị “phóng quá”
+  const normalizeExportItems = (items: any[]) => {
+    return items.map((it) => {
+      const asset3DId = String(it.asset3DId ?? it.asset3dId ?? "");
+      let sx = Number(it.scaleX ?? 1);
+      let sy = Number(it.scaleY ?? 1);
+      let sz = Number(it.scaleZ ?? 1);
+
+      sx = clamp(sx, 0.001, 2.0);
+      sy = clamp(sy, 0.001, 2.0);
+      sz = clamp(sz, 0.001, 2.0);
+
+      // nếu có bbox cache -> scale-down nếu vượt target
+      const maxDim = assetMaxDimCacheRef.current[asset3DId];
+      if (maxDim && Number.isFinite(maxDim) && maxDim > 0) {
+        const currentMax = maxDim * Math.max(sx, sy, sz);
+        if (currentMax > targetMaxM * 1.05) {
+          const factor = targetMaxM / currentMax;
+          sx *= factor;
+          sy *= factor;
+          sz *= factor;
+        }
+      } else {
+        // fallback: nếu user để scale quá lớn thì hạ nhẹ
+        const m = Math.max(sx, sy, sz);
+        if (m > 1.0) {
+          const factor = 1.0 / m;
+          sx *= factor;
+          sy *= factor;
+          sz *= factor;
+        }
+      }
+
+      return { ...it, scaleX: sx, scaleY: sy, scaleZ: sz };
+    });
+  };
 
   const saveSceneToBackend = async (
     exportDto: any,
@@ -386,7 +649,7 @@ export default function AuthorModelView() {
     }
 
     const exportedItems = exportDto?.items || [];
-    console.log("[SAVE] exportDto items:", exportedItems.length, exportedItems);
+    const safeItems = normalizeExportItems(exportedItems);
 
     try {
       const sceneReq = {
@@ -407,7 +670,6 @@ export default function AuthorModelView() {
         (scene as any).scene_id;
 
       if (!sceneId) {
-        console.error("[SAVE] Scene created but sceneId missing. scene=", scene);
         toast({
           title: "Lỗi khi lưu scene",
           description:
@@ -419,7 +681,7 @@ export default function AuthorModelView() {
 
       setCurrentSceneId(sceneId);
 
-      const itemsReq = exportedItems
+      const itemsReq = safeItems
         .map((it: any, idx: number) => {
           const asset3DId = it.asset3DId ?? it.asset3dId;
           if (!asset3DId) return null;
@@ -443,13 +705,8 @@ export default function AuthorModelView() {
         })
         .filter(Boolean);
 
-      console.log("[SAVE] itemsReq:", itemsReq.length, itemsReq);
-
       if (itemsReq.length > 0) {
         const created = await createSceneItemsMut.mutateAsync(itemsReq as any);
-
-        console.log("[SAVE] created items resp:", created);
-
         if (!created || (Array.isArray(created) && created.length === 0)) {
           toast({
             title: "Cảnh báo",
@@ -460,13 +717,13 @@ export default function AuthorModelView() {
         } else {
           toast({
             title: "Scene saved",
-            description: `Scene ${sceneId} + ${itemsReq.length} item(s) đã lưu`,
+            description: `Scene ${sceneId} + ${itemsReq.length} item(s) đã lưu (AR-safe).`,
           });
         }
       } else {
         toast({
           title: "Scene saved",
-          description: `Scene ${sceneId} đã lưu (export không có item nào có asset3DId)`,
+          description: `Scene ${sceneId} đã lưu (export không có item nào).`,
         });
       }
     } catch (err: any) {
@@ -480,9 +737,7 @@ export default function AuthorModelView() {
     }
   };
 
-  // =====================
   // Unity event: OnSceneExport
-  // =====================
   useEffect(() => {
     const onSceneExport = (payload: any) => {
       try {
@@ -494,23 +749,21 @@ export default function AuthorModelView() {
         toast({
           title: "Lỗi",
           description: "Không đọc được dữ liệu scene từ Unity",
+          variant: "destructive",
         });
       }
     };
 
     try {
       addEventListener?.("OnSceneExport", onSceneExport);
-    } catch (e) { }
+    } catch {}
 
-    window.OnSceneExport = (json: any) => {
-      onSceneExport(json);
-    };
+    window.OnSceneExport = (json: any) => onSceneExport(json);
 
     return () => {
       try {
         removeEventListener?.("OnSceneExport", onSceneExport);
-      } catch (e) { }
-
+      } catch {}
       delete window.OnSceneExport;
     };
   }, [addEventListener, removeEventListener, sceneDialogMode]);
@@ -524,6 +777,7 @@ export default function AuthorModelView() {
       toast({
         title: "Lỗi",
         description: "Marker chưa chọn/không tồn tại.",
+        variant: "destructive",
       });
       return;
     }
@@ -539,19 +793,19 @@ export default function AuthorModelView() {
     };
 
     try {
-      const json = JSON.stringify(metaForUnity);
-      sendMessage("SceneManager", "ExportScene", json);
+      sendMessage("SceneManager", "ExportScene", JSON.stringify(metaForUnity));
     } catch (err: any) {
       toast({
         title: "Lỗi",
-        description:
-          err?.message || "Không gửi được yêu cầu ExportScene sang Unity",
+        description: err?.message || "Không gửi được ExportScene sang Unity",
+        variant: "destructive",
       });
     } finally {
       setSceneDialogOpen(false);
     }
   };
 
+  // chặn Unity bắt phím khi đang gõ input/textarea
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -567,33 +821,76 @@ export default function AuthorModelView() {
     };
 
     document.addEventListener("keydown", handler, true);
-
-    return () => {
-      document.removeEventListener("keydown", handler, true);
-    };
+    return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
   const projectTitle = loadingMarker
     ? "Project (đang tải marker...)"
     : markerDetail?.markerCode
-      ? `Project ${markerDetail.markerCode}`
-      : "Project";
+    ? `Project ${markerDetail.markerCode}`
+    : "Project";
 
-  // Handler thêm model vào scene
-  const handleAddExistingModel = (asset: any, assetUrl: string) => {
+  // Add existing model + auto-scale
+  const handleAddExistingModel = async (asset: any, assetUrl: string) => {
     try {
-      const payload = JSON.stringify({
-        asset3DId: asset.asset3DId ?? asset.id,
-        assetUrl,
-      });
-      sendMessage("SceneManager", "AddAssetFromUrl", payload);
+      const asset3DId = String(asset.asset3DId ?? asset.id ?? "");
+      if (!asset3DId) return;
+
+      await ensureMaxDimCached(asset3DId, assetUrl);
+
+      const maxDim = assetMaxDimCacheRef.current[asset3DId] ?? 1;
+      const recommendedScale = recommendScaleFromMaxDim(maxDim);
+
+      pendingAutoScaleRef.current.push({ asset3DId, scale: recommendedScale });
+
+      sendMessage(
+        "SceneManager",
+        "AddAssetFromUrl",
+        JSON.stringify({ asset3DId, assetUrl })
+      );
+
       toast({
         title: "Đã thêm model vào scene",
-        description: asset.title || asset.fileName || "",
+        description: "Auto-scale theo marker.",
       });
     } catch (e) {
       console.error("AddAssetFromUrl error", e);
     }
+  };
+
+  // Quick actions for beginner panel
+  const handleFitToMarker = (localId: string) => {
+    const obj = sceneObjects.find((x) => x.localId === localId);
+    if (!obj) return;
+
+    const aId = String(obj.asset3DId ?? "");
+    const md = aId ? assetMaxDimCacheRef.current[aId] ?? 1 : 1;
+    const s = recommendScaleFromMaxDim(md);
+
+    applyTransformToObject(localId, { scaleX: s, scaleY: s, scaleZ: s });
+  };
+
+  const handleCenterToMarker = (localId: string) => {
+    applyTransformToObject(localId, { posX: 0, posY: 0, posZ: 0 });
+  };
+
+  const handleResetTransform = (localId: string) => {
+    const obj = sceneObjects.find((x) => x.localId === localId);
+    const aId = String(obj?.asset3DId ?? "");
+    const md = aId ? assetMaxDimCacheRef.current[aId] ?? 1 : 1;
+    const s = recommendScaleFromMaxDim(md);
+
+    applyTransformToObject(localId, {
+      posX: 0,
+      posY: 0,
+      posZ: 0,
+      rotX: 0,
+      rotY: 0,
+      rotZ: 0,
+      scaleX: s,
+      scaleY: s,
+      scaleZ: s,
+    });
   };
 
   return (
@@ -604,9 +901,7 @@ export default function AuthorModelView() {
         {/* Header */}
         <header className="bg-[#1a2332] border-b border-white/10 shadow-lg">
           <div className="flex items-center px-6 py-3">
-            <h2 className="ml-4 text-white text-lg font-medium">
-              {projectTitle}
-            </h2>
+            <h2 className="ml-4 text-white text-lg font-medium">{projectTitle}</h2>
 
             <div className="ml-auto flex items-center gap-3">
               <Button
@@ -616,6 +911,7 @@ export default function AuthorModelView() {
               >
                 Quay lại
               </Button>
+
               <Button
                 onClick={() => {
                   setSceneDialogMode("DRAFT");
@@ -661,18 +957,12 @@ export default function AuthorModelView() {
               assetsLoading={assetsLoading}
               onAddExistingModel={handleAddExistingModel}
               onUploadClick={() => {
-                if (leftToolPanel === "model") {
-                  fileInputRef.current?.click();
-                }
+                if (leftToolPanel === "model") fileInputRef.current?.click();
               }}
               onOpenCreateAIDialog={() => setAssetDialogOpenLocal(true)}
               currentChapterId={getCurrentChapterId()}
-              onQuizFullyCreated={(quizId) => {
-                previewQuizInUnity(quizId);
-              }}
-              onPreviewQuiz={(quizId) => {
-                previewQuizInUnity(quizId);
-              }}
+              onQuizFullyCreated={(quizId) => previewQuizInUnity(quizId)}
+              onPreviewQuiz={(quizId) => previewQuizInUnity(quizId)}
             />
           )}
 
@@ -682,20 +972,17 @@ export default function AuthorModelView() {
           {/* Right Properties */}
           <PropertiesPanel
             selectedObject={selectedObject}
+            selectedLocalId={selectedLocalId}
+            sceneObjects={sceneObjects}
+            onSelectLocalId={(id) => setSelectedLocalId(id)}
             onChangeTransform={applyTransformToObject}
-            onUnselect={() => {
-              if (!selectedObject) return;
-              try {
-                // Xóa object khỏi Unity theo localId
-                sendMessage("SceneManager", "RemoveObject", selectedObject.localId);
-              } catch (e) { }
-
-              // Xóa luôn khỏi state React (tránh UI lag)
-              setSceneObjects((prev) => prev.filter((x) => x.localId !== selectedObject.localId));
-              setSelectedLocalId(null);
-            }}
+            onUnselect={() => setSelectedLocalId(null)}
+            markerWidthM={markerWidthM}
+            estimatedMaxDim={estimatedMaxDim}
+            onFitToMarker={handleFitToMarker}
+            onCenterToMarker={handleCenterToMarker}
+            onResetTransform={handleResetTransform}
           />
-
         </div>
 
         {/* Hidden input upload glb */}
@@ -729,13 +1016,20 @@ export default function AuthorModelView() {
         />
       </div>
 
+      {/* Toggle sidebar (merge từ code main) */}
       <Button
         variant="ghost"
         size="icon"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${
+          sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"
+        }`}
       >
-        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+        {sidebarOpen ? (
+          <PanelLeftClose className="w-5 h-5" />
+        ) : (
+          <PanelLeftOpen className="w-5 h-5" />
+        )}
       </Button>
     </div>
   );

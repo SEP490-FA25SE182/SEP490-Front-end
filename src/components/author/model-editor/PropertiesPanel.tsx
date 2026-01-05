@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 export type SceneObject = {
   localId: string;
+  itemId?: string;
   asset3DId?: string;
   assetUrl?: string;
   orderIndex?: number;

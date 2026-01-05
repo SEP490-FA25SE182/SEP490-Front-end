@@ -577,28 +577,6 @@ export default function AuthorProfile() {
                   {/* --- Lịch sử giao dịch (searchWallets by walletId) --- */}
                   <div className="mt-6 border-t border-white/10 pt-4">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <div className="text-white/60">Số dư</div>
-                          <div className="text-white font-medium">
-                            {formatCurrency(wallets[0]?.balance)}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-white/60">Xu</div>
-                          <div className="text-white font-medium">
-                            {Number(wallets[0]?.coin ?? 0).toLocaleString("vi-VN")}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-white/60">Trạng thái</div>
-                          <div className="text-white font-medium">
-                            {wallets[0]?.isActived}
-                          </div>
-                        </div>
-                      </div>
                       <div className="text-sm text-white/60">
                         Hiển thị lịch sử theo walletId
                       </div>

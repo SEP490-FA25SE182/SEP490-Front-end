@@ -12,6 +12,8 @@ import {
   useCreateARSceneItems,
   useSearchAsset3D,
   useGetLatestARSceneByMarkerId,
+  useUpdateARScene, //  ADDED
+  useUpdateARSceneItem, //  ADDED
   type Marker,
 } from "@/services/ARService";
 import Asset3DCreateDialog from "@/components/dialog/3DAssetCreatDialog";
@@ -63,6 +65,18 @@ export default function AuthorModelView() {
 
   const { data: latestScene } = useGetLatestARSceneByMarkerId(markerId);
 
+  const hasScene = !!currentSceneId;
+
+  //  ADDED: giữ name/description để dùng khi "Lưu chỉnh sửa" (không modal)
+  const [sceneMeta, setSceneMeta] = useState<{
+    name: string;
+    description: string;
+    status?: "DRAFT" | "PUBLISHED";
+  }>({
+    name: "",
+    description: "",
+  });
+
   // Tải danh sách asset 3D của user
   const {
     data: asset3DResp,
@@ -90,6 +104,10 @@ export default function AuthorModelView() {
   const uploadMut = useUploadAsset3D();
   const createSceneMut = useCreateARScene();
   const createSceneItemsMut = useCreateARSceneItems();
+
+  //  ADDED: update mutations
+  const updateSceneMut = useUpdateARScene();
+  const updateSceneItemMut = useUpdateARSceneItem();
 
   const {
     unityProvider,
@@ -134,6 +152,29 @@ export default function AuthorModelView() {
     }
   };
 
+  //  ADDED: khi đã có scene, bấm "Lưu chỉnh sửa / Publish chỉnh sửa" -> ExportScene luôn, không modal
+  const requestExportAndUpdate = (_status: "DRAFT" | "PUBLISHED") => {
+    if (!markerId) return;
+
+    const metaForUnity = {
+      sceneId: currentSceneId,
+      markerId,
+      name: sceneMeta.name || "Untitled Scene",
+      description: sceneMeta.description || "",
+    };
+
+    try {
+      sendMessage("SceneManager", "ExportScene", JSON.stringify(metaForUnity));
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description:
+          err?.message || "Không gửi được yêu cầu ExportScene sang Unity",
+        variant: "destructive",
+      });
+    }
+  };
+
   // =====================
   // Unity events: select + sync
   // =====================
@@ -147,6 +188,7 @@ export default function AuthorModelView() {
           const idx = prev.findIndex((p) => p.localId === data.localId);
           const item: SceneObject = {
             localId: data.localId,
+            itemId: data.itemId, //  ADDED
             asset3DId: data.asset3DId,
             assetUrl: data.assetUrl,
             orderIndex: data.orderIndex ?? (prev.length ? prev.length : 0),
@@ -179,6 +221,7 @@ export default function AuthorModelView() {
         if (!Array.isArray(data)) return;
         const mapped: SceneObject[] = data.map((d: any, i: number) => ({
           localId: d.localId ?? `u-${i}`,
+          itemId: d.itemId, //  ADDED
           asset3DId: d.asset3DId,
           assetUrl: d.assetUrl,
           orderIndex: d.orderIndex ?? i,
@@ -242,17 +285,29 @@ export default function AuthorModelView() {
 
     if (!latestScene) {
       setCurrentSceneId(null);
+      //  ADDED: reset meta
+      setSceneMeta({ name: "", description: "" });
       return;
     }
 
     // latestScene backend trả dạng { scene, marker, assets, items }
-    const sceneMeta = (latestScene as any).scene ?? latestScene; // fallback nếu API cũ trả flat
+    const sceneMetaFromApi = (latestScene as any).scene ?? latestScene; // fallback nếu API cũ trả flat
     const markerMeta = (latestScene as any).marker ?? null;
 
     const sceneId =
-      sceneMeta?.sceneId || sceneMeta?.arSceneId || sceneMeta?.id || null;
+      sceneMetaFromApi?.sceneId ||
+      sceneMetaFromApi?.arSceneId ||
+      sceneMetaFromApi?.id ||
+      null;
 
     setCurrentSceneId(sceneId);
+
+    //  ADDED: sync name/description xuống state để dùng "Lưu chỉnh sửa"
+    setSceneMeta({
+      name: sceneMetaFromApi?.name ?? "",
+      description: sceneMetaFromApi?.description ?? "",
+      status: sceneMetaFromApi?.status,
+    });
 
     // build map asset3DId -> assetUrl từ latestScene.assets
     const apiAssets: any[] = (latestScene as any).assets ?? [];
@@ -271,6 +326,7 @@ export default function AuthorModelView() {
         const assetUrl = asset3DId ? urlMap.get(asset3DId) : undefined;
 
         return {
+          itemId: it.id ?? it.itemId, //  ADDED (để Unity giữ mapping itemId)
           asset3DId,
           assetUrl, //  đã join đúng
           orderIndex: it.orderIndex ?? i,
@@ -292,9 +348,9 @@ export default function AuthorModelView() {
     //  meta lấy từ scene/marker đúng
     const importDto = {
       sceneId,
-      markerId: markerMeta?.markerId || sceneMeta?.markerId || markerId,
-      name: sceneMeta?.name ?? "",
-      description: sceneMeta?.description ?? "",
+      markerId: markerMeta?.markerId || sceneMetaFromApi?.markerId || markerId,
+      name: sceneMetaFromApi?.name ?? "",
+      description: sceneMetaFromApi?.description ?? "",
       items,
     };
 
@@ -375,6 +431,116 @@ export default function AuthorModelView() {
   const [sceneDialogMode, setSceneDialogMode] =
     useState<"DRAFT" | "PUBLISHED">("DRAFT");
 
+  //  ADDED: update flow
+  const updateSceneToBackend = async (
+    exportDto: any,
+    status: "DRAFT" | "PUBLISHED"
+  ) => {
+    const sceneId = currentSceneId;
+    if (!sceneId) {
+      toast({
+        title: "Lỗi",
+        description: "Chưa có sceneId để cập nhật.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const effectiveMarkerId = exportDto?.markerId || markerId;
+    if (!effectiveMarkerId) {
+      toast({ title: "Lỗi", description: "Marker chưa chọn/không tồn tại." });
+      return;
+    }
+
+    const exportedItems = exportDto?.items || [];
+    console.log("[UPDATE] exportDto items:", exportedItems.length, exportedItems);
+
+    try {
+      // 1) update scene meta
+      await updateSceneMut.mutateAsync({
+        id: sceneId,
+        data: {
+          markerId: effectiveMarkerId,
+          name: exportDto?.name || sceneMeta.name || "Untitled Scene",
+          description:
+            exportDto?.description || sceneMeta.description || "",
+          version: 1,
+          status,
+          isActived: "ACTIVE",
+        } as any,
+      });
+
+      // 2) update items (itemId có sẵn) + create items mới (không có itemId)
+      const toUpdate = exportedItems.filter((it: any) => !!it.itemId);
+      const toCreate = exportedItems.filter((it: any) => !it.itemId);
+
+      await Promise.all(
+        toUpdate.map((it: any, idx: number) =>
+          updateSceneItemMut.mutateAsync({
+            id: it.itemId,
+            data: {
+              id: it.itemId,
+              sceneId,
+              asset3DId: it.asset3DId ?? it.asset3dId,
+              orderIndex: it.orderIndex ?? idx,
+              posX: it.posX ?? 0,
+              posY: it.posY ?? 0,
+              posZ: it.posZ ?? 0,
+              rotX: it.rotX ?? 0,
+              rotY: it.rotY ?? 0,
+              rotZ: it.rotZ ?? 0,
+              scaleX: it.scaleX ?? 1,
+              scaleY: it.scaleY ?? 1,
+              scaleZ: it.scaleZ ?? 1,
+              behaviorJson: it.behaviorJson ?? "",
+            } as any,
+          })
+        )
+      );
+
+      if (toCreate.length > 0) {
+        const createReq = toCreate
+          .map((it: any, idx: number) => {
+            const asset3DId = it.asset3DId ?? it.asset3dId;
+            if (!asset3DId) return null;
+            return {
+              sceneId,
+              asset3DId,
+              orderIndex: it.orderIndex ?? idx,
+              posX: it.posX ?? 0,
+              posY: it.posY ?? 0,
+              posZ: it.posZ ?? 0,
+              rotX: it.rotX ?? 0,
+              rotY: it.rotY ?? 0,
+              rotZ: it.rotZ ?? 0,
+              scaleX: it.scaleX ?? 1,
+              scaleY: it.scaleY ?? 1,
+              scaleZ: it.scaleZ ?? 1,
+              behaviorJson: it.behaviorJson ?? "",
+            };
+          })
+          .filter(Boolean);
+
+        if (createReq.length > 0) {
+          await createSceneItemsMut.mutateAsync(createReq as any);
+        }
+      }
+
+      toast({
+        title: "Đã lưu chỉnh sửa",
+        description: `Scene ${sceneId} đã được cập nhật`,
+      });
+    } catch (err: any) {
+      console.error("[UPDATE] error", err);
+      toast({
+        title: "Lỗi khi cập nhật scene",
+        description:
+          err?.response?.data?.message || err?.message || "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
   const saveSceneToBackend = async (
     exportDto: any,
     status: "DRAFT" | "PUBLISHED"
@@ -418,6 +584,13 @@ export default function AuthorModelView() {
       }
 
       setCurrentSceneId(sceneId);
+
+      //  ADDED: sync meta when created
+      setSceneMeta({
+        name: exportDto?.name || "Untitled Scene",
+        description: exportDto?.description || "",
+        status,
+      });
 
       const itemsReq = exportedItems
         .map((it: any, idx: number) => {
@@ -488,7 +661,13 @@ export default function AuthorModelView() {
       try {
         const data = typeof payload === "string" ? JSON.parse(payload) : payload;
         const status = sceneDialogMode || "DRAFT";
-        saveSceneToBackend(data, status);
+
+        //  CHANGED: nếu đã có scene => update, chưa có => create
+        if (currentSceneId) {
+          updateSceneToBackend(data, status);
+        } else {
+          saveSceneToBackend(data, status);
+        }
       } catch (err) {
         console.error("OnSceneExport parse error", err);
         toast({
@@ -513,7 +692,12 @@ export default function AuthorModelView() {
 
       delete window.OnSceneExport;
     };
-  }, [addEventListener, removeEventListener, sceneDialogMode]);
+  }, [
+    addEventListener,
+    removeEventListener,
+    sceneDialogMode,
+    currentSceneId, //  ADDED
+  ]);
 
   const handleCreateScene = (payload: {
     name?: string;
@@ -541,6 +725,13 @@ export default function AuthorModelView() {
     try {
       const json = JSON.stringify(metaForUnity);
       sendMessage("SceneManager", "ExportScene", json);
+
+      //  ADDED: lưu meta để lần sau bấm "Lưu chỉnh sửa" không bị rỗng
+      setSceneMeta({
+        name: metaForUnity.name,
+        description: metaForUnity.description,
+        status,
+      });
     } catch (err: any) {
       toast({
         title: "Lỗi",
@@ -581,18 +772,42 @@ export default function AuthorModelView() {
 
   // Handler thêm model vào scene
   const handleAddExistingModel = (asset: any, assetUrl: string) => {
+    const newAssetId = asset.asset3DId ?? asset.id;
+    const newAssetUrl = assetUrl;
+
     try {
-      const payload = JSON.stringify({
-        asset3DId: asset.asset3DId ?? asset.id,
-        assetUrl,
-      });
-      sendMessage("SceneManager", "AddAssetFromUrl", payload);
-      toast({
-        title: "Đã thêm model vào scene",
-        description: asset.title || asset.fileName || "",
-      });
+      if (selectedLocalId) {
+        sendMessage(
+          "SceneManager",
+          "ReplaceObjectAsset",
+          JSON.stringify({
+            localId: selectedLocalId,
+            asset3DId: newAssetId,
+            assetUrl: newAssetUrl,
+          })
+        );
+
+        setSceneObjects((prev) =>
+          prev.map((o) =>
+            o.localId === selectedLocalId
+              ? { ...o, asset3DId: newAssetId, assetUrl: newAssetUrl }
+              : o
+          )
+        );
+
+        toast({ title: "Đã thay model", description: asset.title || asset.fileName || "" });
+        return;
+      }
+
+      sendMessage(
+        "SceneManager",
+        "AddAssetFromUrl",
+        JSON.stringify({ asset3DId: newAssetId, assetUrl: newAssetUrl })
+      );
+
+      toast({ title: "Đã thêm model vào scene", description: asset.title || asset.fileName || "" });
     } catch (e) {
-      console.error("AddAssetFromUrl error", e);
+      console.error("handleAddExistingModel error", e);
     }
   };
 
@@ -616,24 +831,38 @@ export default function AuthorModelView() {
               >
                 Quay lại
               </Button>
+
+              {/*  CHANGED: nếu có scene thì "Lưu chỉnh sửa" và không mở modal */}
               <Button
                 onClick={() => {
+                  if (!hasScene) {
+                    setSceneDialogMode("DRAFT");
+                    setSceneDialogOpen(true);
+                    return;
+                  }
                   setSceneDialogMode("DRAFT");
-                  setSceneDialogOpen(true);
+                  requestExportAndUpdate("DRAFT");
                 }}
                 className="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2"
               >
-                Lưu
+                {hasScene ? "Lưu chỉnh sửa" : "Lưu"}
               </Button>
 
+              {/*  CHANGED: nếu có scene thì "Publish chỉnh sửa" và không mở modal */}
               <Button
                 onClick={() => {
+                  if (!hasScene) {
+                    setSceneDialogMode("PUBLISHED");
+                    setSceneDialogOpen(true);
+                    return;
+                  }
                   setSceneDialogMode("PUBLISHED");
-                  setSceneDialogOpen(true);
+                  requestExportAndUpdate("PUBLISHED");
                 }}
                 className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
               >
-                <UploadCloud className="w-4 h-4" /> Publish
+                <UploadCloud className="w-4 h-4" />{" "}
+                {hasScene ? "Publish chỉnh sửa" : "Publish"}
               </Button>
             </div>
           </div>
@@ -691,11 +920,12 @@ export default function AuthorModelView() {
               } catch (e) { }
 
               // Xóa luôn khỏi state React (tránh UI lag)
-              setSceneObjects((prev) => prev.filter((x) => x.localId !== selectedObject.localId));
+              setSceneObjects((prev) =>
+                prev.filter((x) => x.localId !== selectedObject.localId)
+              );
               setSelectedLocalId(null);
             }}
           />
-
         </div>
 
         {/* Hidden input upload glb */}
@@ -733,9 +963,14 @@ export default function AuthorModelView() {
         variant="ghost"
         size="icon"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"
+          }`}
       >
-        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+        {sidebarOpen ? (
+          <PanelLeftClose className="w-5 h-5" />
+        ) : (
+          <PanelLeftOpen className="w-5 h-5" />
+        )}
       </Button>
     </div>
   );

@@ -576,12 +576,6 @@ export default function AuthorProfile() {
 
                   {/* --- Lịch sử giao dịch (searchWallets by walletId) --- */}
                   <div className="mt-6 border-t border-white/10 pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-sm text-white/60">
-                        Hiển thị lịch sử theo walletId
-                      </div>
-                    </div>
-
                     {txLoading ? (
                       <div className="text-white">Đang tải lịch sử...</div>
                     ) : txError ? (

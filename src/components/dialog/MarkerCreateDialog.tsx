@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-const DEFAULT_PHYSICAL_WIDTH = 0.1;
+const DEFAULT_PHYSICAL_WIDTH = 0.2;
 const DEFAULT_TAG_FAMILY = "tagStandard41h12";
 
 const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -107,7 +107,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       return;
     }
 
-    // physicalWidthM: default 0.1 nếu bỏ trống
+    // physicalWidthM: default 0.2 nếu bỏ trống
     let width = DEFAULT_PHYSICAL_WIDTH;
     const raw = physicalWidthM.trim();
 
@@ -116,7 +116,7 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       if (!Number.isFinite(parsed) || parsed <= 0) {
         toast({
           title: "PhysicalWidthM không hợp lệ",
-          description: "Vui lòng nhập số > 0 (ví dụ 0.1).",
+          description: "Vui lòng nhập số > 0 (ví dụ 0.2).",
           variant: "destructive",
         });
         return;

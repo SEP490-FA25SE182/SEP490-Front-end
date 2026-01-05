@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
-import SnowCanvas from "@/pages/customer/SnowCanvas";
+import SakuraCanvas from "@/pages/customer/SakuraCanvas";
 import {
   Carousel,
   CarouselContent,
@@ -364,8 +364,8 @@ const HeroFullBleed: React.FC<{
     <div className="absolute inset-0 opacity-25 [background:radial-gradient(rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
-    {/*  SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
-      <SnowCanvas className="z-5" buildSnowmanAfterMs={3500} density={1.1} />
+    {/*  SakuraCanvas phải nằm trực tiếp trong wrapper relative này */}
+      <SakuraCanvas className="z-5" density={1.1} wind={0.25} speed={1.0} blur={true} />
 
       {/* Content nằm trên background */}
       <div className="relative z-10">

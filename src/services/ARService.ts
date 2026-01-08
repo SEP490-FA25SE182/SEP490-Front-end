@@ -641,3 +641,37 @@ export const useSearchARSceneItems = (params?: ARSceneItemSearchParams) => {
     queryFn: () => searchARSceneItems(params),
   });
 };
+
+
+/* ====================== MARKER ILLUSTRATION (NEW) ====================== */
+
+export interface CreateMarkerIllustrationRequest {
+  markerId: string;
+  illustrationImageUrl: string;
+  camoStrength?: number;     // swagger: 0.1
+  quietZoneAlpha?: number;  // swagger: 0
+  assumedDpi?: number;      // swagger: 0
+  grainStrength?: number;   // swagger: 0.1
+}
+
+/**
+ * Create/update marker illustration
+ * POST /markers/illustration
+ * (swagger path full: /api/rookie/markers/illustration)
+ */
+export const createMarkerIllustration = async (
+  data: CreateMarkerIllustrationRequest
+): Promise<any> => {
+  const url = `${API_AR}/markers/illustration`;
+  console.log("[AR] POST", url, data);
+  const response = await axios.post(url, data);
+  return response.data;
+};
+
+/** Hook: Tạo illustration cho marker */
+export const useCreateMarkerIllustration = () => {
+  return useMutation({
+    mutationFn: (data: CreateMarkerIllustrationRequest) =>
+      createMarkerIllustration(data),
+  });
+};

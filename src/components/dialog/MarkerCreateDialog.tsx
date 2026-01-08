@@ -18,14 +18,13 @@ interface Props {
   onClose: () => void;
 }
 
-const DEFAULT_PHYSICAL_WIDTH = 0.2;
+const DEFAULT_PHYSICAL_WIDTH = 0.03;
 const DEFAULT_TAG_FAMILY = "tagStandard41h12";
 
 const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   const { toast } = useToast();
 
   const [markerCode, setMarkerCode] = useState("");
-  const [physicalWidthM, setPhysicalWidthM] = useState<string>(""); // input string để dễ nhập
 
   const createMarker = useCreateMarker();
   const { data: markers = [] } = useGetAllMarkers();
@@ -37,7 +36,6 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) {
       setMarkerCode("");
-      setPhysicalWidthM("");
     }
   }, [isOpen]);
 
@@ -107,29 +105,12 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
       return;
     }
 
-    // physicalWidthM: default 0.2 nếu bỏ trống
-    let width = DEFAULT_PHYSICAL_WIDTH;
-    const raw = physicalWidthM.trim();
-
-    if (raw) {
-      const parsed = Number(raw);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        toast({
-          title: "PhysicalWidthM không hợp lệ",
-          description: "Vui lòng nhập số > 0 (ví dụ 0.2).",
-          variant: "destructive",
-        });
-        return;
-      }
-      width = parsed;
-    }
-
     try {
       const payload = {
         bookId,
         userId,
         markerCode: normalized,
-        physicalWidthM: width,
+        physicalWidthM: DEFAULT_PHYSICAL_WIDTH,
         tagFamily: DEFAULT_TAG_FAMILY,
       };
 
@@ -186,19 +167,6 @@ const MarkerCreateDialog: React.FC<Props> = ({ isOpen, onClose }) => {
                 </span>
               </p>
             )}
-          </div>
-
-          {/* Physical width */}
-          <div>
-            <Label className="mb-1 block">
-              Kích thước (m)
-            </Label>
-            <Input
-              value={physicalWidthM}
-              onChange={(e) => setPhysicalWidthM(e.target.value)}
-              placeholder={`ví dụ: ${DEFAULT_PHYSICAL_WIDTH}`}
-              inputMode="decimal"
-            />
           </div>
 
           {/* Tag family hidden: tag36h11 */}

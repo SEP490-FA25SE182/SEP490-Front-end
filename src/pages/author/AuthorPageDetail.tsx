@@ -15,6 +15,7 @@ import {
   type Audio,
   type PageAudio,
 } from "@/services/AIService";
+import { useGetChapterById, useGetBookById } from "@/services/BookManageService";
 
 import { useSearchMarkers, type Marker } from "@/services/ARService";
 import { getCurrentUserId } from "@/utils/authStorage";
@@ -24,6 +25,14 @@ const AuthorPageDetail = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { data: page, isLoading, isError } = useGetPageById(pageId);
+
+  const chapterId = page?.chapterId;
+
+  // lấy chapter theo chapterId của page
+  const { data: chapter } = useGetChapterById(chapterId || "");
+
+  // lấy book theo bookId của chapter
+  const { data: book } = useGetBookById(chapter?.bookId);
 
   // authorId from local storage (similar to AssetToolPanel)
   const [authorId, setAuthorId] = useState<string | null>(null);
@@ -215,8 +224,16 @@ const AuthorPageDetail = () => {
         {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center px-6 py-4">
-            <div className="ml-4 text-white text-lg font-medium">
-              Chi tiết trang {page.pageNumber}
+            <div className="ml-4 text-white">
+              <div className="text-lg font-medium">
+                Chi tiết trang {page.pageNumber}
+              </div>
+
+              <div className="text-xs text-gray-300 mt-1">
+                Chương: <span className="text-white">{chapter?.chapterName ?? chapterId ?? "—"}</span>
+                {"  "}•{"  "}
+                Sách: <span className="text-white">{book?.bookName ?? chapter?.bookId ?? "—"}</span>
+              </div>
             </div>
             <div className="ml-auto flex items-center gap-3">
               <Button

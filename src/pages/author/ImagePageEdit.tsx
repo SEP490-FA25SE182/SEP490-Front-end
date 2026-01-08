@@ -11,10 +11,11 @@ import {
   useUpdatePageIllustration,
   useSearchPageIllustrations,
 } from "@/services/AIService";
-
+import { getCurrentBookId, getCurrentUserId } from "@/utils/authStorage";
 import {
   useAttachMarkerToPage,
   useSearchMarkers,
+  useCreateMarkerIllustration,
 } from "@/services/ARService";
 
 import {
@@ -48,29 +49,45 @@ export default function ImagePageEdit() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const bookId = useMemo(() => getCurrentBookId(), []);
+  const authorId = useMemo(() => getCurrentUserId(), []);
+
   // page data + update
   const { data: pageData, isLoading: pageLoading } = useGetPageById(pageId || "");
   const updatePage = useUpdatePage();
 
   // illustrations + update relation
   const updatePageIllustration = useUpdatePageIllustration();
+  const createMarkerIllustrationMutation = useCreateMarkerIllustration();
 
   // ================= MARKER HOOKS =================
-  const { data: allMarkersResp } = useSearchMarkers({
-    page: 0,
-    size: 9999,
-    sort: ["updatedAt,desc"], // mới nhất trước (nếu BE hỗ trợ)
-  });
+  const { data: allMarkersResp } = useSearchMarkers(
+    bookId && authorId
+      ? {
+        bookId,
+        userId: authorId,
+        page: 0,
+        size: 9999,
+        sort: ["updatedAt,desc"],
+      }
+      : undefined
+  );
   const allMarkers = allMarkersResp?.content ?? [];
 
   const attachMarkerMutation = useAttachMarkerToPage();
   // marker đang gắn với page (nếu có)
   const { data: pageMarkersResp } = useSearchMarkers(
-    pageId
-      ? { pageId, page: 0, size: 1, sort: ["updatedAt,desc"] }
+    pageId && bookId
+      ? {
+        pageId,
+        bookId,
+        userId: authorId ?? undefined,
+        page: 0,
+        size: 1,
+        sort: ["updatedAt,desc"],
+      }
       : undefined
   );
-
 
   // local form state
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -92,7 +109,7 @@ export default function ImagePageEdit() {
   const { data: illustrations = [] } = useSearchIllustrations({
     userId,
     size: 9999,
-    sort: ["updatedAt,desc"], 
+    sort: ["updatedAt,desc"],
   });
 
   // === Lấy liên kết page-illustration hiện có ===
@@ -259,6 +276,26 @@ export default function ImagePageEdit() {
           markerId: selectedMarkerId,
           pageId,
         });
+
+        // 4) tạo marker illustration (lấy từ illustration của page)
+        const illusUrl = content ? gsToHttp(content) : "";
+
+        if (!illusUrl) {
+          toast({
+            title: "Thiếu ảnh minh hoạ",
+            description: "Trang chưa có Illustration imageUrl nên không thể tạo marker illustration.",
+            variant: "destructive",
+          });
+        } else {
+          await createMarkerIllustrationMutation.mutateAsync({
+            markerId: selectedMarkerId,
+            illustrationImageUrl: illusUrl,
+            camoStrength: 0.95,
+            quietZoneAlpha: 60,
+            assumedDpi: 300,
+            grainStrength: 0.2,
+          });
+        }
       }
 
       toast({
@@ -286,7 +323,7 @@ export default function ImagePageEdit() {
 
       <Button
         variant="ghost"
-       size="icon"
+        size="icon"
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
       >
@@ -430,13 +467,15 @@ export default function ImagePageEdit() {
                 disabled={
                   updatePage.isPending ||
                   updatePageIllustration.isPending ||
-                  (!hasPageMarker && attachMarkerMutation.isPending)
+                  (!hasPageMarker && attachMarkerMutation.isPending)||
+                  createMarkerIllustrationMutation.isPending
                 }
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {updatePage.isPending ||
                   updatePageIllustration.isPending ||
-                  (!hasPageMarker && attachMarkerMutation.isPending)
+                  (!hasPageMarker && attachMarkerMutation.isPending) ||
+                  createMarkerIllustrationMutation.isPending
                   ? "Đang lưu..."
                   : "Lưu thay đổi"}
               </Button>

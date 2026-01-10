@@ -5,7 +5,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Image as ImageIcon,
-  MapPin,
   Volume2,
 } from "lucide-react";
 
@@ -17,6 +16,7 @@ import { getBookById, type Book } from "@/services/BookService";
 import {
   getAllChapters,
   getAllPages,
+  getChapterById,
   type Chapter,
   type Page,
 } from "@/services/BookManageService";
@@ -67,13 +67,23 @@ interface EnrichedPage extends Page {
   chapterNumber?: number;
   audio?: Audio | null;
   illustration?: Illustration | null;
+
   hasMarker?: boolean;
 
-  // marker image để hiển thị thumbnail + zoom + export
-  markerImageUrl?: string | null;
+  // marker stage 1 (marker trắng / apriltag...)
+  markerStage1ImageUrl?: string | null;
+  markerStage1PdfUrl?: string | null;
+  markerStage1Type?: string | null;
 
-  // optional (nếu muốn lưu pdf link)
+  // marker stage 2 (markerIllustration)
+  markerStage2ImageUrl?: string | null;
+  markerStage2PdfUrl?: string | null;
+  markerStage2Type?: string | null;
+
+  // giữ field cũ nếu UI đang dùng (optional)
+  markerImageUrl?: string | null;
   markerPdfUrl?: string | null;
+  markerType?: string | null;
 }
 
 type LocationState = {
@@ -89,7 +99,9 @@ type RasterImageType = "png" | "jpg" | "gif" | "bmp";
 function sanitizeHtmlBasic(html: string) {
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    doc.querySelectorAll("script, iframe, object, embed").forEach((el) => el.remove());
+    doc
+      .querySelectorAll("script, iframe, object, embed")
+      .forEach((el) => el.remove());
 
     const all = doc.querySelectorAll("*");
     all.forEach((el) => {
@@ -121,6 +133,8 @@ const toFirebaseDisplayUrl = (url?: string | null) => {
   }
   return url;
 };
+
+const BASE_FONT_HP = 32;
 
 const footerWithPageNumber = new Footer({
   children: [
@@ -169,7 +183,9 @@ async function fetchAsUint8Array(url: string): Promise<Uint8Array> {
   return new Uint8Array(buf);
 }
 
-async function getImageSize(url: string): Promise<{ w: number; h: number } | null> {
+async function getImageSize(
+  url: string
+): Promise<{ w: number; h: number } | null> {
   try {
     const img = new Image();
     img.decoding = "async";
@@ -183,6 +199,64 @@ async function getImageSize(url: string): Promise<{ w: number; h: number } | nul
   } catch {
     return null;
   }
+}
+
+async function composeMainWithMarker(mainUrl: string, markerUrl: string) {
+  const [mainImg, markerImg] = await Promise.all([
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.decoding = "async";
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Load main failed"));
+      i.src = mainUrl;
+    }),
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.decoding = "async";
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Load marker failed"));
+      i.src = markerUrl;
+    }),
+  ]);
+
+  const cw = mainImg.naturalWidth || 1;
+  const ch = mainImg.naturalHeight || 1;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No canvas ctx");
+
+  // vẽ ảnh chính
+  ctx.drawImage(mainImg, 0, 0, cw, ch);
+
+  // marker size: ~18% chiều rộng ảnh, cap tối đa 220px (đủ rõ)
+  const pad = Math.round(cw * 0.02);
+  const targetW = Math.min(220, Math.round(cw * 0.18));
+  const ratio = targetW / (markerImg.naturalWidth || 1);
+  const targetH = Math.round((markerImg.naturalHeight || 1) * ratio);
+
+  // vẽ marker vào góc phải trên (nằm trong ảnh)
+  const x = cw - targetW - pad;
+  const y = pad;
+
+  // nền mờ nhẹ để marker trắng không “chìm”
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.fillRect(x - 6, y - 6, targetW + 12, targetH + 12);
+  ctx.restore();
+
+  ctx.drawImage(markerImg, x, y, targetW, targetH);
+
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png", 0.92);
+  });
+
+  const buf = await blob.arrayBuffer();
+  return new Uint8Array(buf);
 }
 
 function fitToBox(w: number, h: number, maxW: number, maxH: number) {
@@ -213,7 +287,7 @@ function createDefaultNumbering() {
         })),
       },
     ],
-  } as any; //  tương thích typings nhiều version
+  } as any; // tương thích typings nhiều version
 }
 
 function parseStyle(styleStr?: string | null): Record<string, string> {
@@ -276,7 +350,10 @@ function guessImageType(url: string): RasterImageType {
 }
 
 function defaultTransform(box: { maxW: number; maxH: number }) {
-  return { width: box.maxW, height: Math.min(box.maxH, Math.round(box.maxW * 0.75)) };
+  return {
+    width: box.maxW,
+    height: Math.min(box.maxH, Math.round(box.maxW * 0.75)),
+  };
 }
 
 type InlineCtx = {
@@ -297,7 +374,6 @@ const PAGE_MARGIN_TOP_IN = 0.9;
 const PAGE_MARGIN_BOTTOM_IN = 0.7;
 const CONTENT_HEIGHT_IN = A4_HEIGHT_IN - PAGE_MARGIN_TOP_IN - PAGE_MARGIN_BOTTOM_IN;
 
-/** Bọc content vào 1 table cao full trang để canh giữa theo chiều dọc */
 // chừa chỗ cho header ở các trang nội dung (Word cần khoảng trống này)
 const HEADER_GUARD_IN = 0.85;
 
@@ -315,7 +391,7 @@ function centeredPage(children: Paragraph[], opts?: { withHeader?: boolean }) {
       new TableRow({
         height: {
           value: convertInchesToTwip(Math.max(5, heightIn)),
-          rule: HeightRule.ATLEAST, //  tránh bị “đẩy” sang trang mới => sinh trang trống
+          rule: HeightRule.ATLEAST, // tránh bị “đẩy” sang trang mới => sinh trang trống
         },
         children: [
           new TableCell({
@@ -332,6 +408,10 @@ function centeredPage(children: Paragraph[], opts?: { withHeader?: boolean }) {
       }),
     ],
   });
+}
+
+function inchesToPx(inches: number) {
+  return Math.round(inches * 96); // 96dpi chuẩn để scale ổn định
 }
 
 /* =========================
@@ -356,7 +436,7 @@ async function nodeToRuns(
         underline: ctx.underline ? {} : undefined,
         strike: ctx.strike,
         color: ctx.color,
-        size: ctx.size,
+        size: ctx.size ?? BASE_FONT_HP,
         shading: ctx.highlight
           ? { type: ShadingType.CLEAR, color: "auto", fill: ctx.highlight }
           : undefined,
@@ -516,7 +596,10 @@ async function htmlToDocxParagraphs(
         new Paragraph({
           children: runs.length ? runs : [new TextRun("")],
           numbering: listCtx
-            ? { reference: listCtx.type === "ul" ? "bullet" : "number", level: Math.min(8, listCtx.level) }
+            ? {
+              reference: listCtx.type === "ul" ? "bullet" : "number",
+              level: Math.min(8, listCtx.level),
+            }
             : undefined,
           indent: { left: 720 * ((listCtx?.level ?? 0) + 1), hanging: 360 },
           spacing: { after: 60 },
@@ -567,7 +650,10 @@ export default function AuthorBookPreview() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeAudioPageId, setActiveAudioPageId] = useState<string | null>(null);
 
-  //  modal zoom marker
+  // NEW: highlight chapter giống Mod
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+
+  // modal zoom marker
   const [zoomMarkerUrl, setZoomMarkerUrl] = useState<string | null>(null);
   const [zoomMarkerTitle, setZoomMarkerTitle] = useState<string>("");
 
@@ -592,6 +678,12 @@ export default function AuthorBookPreview() {
   const leftPage = useMemo(() => pages[currentIndex] ?? null, [pages, currentIndex]);
   const rightPage = useMemo(() => pages[currentIndex + 1] ?? null, [pages, currentIndex]);
 
+  // NEW: sync selectedChapterId theo trang đang xem
+  useEffect(() => {
+    const cid = pages[currentIndex]?.chapterId ?? null;
+    if (cid) setSelectedChapterId(cid);
+  }, [currentIndex, pages]);
+
   const handlePrev = useCallback(() => {
     setCurrentIndex((prev) => (prev - 2 >= 0 ? prev - 2 : 0));
     setActiveAudioPageId(null);
@@ -610,6 +702,23 @@ export default function AuthorBookPreview() {
   const goBackToBooks = useCallback(() => {
     navigate("/author/authorbooklist");
   }, [navigate]);
+
+  // NEW: jumpToChapter giống Mod
+  const jumpToChapter = useCallback(
+    (chapterId?: string) => {
+      if (!chapterId) return;
+
+      setSelectedChapterId(chapterId);
+
+      const idx = pages.findIndex((p) => p.chapterId === chapterId);
+      if (idx < 0) return;
+
+      const evenIdx = idx % 2 === 0 ? idx : idx - 1;
+      setCurrentIndex(Math.max(0, evenIdx));
+      setActiveAudioPageId(null);
+    },
+    [pages]
+  );
 
   /* =========================
      Export DOCX (Draft/Final đều theo yêu cầu)
@@ -656,6 +765,24 @@ export default function AuthorBookPreview() {
         const chapterMap = new Map<string, Chapter>();
         chapters.forEach((c) => c.chapterId && chapterMap.set(c.chapterId, c));
 
+        const chapterDetailCache = new Map<string, Chapter>();
+
+        await Promise.all(
+          chapters
+            .filter((c) => !!c.chapterId)
+            .map((c) =>
+              limit(async () => {
+                try {
+                  const detail = await getChapterById(c.chapterId!);
+                  chapterDetailCache.set(c.chapterId!, detail);
+                } catch (e) {
+                  // fallback: nếu fail thì dùng dữ liệu có sẵn trong list
+                  chapterDetailCache.set(c.chapterId!, c);
+                }
+              })
+            )
+        );
+
         const pagesByChapter = new Map<string, EnrichedPage[]>();
         for (const p of sortedPages) {
           const cid = p.chapterId || "unknown";
@@ -670,6 +797,14 @@ export default function AuthorBookPreview() {
         }
         if (pagesByChapter.has("unknown")) orderedChapterIds.push("unknown");
 
+        const PAGE_W_IN = 8.27;
+        const PAGE_H_IN = 11.69;
+        const MARGIN_LR_IN = 0.8 + 0.8;
+        const MARGIN_TB_IN = 0.9 + 0.7;
+
+        const CONTENT_W_PX = inchesToPx(PAGE_W_IN - MARGIN_LR_IN);
+        const CONTENT_H_PX = inchesToPx(PAGE_H_IN - MARGIN_TB_IN);
+
         const imageBox = { maxW: 520, maxH: 720 };
         const markerBox = { maxW: 140, maxH: 140 };
 
@@ -683,6 +818,10 @@ export default function AuthorBookPreview() {
               bottom: convertInchesToTwip(0.7),
               left: convertInchesToTwip(0.8),
               right: convertInchesToTwip(0.8),
+
+              // NEW: đẩy header xuống dưới “mép dấu trang”
+              header: convertInchesToTwip(0.55),
+              footer: convertInchesToTwip(0.45),
             },
           },
         };
@@ -708,72 +847,48 @@ export default function AuthorBookPreview() {
 
         // Helper: tạo paragraph ảnh chính + marker overlay góc phải trên
         const buildMainImageWithMarkerPara = async (mainUrl: string, markerUrl?: string) => {
-          const url = mainUrl;
-          const runs: ParagraphChild[] = [];
-
-          const [mainBytes, mainSize] = await Promise.all([
-            limit(() => fetchAsUint8Array(url)),
-            limit(() => getImageSize(url)),
-          ]);
+          const [mainSize] = await Promise.all([limit(() => getImageSize(mainUrl))]);
 
           const mainFitted = mainSize
             ? fitToBox(mainSize.w, mainSize.h, imageBox.maxW, imageBox.maxH)
             : defaultTransform(imageBox);
 
-          runs.push(
-            new ImageRun({
-              type: guessImageType(url),
-              data: mainBytes,
-              transformation: mainFitted,
-            })
-          );
+          // NEW: nếu có marker => ghép vào ảnh chính, đảm bảo nằm gọn trong góc
+          let dataBytes: Uint8Array;
+          let outType: RasterImageType = "png";
 
           if (markerUrl && !isPdfUrl(markerUrl)) {
             try {
-              const [markerBytes, markerSize] = await Promise.all([
-                limit(() => fetchAsUint8Array(markerUrl)),
-                limit(() => getImageSize(markerUrl)),
-              ]);
-
-              const markerFitted = markerSize
-                ? fitToBox(markerSize.w, markerSize.h, 110, 110)
-                : { width: 96, height: 96 };
-
-              runs.push(
-                new ImageRun({
-                  type: guessImageType(markerUrl),
-                  data: markerBytes,
-                  transformation: markerFitted,
-                  floating: {
-                    horizontalPosition: { relative: "margin", align: "right" },
-                    verticalPosition: {
-                      relative: "paragraph",
-                      offset: convertInchesToTwip(0.12),
-                    },
-                    wrap: { type: 0 },
-                    allowOverlap: true,
-                    behindDocument: false,
-                  },
-                })
-              );
+              dataBytes = await limit(() => composeMainWithMarker(mainUrl, markerUrl));
+              outType = "png";
             } catch {
-              // marker lỗi -> bỏ marker
+              // fallback: không ghép được thì dùng ảnh chính thôi
+              dataBytes = await limit(() => fetchAsUint8Array(mainUrl));
+              outType = guessImageType(mainUrl);
             }
+          } else {
+            dataBytes = await limit(() => fetchAsUint8Array(mainUrl));
+            outType = guessImageType(mainUrl);
           }
 
           return new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 200 },
-            children: runs,
+            children: [
+              new ImageRun({
+                type: outType,
+                data: dataBytes,
+                transformation: mainFitted,
+              }),
+            ],
           });
         };
+
 
         /* =========================
            COVER: trang đầu CHỈ ảnh bìa
         ========================= */
         {
-          const children: Paragraph[] = [];
-
           if (book.coverUrl) {
             const coverUrl = getDisplayUrl(book.coverUrl);
             try {
@@ -782,68 +897,82 @@ export default function AuthorBookPreview() {
                 limit(() => getImageSize(coverUrl)),
               ]);
 
-              const fitted = size ? fitToBox(size.w, size.h, 420, 620) : { width: 420, height: 560 };
+              const fitted = size
+                ? fitToBox(size.w, size.h, CONTENT_W_PX, CONTENT_H_PX)
+                : { width: CONTENT_W_PX, height: CONTENT_H_PX };
 
-              children.push(
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  spacing: { before: 200, after: 200 },
-                  children: [
-                    new ImageRun({
-                      type: guessImageType(coverUrl),
-                      data: bytes,
-                      transformation: fitted,
-                    }),
-                  ],
-                })
-              );
+              sections.push({
+                properties: pageProps,
+                headers: { default: new Header({ children: [] }) },
+                footers: { default: footerWithPageNumber },
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 0, after: 0 },
+                    children: [
+                      new ImageRun({
+                        type: guessImageType(coverUrl),
+                        data: bytes,
+                        transformation: fitted,
+                      }),
+                    ],
+                  }),
+                ],
+              });
             } catch {
-              children.push(linkPara("Bìa", coverUrl));
+              sections.push({
+                properties: pageProps,
+                headers: { default: new Header({ children: [] }) },
+                footers: { default: footerWithPageNumber },
+                children: [centeredPage([linkPara("Bìa", coverUrl)])],
+              });
             }
           } else {
-            children.push(
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 400, after: 200 },
-                children: [new TextRun({ text: "Không có ảnh bìa", color: "888888" })],
-              })
-            );
+            sections.push({
+              properties: pageProps,
+              headers: { default: new Header({ children: [] }) },
+              footers: { default: footerWithPageNumber },
+              children: [
+                centeredPage([
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 400, after: 200 },
+                    children: [new TextRun({ text: "Không có ảnh bìa", color: "888888" })],
+                  }),
+                ]),
+              ],
+            });
           }
-
-          sections.push({
-            properties: pageProps,
-            headers: { default: new Header({ children: [] }) },
-            footers: { default: footerWithPageNumber },
-            children: [centeredPage(children)],
-          });
         }
+
 
         /* =========================
            Nội dung theo chương
         ========================= */
         for (const chapterId of orderedChapterIds) {
-          const chapterPages = pagesByChapter.get(chapterId) || [];
-          if (chapterPages.length === 0) continue;
+          const chList = chapterMap.get(chapterId);
+          const chDetail = chapterId !== "unknown" ? chapterDetailCache.get(chapterId) : undefined;
 
-          const ch = chapterMap.get(chapterId);
+          // ưu tiên detail
+          const ch = (chDetail || chList) as Chapter | undefined;
+
           const chapterTitle = ch
             ? `Chương ${ch.chapterNumber ?? ""}: ${ch.chapterName ?? ""}`
             : `Chương: ${chapterId}`;
 
           const chapterIntro =
+            (ch as any)?.decription ||
             (ch as any)?.description ||
             (ch as any)?.introduction ||
             (ch as any)?.chapterIntro ||
             "";
 
+
           // Header chỉ cho các trang nội dung
           const headerForContentPages = new Header({
             children: [
               new Paragraph({
-                children: [new TextRun({ text: chapterTitle, bold: true, size: 22 })],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
+                spacing: { before: 120, after: 80 }, // vẫn chừa khoảng để header “nằm dưới mép”
                 border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" } },
               }),
             ],
@@ -868,7 +997,13 @@ export default function AuthorBookPreview() {
               introParas.push(
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
-                  children: [new TextRun({ text: String(chapterIntro), size: 24, color: "555555" })],
+                  children: [
+                    new TextRun({
+                      text: String(chapterIntro),
+                      size: BASE_FONT_HP, // 16pt
+                      color: "555555",
+                    }),
+                  ],
                   spacing: { after: 200 },
                 })
               );
@@ -891,30 +1026,53 @@ export default function AuthorBookPreview() {
           {
             const pageBlocks: Array<Array<Paragraph | Table>> = [];
 
+            const chapterPages = pagesByChapter.get(chapterId) ?? [];
+
             for (const p of chapterPages) {
               const isPicturePage = p.pageType === "PICTURE";
               const pageParas: Paragraph[] = [];
 
-              // main image (illustration hoặc content URL nếu PICTURE)
-              let mainRaw: string | null = null;
-              if (p.illustration?.imageUrl) {
-                mainRaw = p.illustration.imageUrl;
-              } else if (isPicturePage && typeof p.content === "string") {
-                const raw = p.content.trim();
-                if (isLikelyUrl(raw)) mainRaw = raw;
-              }
+              const isMarkerIllustration =
+                variant === "final" && String(p.markerStage2Type || "").toLowerCase().includes("markerillustration");
 
-              const markerRaw = p.markerImageUrl ? p.markerImageUrl : null;
+              // marker raw/url
+              const markerRaw =
+                variant === "draft"
+                  ? (p.markerStage1ImageUrl ?? null)
+                  : (p.markerStage2ImageUrl ?? p.markerStage1ImageUrl ?? null);
+
               const markerUrl = markerRaw ? getDisplayUrl(markerRaw) : "";
 
-              // nếu có main image -> render main + marker overlay (nếu có)
+              // main image
+              let mainRaw: string | null = null;
+
+              // FINAL: nếu markerillustration thì ưu tiên marker làm ảnh chính, bỏ ảnh khác
+              if (variant === "final" && isMarkerIllustration && markerRaw && !isPdfUrl(markerRaw)) {
+                mainRaw = markerRaw;
+              } else {
+                // draft hoặc trang thường: giữ logic cũ
+                if (p.illustration?.imageUrl) {
+                  mainRaw = p.illustration.imageUrl;
+                } else if (isPicturePage && typeof p.content === "string") {
+                  const raw = p.content.trim();
+                  if (isLikelyUrl(raw)) mainRaw = raw;
+                }
+              }
+
               if (mainRaw) {
                 const mainUrl = getDisplayUrl(mainRaw);
                 try {
-                  pageParas.push(await buildMainImageWithMarkerPara(mainUrl, markerUrl || undefined));
+                  const shouldOverlayMarker =
+                    !(variant === "final" && isMarkerIllustration); // final + markerillustration => marker là ảnh chính rồi
+
+                  pageParas.push(
+                    await buildMainImageWithMarkerPara(
+                      mainUrl,
+                      shouldOverlayMarker ? (markerUrl || undefined) : undefined
+                    )
+                  );
                 } catch {
                   pageParas.push(linkPara("Ảnh", mainUrl));
-                  // marker fallback nếu ảnh chính fail mà marker ok
                   if (markerUrl && !isPdfUrl(markerUrl)) {
                     try {
                       const [bytes, size] = await Promise.all([
@@ -977,31 +1135,33 @@ export default function AuthorBookPreview() {
               }
 
               // content chữ (chỉ cho trang không phải PICTURE)
-              if (!isPicturePage && typeof p.content === "string") {
-                const content = p.content.trim();
-                if (content) {
-                  if (isLikelyHtml(content)) {
-                    const safe = sanitizeHtmlBasic(content);
-                    const ps = await htmlToDocxParagraphs(safe, getDisplayUrl, limit, imageBox);
-                    pageParas.push(...ps);
-                  } else {
-                    const lines = content.split("\n");
-                    for (const line of lines) {
-                      pageParas.push(
-                        new Paragraph({
-                          spacing: { after: 80 },
-                          children: [new TextRun({ text: line || " ", size: 24 })],
-                        })
-                      );
+              if (!(variant === "final" && isMarkerIllustration)) {
+                // content chữ (chỉ cho trang không phải PICTURE)
+                if (!isPicturePage && typeof p.content === "string") {
+                  const content = p.content.trim();
+                  if (content) {
+                    if (isLikelyHtml(content)) {
+                      const safe = sanitizeHtmlBasic(content);
+                      const ps = await htmlToDocxParagraphs(safe, getDisplayUrl, limit, imageBox);
+                      pageParas.push(...ps);
+                    } else {
+                      const lines = content.split("\n");
+                      for (const line of lines) {
+                        pageParas.push(
+                          new Paragraph({
+                            spacing: { after: 80 },
+                            children: [new TextRun({ text: line || " ", size: BASE_FONT_HP })],
+                          })
+                        );
+                      }
                     }
                   }
                 }
               }
 
-              // nếu trang thật sự không có gì -> bỏ qua để không sinh trang trống
               if (pageParas.length === 0) continue;
 
-              const shouldCenter = isPicturePage && !p.hasMarker; // giữ đúng logic cũ của bạn
+              const shouldCenter = isPicturePage && !p.hasMarker;
               const nodes: Array<Paragraph | Table> = [];
 
               if (shouldCenter) {
@@ -1155,7 +1315,17 @@ export default function AuthorBookPreview() {
 
         const markerMap = new Map<
           string,
-          { hasMarker: boolean; markerImageUrl: string | null; markerPdfUrl: string | null }
+          {
+            hasMarker: boolean;
+
+            markerStage1ImageUrl: string | null;
+            markerStage1PdfUrl: string | null;
+            markerStage1Type: string | null;
+
+            markerStage2ImageUrl: string | null;
+            markerStage2PdfUrl: string | null;
+            markerStage2Type: string | null;
+          }
         >();
         const audioRelMap = new Map<string, string | null>();
         const illusRelMap = new Map<string, string | null>();
@@ -1166,25 +1336,45 @@ export default function AuthorBookPreview() {
             limit(async () => {
               // marker
               try {
-                const markerRes: any = await searchMarkers({ pageId: pid, page: 0, size: 1 });
-                const marker = markerRes?.content?.[0];
+                const markerRes: any = await searchMarkers({ pageId: pid, page: 0, size: 50 });
+                const list: any[] = Array.isArray(markerRes?.content) ? markerRes.content : [];
 
-                // ưu tiên imageUrl; nếu printablePdfUrl mà không phải pdf thì có thể dùng như ảnh
-                const imageCandidate: string | null =
-                  marker?.imageUrl ||
-                  (marker?.printablePdfUrl && !isPdfUrl(marker.printablePdfUrl) ? marker.printablePdfUrl : null) ||
+                const normType = (m: any) => String(m?.markerType ?? m?.type ?? "").toLowerCase();
+                const isIllu = (m: any) => normType(m).includes("markerillustration") || normType(m).includes("illustration");
+
+                const stage2 = list.find(isIllu);          // stage 2: markerIllustration
+                const stage1 = list.find((m) => !isIllu(m)); // stage 1: apriltag / marker trắng / marker thường
+
+                const pickImage = (m: any) =>
+                  m?.imageUrl ||
+                  (m?.printablePdfUrl && !isPdfUrl(m.printablePdfUrl) ? m.printablePdfUrl : null) ||
                   null;
 
                 markerMap.set(pid, {
-                  hasMarker: !!marker,
-                  markerImageUrl: imageCandidate,
-                  markerPdfUrl: marker?.printablePdfUrl ?? null,
+                  hasMarker: list.length > 0,
+
+                  markerStage1ImageUrl: stage1 ? pickImage(stage1) : null,
+                  markerStage1PdfUrl: stage1?.printablePdfUrl ?? null,
+                  markerStage1Type: stage1 ? (stage1.markerType ?? stage1.type ?? null) : null,
+
+                  markerStage2ImageUrl: stage2 ? pickImage(stage2) : null,
+                  markerStage2PdfUrl: stage2?.printablePdfUrl ?? null,
+                  markerStage2Type: stage2 ? (stage2.markerType ?? stage2.type ?? null) : null,
                 });
               } catch (err) {
                 console.error("Lỗi searchMarkers pageId=", pid, err);
-                markerMap.set(pid, { hasMarker: false, markerImageUrl: null, markerPdfUrl: null });
-              }
+                markerMap.set(pid, {
+                  hasMarker: false,
 
+                  markerStage1ImageUrl: null,
+                  markerStage1PdfUrl: null,
+                  markerStage1Type: null,
+
+                  markerStage2ImageUrl: null,
+                  markerStage2PdfUrl: null,
+                  markerStage2Type: null,
+                });
+              }
               // audio relation
               try {
                 const paRes: any = await searchPageAudios({ pageId: pid, page: 0, size: 1 });
@@ -1246,23 +1436,42 @@ export default function AuthorBookPreview() {
         // 6) merge into pages
         const enriched: EnrichedPage[] = basePages.map((p) => {
           const pid = p.pageId || "";
-          const marker = pid ? markerMap.get(pid) : undefined;
           const audioId = pid ? audioRelMap.get(pid) : null;
           const illusId = pid ? illusRelMap.get(pid) : null;
 
+          const marker = pid ? markerMap.get(pid) : undefined;
+
           return {
             ...p,
+
             hasMarker: marker?.hasMarker ?? false,
-            markerImageUrl: marker?.markerImageUrl ?? null,
-            markerPdfUrl: marker?.markerPdfUrl ?? null,
+
+            markerStage1ImageUrl: marker?.markerStage1ImageUrl ?? null,
+            markerStage1PdfUrl: marker?.markerStage1PdfUrl ?? null,
+            markerStage1Type: marker?.markerStage1Type ?? null,
+
+            markerStage2ImageUrl: marker?.markerStage2ImageUrl ?? null,
+            markerStage2PdfUrl: marker?.markerStage2PdfUrl ?? null,
+            markerStage2Type: marker?.markerStage2Type ?? null,
+
+            // (optional) giữ field cũ để UI không vỡ:
+            // ưu tiên stage 2 cho UI preview như hiện tại
+            markerImageUrl: marker?.markerStage2ImageUrl ?? marker?.markerStage1ImageUrl ?? null,
+            markerPdfUrl: marker?.markerStage2PdfUrl ?? marker?.markerStage1PdfUrl ?? null,
+            markerType: marker?.markerStage2Type ?? marker?.markerStage1Type ?? null,
+
             audio: audioId ? audioCache[audioId] ?? null : null,
             illustration: illusId ? illustrationCache[illusId] ?? null : null,
           };
         });
 
+        if (cancelled) return;
+
         setPages(enriched);
         setCurrentIndex(0);
         setActiveAudioPageId(null);
+        // NEW: set selectedChapterId theo trang đầu tiên
+        setSelectedChapterId(enriched[0]?.chapterId ?? null);
       } catch (e) {
         console.error("Lỗi khi tải dữ liệu preview sách:", e);
         if (!cancelled) {
@@ -1390,17 +1599,30 @@ export default function AuthorBookPreview() {
 
                 <div className="border-t border-white/10 pt-3">
                   <div className="text-xs text-gray-400 mb-2">Chương ({chapters.length})</div>
+
+                  {/* UPDATED: clickable giống ModBookPreview */}
                   <div className="max-h-56 overflow-auto space-y-1 pr-1">
-                    {chapters.map((ch) => (
-                      <div
-                        key={ch.chapterId}
-                        className="text-xs text-gray-300 bg-white/5 rounded px-2 py-1 flex justify-between items-center"
-                      >
-                        <span className="truncate">
-                          Chương {ch.chapterNumber}: {ch.chapterName}
-                        </span>
-                      </div>
-                    ))}
+                    {chapters.map((ch) => {
+                      const isActive = selectedChapterId === ch.chapterId;
+                      return (
+                        <button
+                          key={ch.chapterId}
+                          type="button"
+                          onClick={() => jumpToChapter(ch.chapterId)}
+                          className={`w-full text-left text-xs rounded px-2 py-2 flex items-center gap-2 transition
+                            ${isActive
+                              ? "bg-purple-600/20 border border-purple-400/30 text-white"
+                              : "text-gray-300 hover:bg-white/5 border border-transparent"
+                            }`}
+                          title={`Nhảy tới chương ${ch.chapterNumber}`}
+                        >
+                          <span className="truncate">
+                            Chương {ch.chapterNumber}: {ch.chapterName}
+                          </span>
+                        </button>
+                      );
+                    })}
+
                     {chapters.length === 0 && (
                       <div className="text-xs text-gray-500">Chưa có chương nào.</div>
                     )}
@@ -1412,9 +1634,8 @@ export default function AuthorBookPreview() {
                   <div>
                     Đang xem:{" "}
                     {totalPages > 0
-                      ? `${currentIndex + 1}${
-                          currentIndex + 2 <= totalPages ? " - " + (currentIndex + 2) : ""
-                        }`
+                      ? `${currentIndex + 1}${currentIndex + 2 <= totalPages ? " - " + (currentIndex + 2) : ""
+                      }`
                       : "-"}
                   </div>
                 </div>
@@ -1426,7 +1647,6 @@ export default function AuthorBookPreview() {
                   <div className="text-sm text-gray-300 flex items-center gap-2">
                     <span>Xem dạng sách lật</span>
                     <span className="flex items-center gap-1 text-xs text-gray-400">
-                      <MapPin className="w-3 h-3 text-purple-400" /> marker
                       <span className="w-1 h-1 rounded-full bg-gray-500 mx-1" />
                       <Volume2 className="w-3 h-3 text-emerald-400" /> audio
                       <span className="w-1 h-1 rounded-full bg-gray-500 mx-1" />
@@ -1440,9 +1660,8 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canPrev}
                       onClick={handlePrev}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                        !canPrev ? "opacity-40 cursor-not-allowed" : ""
-                      }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canPrev ? "opacity-40 cursor-not-allowed" : ""
+                        }`}
                     >
                       <PanelLeftClose className="w-5 h-5" />
                     </Button>
@@ -1452,9 +1671,8 @@ export default function AuthorBookPreview() {
                       size="icon"
                       disabled={!canNext}
                       onClick={handleNext}
-                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                        !canNext ? "opacity-40 cursor-not-allowed" : ""
-                      }`}
+                      className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canNext ? "opacity-40 cursor-not-allowed" : ""
+                        }`}
                     >
                       <PanelLeftOpen className="w-5 h-5" />
                     </Button>
@@ -1499,7 +1717,7 @@ export default function AuthorBookPreview() {
             </div>
           )}
 
-          {/*  MODAL ZOOM MARKER */}
+          {/* MODAL ZOOM MARKER */}
           {zoomMarkerUrl && (
             <div
               className="fixed inset-0 z-999 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
@@ -1544,7 +1762,7 @@ type PageCardProps = {
   onToggleAudio: (pageId?: string) => void;
   getDisplayUrl: (url?: string | null) => string;
 
-  //  click marker thumbnail -> zoom
+  // click marker thumbnail -> zoom
   onMarkerZoom: (markerRawUrl: string, title?: string) => void;
 };
 
@@ -1559,9 +1777,8 @@ const MemoPageCard = memo(function PageCard({
   if (!page) {
     return (
       <div
-        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${
-          side === "left" ? "origin-right" : "origin-left"
-        }`}
+        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${side === "left" ? "origin-right" : "origin-left"
+          }`}
       >
         Trang trống
       </div>
@@ -1579,6 +1796,8 @@ const MemoPageCard = memo(function PageCard({
   };
 
   const hasMarker = !!page.hasMarker;
+  const markerType = (page.markerType || "").toLowerCase();
+  const isMarkerIllustration = hasMarker && markerType.includes("markerillustration");
   const markerThumbRaw = page.markerImageUrl ?? null;
   const markerThumbOk = isImageUrl(markerThumbRaw);
   const markerThumbSrc = markerThumbOk ? getDisplayUrl(markerThumbRaw!) : "";
@@ -1591,10 +1810,18 @@ const MemoPageCard = memo(function PageCard({
   const audioSrc = audio ? getDisplayUrl(audio.audioUrl) : "";
   const illustrationSrc = illustration ? getDisplayUrl(illustration.imageUrl) : "";
 
-  const contentLooksLikeUrl = typeof page.content === "string" && isLikelyUrl(page.content.trim());
+  const contentLooksLikeUrl =
+    typeof page.content === "string" && isLikelyUrl(page.content.trim());
   const contentImageSrc = isPicturePage && contentLooksLikeUrl ? getDisplayUrl(page.content.trim()) : "";
 
-  const isHtmlContent = !isPicturePage && typeof page.content === "string" && isLikelyHtml(page.content);
+  const primaryImageSrc = isPicturePage
+    ? (isMarkerIllustration && markerThumbSrc
+      ? markerThumbSrc
+      : (illustrationSrc || contentImageSrc))
+    : "";
+
+  const isHtmlContent =
+    !isPicturePage && typeof page.content === "string" && isLikelyHtml(page.content);
 
   const safeHtml = useMemo(() => {
     if (!isHtmlContent || typeof page.content !== "string") return "";
@@ -1610,10 +1837,9 @@ const MemoPageCard = memo(function PageCard({
         shadow-xl overflow-hidden
         px-4 py-4
         flex flex-col
-        ${
-          side === "left"
-            ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-            : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+        ${side === "left"
+          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
         }
       `}
     >
@@ -1621,11 +1847,6 @@ const MemoPageCard = memo(function PageCard({
         {!isPicturePage && (illustration || contentImageSrc) && (
           <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600/90 text-white shadow">
             <ImageIcon className="w-4 h-4" />
-          </div>
-        )}
-        {hasMarker && (
-          <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-600/90 text-white shadow">
-            <MapPin className="w-4 h-4" />
           </div>
         )}
       </div>
@@ -1640,9 +1861,10 @@ const MemoPageCard = memo(function PageCard({
             <button
               type="button"
               onClick={() => onToggleAudio(page.pageId)}
-              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${
-                isPlaying ? "bg-emerald-500 text-white" : "bg-emerald-600/90 text-white hover:bg-emerald-500"
-              }`}
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${isPlaying
+                ? "bg-emerald-500 text-white"
+                : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+                }`}
             >
               <Volume2 className="w-4 h-4" />
             </button>
@@ -1654,15 +1876,23 @@ const MemoPageCard = memo(function PageCard({
 
       <div className="border-t border-white/10 my-2" />
 
-      {(illustrationSrc || contentImageSrc) && (
-        <div className="mb-3 rounded-md overflow-hidden bg-black/30 max-h-64 relative">
+      {isPicturePage && primaryImageSrc && (
+        <div className="mb-3 rounded-md overflow-hidden bg-black/30 relative flex-1 min-h-80">
           <img
-            src={illustrationSrc || contentImageSrc}
+            src={primaryImageSrc}
             alt={illustration?.title || `Trang ${page.pageNumber}`}
             className="w-full h-full object-contain"
+            onClick={() => {
+              // nếu markerillustration thì click để phóng to marker luôn (optional)
+              if (isMarkerIllustration && markerThumbRaw) {
+                onMarkerZoom(markerThumbRaw, `MarkerIllustration - Trang ${page.pageNumber}`);
+              }
+            }}
+            style={{ cursor: isMarkerIllustration ? "zoom-in" : "default" }}
           />
 
-          {isPicturePage && hasMarker && markerThumbSrc && (
+          {/* Overlay marker cũ: chỉ hiện khi KHÔNG phải markerillustration */}
+          {hasMarker && !isMarkerIllustration && markerThumbSrc && (
             <button
               type="button"
               onClick={() => onMarkerZoom(markerThumbRaw!, `Marker - Trang ${page.pageNumber}`)}
@@ -1687,7 +1917,9 @@ const MemoPageCard = memo(function PageCard({
               dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
           ) : (
-            <div className="whitespace-pre-wrap text-sm text-gray-100 leading-relaxed">{page.content}</div>
+            <div className="whitespace-pre-wrap text-sm text-gray-100 leading-relaxed">
+              {page.content}
+            </div>
           )}
         </div>
       )}

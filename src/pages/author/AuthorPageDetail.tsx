@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useGetPageById } from "@/services/BookManageService";
+import { useQueryClient } from "@tanstack/react-query";
+import { useGetPageById, useUpdatePage } from "@/services/BookManageService";
 import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -66,6 +67,31 @@ const AuthorPageDetail = () => {
     authorId ? { userId: authorId } : undefined
   );
 
+  const queryClient = useQueryClient();
+  const updatePageMut = useUpdatePage();
+  const [isFormattingA5, setIsFormattingA5] = useState(false);
+
+  const handleFormatA5 = async () => {
+    if (!page?.pageId) return;
+
+    try {
+      setIsFormattingA5(true);
+
+      await updatePageMut.mutateAsync({
+        id: page.pageId,
+        data: {
+          pageType: "TEXTA5",
+          pageNumber: page.pageNumber,
+          chapterId: page.chapterId,
+        },
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["page", page.pageId] });
+    } finally {
+      setIsFormattingA5(false);
+    }
+  };
+
   const pageIllustrations: PageIllustration[] = useMemo(() => {
     if (!pageIllustrationsResp) return [];
     if (Array.isArray((pageIllustrationsResp as any).content)) {
@@ -92,6 +118,20 @@ const AuthorPageDetail = () => {
     }
     return Array.isArray(markersResp) ? (markersResp as Marker[]) : [];
   }, [markersResp]);
+
+
+  const markerIllustration = useMemo(() => {
+    return markers.find((m) =>
+      (m.markerType || "").toString().toUpperCase().includes("ILLUSTRATION")
+    );
+  }, [markers]);
+
+  const showOnlyMarkerIllustration =
+    !!markerIllustration?.imageUrl &&
+    (markerIllustration.markerType || "")
+      .toString()
+      .toUpperCase()
+      .includes("ILLUSTRATION");
 
   const pageAudios: PageAudio[] = useMemo(() => {
     if (!pageAudiosResp) return [];
@@ -167,45 +207,54 @@ const AuthorPageDetail = () => {
     );
   }
 
-  // Tính imageUrl từ relation nhưng KHÔNG dùng hook
+  const contentIsImage = isImageUrl(page.content);
+
+  // ảnh từ illustration relation (logic cũ)
   const imageUrlFromRelation = (() => {
     if (!page.pageId) return undefined;
 
-    // tìm quan hệ theo pageId (hỗ trợ cả dạng có pageId trực tiếp và dạng lồng page.pageId)
     const rel = pageIllustrations.find((pi: any) => {
       const pid = pi.pageId || pi.page?.pageId;
       return pid === page.pageId;
     });
-
     if (!rel) return undefined;
 
-    // lấy illustrationId từ quan hệ
     const illustrationId =
       (rel as any).illustrationId || (rel as any).illustration?.illustrationId;
-
     if (!illustrationId) return undefined;
 
-    // ưu tiên lấy từ list illustrations, fallback dùng luôn illustration embed trong rel
     const illuFromList = illustrations.find(
       (it) => it.illustrationId === illustrationId
     );
-
     const illu: any = illuFromList || (rel as any).illustration;
 
     return illu?.imageUrl;
   })();
 
-  const contentIsImage = isImageUrl(page.content);
-  const finalImageUrl =
-    imageUrlFromRelation || (contentIsImage ? page.content : undefined);
+  //  finalImageUrl: nếu có marker illustration -> chỉ dùng nó
+  const finalImageUrl = showOnlyMarkerIllustration
+    ? markerIllustration?.imageUrl
+    : imageUrlFromRelation || (contentIsImage ? page.content : undefined);
 
-  const isImage = page.pageType === "PICTURE" || !!finalImageUrl;
+  //  isImage cũng bật nếu showOnlyMarkerIllustration
+  const isImage = showOnlyMarkerIllustration || page.pageType === "PICTURE" || !!finalImageUrl;
+
   const displayUrl = finalImageUrl ? getDisplayImageUrl(finalImageUrl) : "";
 
   console.log("page detail", page);
   console.log("pageIllustrationsResp raw", pageIllustrationsResp);
   console.log("pageIllustrations normalized", pageIllustrations);
   console.log("illustrations normalized", illustrations);
+
+  const normalizedHtml =
+    page.content
+      ?.replace(/\n/g, "<br>")
+      ?.replace(/<b>(.*?)<\/b>/g, "<strong>$1</strong>")
+      ?.replace(/<i>(.*?)<\/i>/g, "<em>$1</em>")
+      ?.replace(/<u>(.*?)<\/u>/g, "<u>$1</u>")
+      ?.replace(/<p>/g, "<p class='mb-3'>") || "";
+
+  const isTextA5 = page.pageType === "TEXTA5";
 
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
@@ -229,11 +278,43 @@ const AuthorPageDetail = () => {
                 Chi tiết trang {page.pageNumber}
               </div>
 
-              <div className="text-xs text-gray-300 mt-1">
-                Chương: <span className="text-white">{chapter?.chapterName ?? chapterId ?? "—"}</span>
-                {"  "}•{"  "}
-                Sách: <span className="text-white">{book?.bookName ?? chapter?.bookId ?? "—"}</span>
+              <div className="text-xs text-gray-300 mt-1 flex items-center gap-1 flex-wrap">
+                {/* BOOK */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!chapter?.bookId) return;
+                    navigate(`/author/books/${chapter.bookId}/chapters`);
+                  }}
+                  className="text-white/90 hover:text-white hover:underline underline-offset-4"
+                  title="Về danh sách chương"
+                >
+                  {book?.bookName ?? chapter?.bookId ?? "—"}
+                </button>
+
+                <span className="text-gray-500 mx-1">/</span>
+
+                {/* CHAPTER */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!chapterId) return;
+                    navigate(`/author/chapters/${chapterId}/pages`);
+                  }}
+                  className="text-white/90 hover:text-white hover:underline underline-offset-4"
+                  title="Về danh sách trang"
+                >
+                  {chapter?.chapterName ?? chapterId ?? "—"}
+                </button>
+
+                <span className="text-gray-500 mx-1">/</span>
+
+                {/* PAGE */}
+                <span className="text-white">
+                  Trang {page.pageNumber}
+                </span>
               </div>
+
             </div>
             <div className="ml-auto flex items-center gap-3">
               <Button
@@ -243,25 +324,60 @@ const AuthorPageDetail = () => {
               >
                 <ArrowLeft className="w-4 h-4" /> Quay lại
               </Button>
+
+              {/* Dàn trang A5: chỉ hiện khi là trang chữ và CHƯA phải TEXTA5 */}
+              {!isImage && !isTextA5 && (
+                <Button
+                  onClick={handleFormatA5}
+                  disabled={isFormattingA5 || updatePageMut.isPending}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {isFormattingA5 || updatePageMut.isPending
+                    ? "Đang dàn trang..."
+                    : "Dàn trang A5"}
+                </Button>
+              )}
             </div>
           </div>
         </header>
 
         <div className="flex-1 overflow-auto p-8 bg-[#0f172a] flex flex-col items-center">
           <div className="bg-white/5 border border-white/10 rounded-lg shadow-md p-6 max-w-3xl w-full">
-            <h2 className="text-white text-xl font-semibold mb-4 text-center">
-              Trang {page.pageNumber}
-            </h2>
+            {/* AUDIOS (preview audio gắn theo pageId) */}
+            {pageAudiosWithAudio.length > 0 && (
+              <div className="mt-6 flex flex-col items-center mb-6">
+                {pageAudiosWithAudio.map(({ rel, audio }) => (
+                  <div
+                    key={rel.pageAudioId ?? audio.audioId}
+                    className="w-full max-w-3xl mb-4"
+                  >
+                    <audio
+                      controls
+                      src={getDisplayImageUrl(audio.audioUrl)}
+                      className="w-full"
+                    >
+                      Trình duyệt của bạn không hỗ trợ thẻ audio.
+                    </audio>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {isImage ? (
               finalImageUrl && displayUrl ? (
                 <div className="flex justify-center">
-                  {/* container relative để marker lồng lên illustration */}
                   <div className="relative inline-block">
                     <img
                       src={displayUrl}
                       alt={`Trang ${page.pageNumber}`}
                       className="rounded-lg shadow-lg max-h-[80vh] object-contain border border-white/20"
+                      onClick={() => {
+                        //  nếu đang show marker illustration thì click ảnh lớn để zoom marker
+                        if (showOnlyMarkerIllustration && markerIllustration) {
+                          setSelectedMarker(markerIllustration);
+                        }
+                      }}
+                      style={{ cursor: showOnlyMarkerIllustration ? "zoom-in" : "default" }}
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                         e.currentTarget.parentElement!.innerHTML =
@@ -269,8 +385,8 @@ const AuthorPageDetail = () => {
                       }}
                     />
 
-                    {/* MARKERS overlay góc phải trên (click để zoom) */}
-                    {markers.length > 0 && (
+                    {/*  Overlay markers: chỉ hiện khi KHÔNG có marker illustration */}
+                    {!showOnlyMarkerIllustration && markers.length > 0 && (
                       <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
                         {markers.map((m) => (
                           <div
@@ -279,9 +395,7 @@ const AuthorPageDetail = () => {
                             tabIndex={0}
                             onClick={() => setSelectedMarker(m)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                setSelectedMarker(m);
-                              }
+                              if (e.key === "Enter" || e.key === " ") setSelectedMarker(m);
                             }}
                             className="cursor-zoom-in rounded-md overflow-hidden border border-white/30 bg-black/30 backdrop-blur-sm shadow-lg hover:scale-[1.03] transition"
                             title={m.markerCode}
@@ -305,48 +419,44 @@ const AuthorPageDetail = () => {
                 </div>
               ) : (
                 <p className="text-gray-300 text-sm text-center">
-                  Trang ảnh nhưng chưa tìm được URL ảnh từ quan hệ
-                  page-illustration hoặc từ <code>content</code>.
+                  Trang ảnh nhưng chưa tìm được URL ảnh.
                 </p>
               )
             ) : (
-              <div
-                className="prose prose-invert max-w-none text-gray-200 leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    page.content
-                      ?.replace(/\n/g, "<br>")
-                      ?.replace(/<b>(.*?)<\/b>/g, "<strong>$1</strong>")
-                      ?.replace(/<i>(.*?)<\/i>/g, "<em>$1</em>")
-                      ?.replace(/<u>(.*?)<\/u>/g, "<u>$1</u>")
-                      ?.replace(/<p>/g, "<p class='mb-3'>") || "",
-                }}
-              />
-            )}
-
-            {/* AUDIOS (preview audio gắn theo pageId) */}
-            {pageAudiosWithAudio.length > 0 && (
-              <div className="mt-6 flex flex-col items-center">
-                <h3 className="text-sm text-gray-300 mb-3 text-center">
-                  Audio gắn trên trang
-                </h3>
-
-                {pageAudiosWithAudio.map(({ rel, audio }) => (
-                  <div
-                    key={rel.pageAudioId ?? audio.audioId}
-                    className="w-full max-w-3xl mb-4"
-                  >
-                    <audio
-                      controls
-                      src={getDisplayImageUrl(audio.audioUrl)}
-                      className="w-full"
+              <div>
+                {/* Ưu tiên hiển thị TEXTA5 */}
+                {isTextA5 ? (
+                  <div className="flex justify-center">
+                    {/* “Tờ giấy” A5 */}
+                    <div
+                      className="
+            bg-white text-slate-900
+            shadow-2xl rounded-lg
+            w-full max-w-[560px]
+            aspect-148/210
+            border border-black/10
+            overflow-hidden
+          "
                     >
-                      Trình duyệt của bạn không hỗ trợ thẻ audio.
-                    </audio>
+                      {/* vùng nội dung trong tờ */}
+                      <div className="h-full w-full p-8 overflow-auto">
+                        <div
+                          className="prose max-w-none leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                ))}
+                ) : (
+                  <div
+                    className="prose prose-invert max-w-none text-gray-200 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                  />
+                )}
               </div>
-            )}
+            )
+            }
+
           </div>
 
           {/* MODAL ZOOM MARKER */}

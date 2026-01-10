@@ -17,7 +17,7 @@ import {
   useSearchMarkers,
   useCreateMarkerIllustration,
 } from "@/services/ARService";
-
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * Helper: chuyển gs://bucket/path -> https download url cho preview
@@ -48,6 +49,7 @@ export default function ImagePageEdit() {
   const { pageId } = useParams<{ pageId?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const bookId = useMemo(() => getCurrentBookId(), []);
   const authorId = useMemo(() => getCurrentUserId(), []);
@@ -83,11 +85,25 @@ export default function ImagePageEdit() {
         bookId,
         userId: authorId ?? undefined,
         page: 0,
-        size: 1,
+        size: 9999,
         sort: ["updatedAt,desc"],
       }
       : undefined
   );
+
+  const normTypeUpper = (m: any) => String(m?.markerType ?? m?.type ?? "").toUpperCase();
+  const isIlluMarker = (m: any) => normTypeUpper(m).includes("ILLUSTRATION"); // MARKERILLUSTRATION / MARKER_ILLUSTRATION ...
+
+  const pageMarkers = pageMarkersResp?.content ?? [];
+
+  const pageStage2 = pageMarkers.find(isIlluMarker) ?? null;     // marker illustration
+  const pageStage1 = pageMarkers.find((m: any) => !isIlluMarker(m)) ?? null; // marker thường (apriltag/marker trắng...)
+
+  const pageStage1Id = (pageStage1 as any)?.markerId ?? (pageStage1 as any)?.id ?? "";
+  const pageStage2Id = (pageStage2 as any)?.markerId ?? (pageStage2 as any)?.id ?? "";
+
+  const hasStage1 = !!pageStage1Id;
+  const hasStage2 = !!pageStage2Id;
 
   // local form state
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -100,7 +116,7 @@ export default function ImagePageEdit() {
 
   // marker state
   const [selectedMarkerId, setSelectedMarkerId] = useState<string>("");
-  const [hasPageMarker, setHasPageMarker] = useState(false);
+  const [hasPageMarker] = useState(false);
 
   // get current user id from localStorage
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -181,15 +197,23 @@ export default function ImagePageEdit() {
     }
   }, [pageData, illustrationsList, selectedIllustrationId]);
 
-  // =============== MARKER LIST + PAGE MARKER ===============
   const markerList = useMemo(() => {
     if (!Array.isArray(allMarkers)) return [];
 
     const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
 
-    return [...allMarkers]
+    const normalized = [...allMarkers]
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) //  mới nhất trước
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt));
+
+    const isIllu = (m: any) => {
+      const t = (m.markerType || "").toString().toUpperCase();
+      return t.includes("ILLUSTRATION");
+    };
+
+    // CHỈ show marker thường để chọn stage1
+    return normalized
+      .filter((m) => !isIllu(m))
       .map((m: any) => ({
         id: m.markerId ?? m.id,
         code: m.markerCode,
@@ -199,20 +223,38 @@ export default function ImagePageEdit() {
       }));
   }, [allMarkers]);
 
+  async function resolveCreatedIllustrationMarkerId(createRes: any) {
+    // Case A: API trả luôn markerId / id
+    const directId =
+      createRes?.markerId ??
+      createRes?.id ??
+      createRes?.data?.markerId ??
+      createRes?.data?.id;
+
+    if (directId) return String(directId);
+
+    // Case B: refetch markers list rồi lấy illustration mới nhất
+    await queryClient.refetchQueries({
+      queryKey: ["markers"],
+      type: "active",
+    });
+
+    const latestMarkers: any[] = (queryClient.getQueryData(["markers"]) as any)?.content ?? allMarkers;
+
+    const illu = (latestMarkers ?? []).find((m: any) =>
+      String(m?.markerType ?? "").toUpperCase().includes("ILLUSTRATION")
+    );
+
+    const id = illu?.markerId ?? illu?.id;
+    return id ? String(id) : "";
+  }
 
   // auto select marker đang gắn với page (nếu có)
   useEffect(() => {
-    if (pageMarkersResp?.content && pageMarkersResp.content.length > 0) {
-      const first = pageMarkersResp.content[0];
-      const id = (first as any).markerId ?? (first as any).id;
-      if (id) {
-        setSelectedMarkerId((prev) => prev || id);
-        setHasPageMarker(true);
-      }
-    } else {
-      setHasPageMarker(false);
+    if (pageStage1Id) {
+      setSelectedMarkerId((prev) => prev || pageStage1Id);
     }
-  }, [pageMarkersResp]);
+  }, [pageStage1Id]);
 
   // when user selects an illustration -> set selected id and replace content with image url
   const handleSelectIllustration = (id: string) => {
@@ -229,6 +271,12 @@ export default function ImagePageEdit() {
   const handleSelectMarker = (id: string) => {
     setSelectedMarkerId(id);
   };
+
+  const isSaving =
+    updatePage.isPending ||
+    updatePageIllustration.isPending ||
+    (!hasPageMarker && attachMarkerMutation.isPending) ||
+    createMarkerIllustrationMutation.isPending;
 
   const handleSubmit = async () => {
     if (!pageId) {
@@ -247,8 +295,9 @@ export default function ImagePageEdit() {
       });
       return;
     }
+
     try {
-      // 1) Update page content to imageUrl
+      // 1) Update page
       await updatePage.mutateAsync({
         id: pageId,
         data: {
@@ -270,45 +319,74 @@ export default function ImagePageEdit() {
         });
       }
 
-      // 3) CHỈ tạo page-marker khi trang CHƯA có marker
-      if (!hasPageMarker && selectedMarkerId && pageId) {
+      // 3) stage1MarkerId: ưu tiên marker đã gắn sẵn, nếu chưa có thì lấy từ user chọn
+      const stage1MarkerId = hasStage1 ? pageStage1Id : selectedMarkerId;
+
+      // không chọn marker => chỉ lưu ảnh
+      if (!stage1MarkerId) {
+        toast({
+          title: "Cập nhật thành công",
+          description: "Đã lưu ảnh cho trang (chưa gắn marker).",
+        });
+        navigate(-1);
+        return;
+      }
+
+      // 4) Attach stage1 nếu page chưa có
+      if (!hasStage1) {
         await attachMarkerMutation.mutateAsync({
-          markerId: selectedMarkerId,
+          markerId: stage1MarkerId,
           pageId,
         });
-
-        // 4) tạo marker illustration (lấy từ illustration của page)
-        const illusUrl = content ? gsToHttp(content) : "";
-
-        if (!illusUrl) {
-          toast({
-            title: "Thiếu ảnh minh hoạ",
-            description: "Trang chưa có Illustration imageUrl nên không thể tạo marker illustration.",
-            variant: "destructive",
-          });
-        } else {
-          await createMarkerIllustrationMutation.mutateAsync({
-            markerId: selectedMarkerId,
-            illustrationImageUrl: illusUrl,
-            camoStrength: 0.95,
-            quietZoneAlpha: 60,
-            assumedDpi: 300,
-            grainStrength: 0.2,
-          });
-        }
       }
+
+      // 5) Create marker illustration
+      const illusUrl = content ? gsToHttp(content) : "";
+      if (!illusUrl) {
+        toast({
+          title: "Thiếu ảnh minh hoạ",
+          description:
+            "Trang chưa có Illustration imageUrl nên không thể tạo marker illustration.",
+          variant: "destructive",
+        });
+        navigate(-1);
+        return;
+      }
+
+      const createRes = await createMarkerIllustrationMutation.mutateAsync({
+        markerId: stage1MarkerId,
+        illustrationImageUrl: illusUrl,
+        camoStrength: 0.95,
+        quietZoneAlpha: 60,
+        assumedDpi: 300,
+        grainStrength: 0.2,
+      });
+
+      // 6) Resolve stage2MarkerId và attach luôn vào page
+      let stage2MarkerId = await resolveCreatedIllustrationMarkerId(createRes);
+
+      if (stage2MarkerId && !hasStage2) {
+        await attachMarkerMutation.mutateAsync({
+          markerId: stage2MarkerId,
+          pageId,
+        });
+      }
+
+      // 7) invalidate để book preview lấy đủ stage1 + stage2
+      await queryClient.invalidateQueries({ queryKey: ["markers"] });
+      await queryClient.invalidateQueries({ queryKey: ["pages"] });
+      await queryClient.invalidateQueries({ queryKey: ["pageIllustrations"] });
 
       toast({
         title: "Cập nhật thành công",
-        description: "Ảnh và marker đã được cập nhật vào trang.",
+        description: "Đã gắn marker stage1 và marker illustration vào trang.",
       });
       navigate(-1);
     } catch (err: any) {
       console.error("Error updating image page:", err);
       toast({
         title: "Lỗi khi lưu",
-        description:
-          err?.response?.data?.message || "Không thể cập nhật trang.",
+        description: err?.response?.data?.message || "Không thể cập nhật trang.",
         variant: "destructive",
       });
     }
@@ -399,7 +477,7 @@ export default function ImagePageEdit() {
             )}
 
             {/* MARKER CHO TRANG */}
-            {!hasPageMarker && (
+            {!hasStage1 && (
               <>
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-base font-medium text-gray-800">
@@ -453,6 +531,19 @@ export default function ImagePageEdit() {
               </>
             )}
 
+            {isSaving && (
+              <div className="mb-6 flex items-center justify-center">
+                <div className="w-10 h-10 opacity-90">
+                  <DotLottieReact
+                    src="https://lottie.host/4c0bdcfd-3e4c-4dd2-b813-a3c31221686d/3kkAEhaRtz.lottie"
+                    loop
+                    autoplay
+                    style={{ width: "100px", height: "100px" }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3 mt-8">
               <Button
@@ -464,20 +555,10 @@ export default function ImagePageEdit() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={
-                  updatePage.isPending ||
-                  updatePageIllustration.isPending ||
-                  (!hasPageMarker && attachMarkerMutation.isPending)||
-                  createMarkerIllustrationMutation.isPending
-                }
+                disabled={isSaving}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
-                {updatePage.isPending ||
-                  updatePageIllustration.isPending ||
-                  (!hasPageMarker && attachMarkerMutation.isPending) ||
-                  createMarkerIllustrationMutation.isPending
-                  ? "Đang lưu..."
-                  : "Lưu thay đổi"}
+                {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
               </Button>
             </div>
           </div>

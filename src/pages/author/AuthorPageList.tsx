@@ -706,7 +706,7 @@ const AuthorPageList = () => {
             )}
 
             {/* grid of small project/marker cards (match page card style) */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Create New Project card */}
               <div
                 onClick={() => setMarkerDialogOpen(true)}

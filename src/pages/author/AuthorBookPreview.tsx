@@ -805,7 +805,8 @@ export default function AuthorBookPreview() {
         const CONTENT_W_PX = inchesToPx(PAGE_W_IN - MARGIN_LR_IN);
         const CONTENT_H_PX = inchesToPx(PAGE_H_IN - MARGIN_TB_IN);
 
-        const imageBox = { maxW: 520, maxH: 720 };
+        const imageBoxFullBleed = { maxW: CONTENT_W_PX, maxH: CONTENT_H_PX };
+        const imageBoxNormal = { maxW: 520, maxH: 720 };
         const markerBox = { maxW: 140, maxH: 140 };
 
         const sections: any[] = [];
@@ -846,14 +847,15 @@ export default function AuthorBookPreview() {
           });
 
         // Helper: tạo paragraph ảnh chính + marker overlay góc phải trên
-        const buildMainImageWithMarkerPara = async (mainUrl: string, markerUrl?: string) => {
+        const buildMainImageWithMarkerPara = async (mainUrl: string, markerUrl?: string, useFullBleed: boolean = false) => {
           const [mainSize] = await Promise.all([limit(() => getImageSize(mainUrl))]);
 
-          const mainFitted = mainSize
-            ? fitToBox(mainSize.w, mainSize.h, imageBox.maxW, imageBox.maxH)
-            : defaultTransform(imageBox);
+          const box = useFullBleed ? imageBoxFullBleed : imageBoxNormal;  // ← dùng box đúng
 
-          // NEW: nếu có marker => ghép vào ảnh chính, đảm bảo nằm gọn trong góc
+          const mainFitted = mainSize
+            ? fitToBox(mainSize.w, mainSize.h, box.maxW, box.maxH)
+            : defaultTransform(box);
+
           let dataBytes: Uint8Array;
           let outType: RasterImageType = "png";
 
@@ -862,7 +864,6 @@ export default function AuthorBookPreview() {
               dataBytes = await limit(() => composeMainWithMarker(mainUrl, markerUrl));
               outType = "png";
             } catch {
-              // fallback: không ghép được thì dùng ảnh chính thôi
               dataBytes = await limit(() => fetchAsUint8Array(mainUrl));
               outType = guessImageType(mainUrl);
             }
@@ -873,7 +874,10 @@ export default function AuthorBookPreview() {
 
           return new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
+            spacing: {
+              before: useFullBleed ? 0 : undefined,  // ← fix: no spacing top/bottom cho full
+              after: useFullBleed ? 0 : 200
+            },
             children: [
               new ImageRun({
                 type: outType,
@@ -883,7 +887,6 @@ export default function AuthorBookPreview() {
             ],
           });
         };
-
 
         /* =========================
            COVER: trang đầu CHỈ ảnh bìa
@@ -1029,11 +1032,17 @@ export default function AuthorBookPreview() {
             const chapterPages = pagesByChapter.get(chapterId) ?? [];
 
             for (const p of chapterPages) {
-              const isPicturePage = p.pageType === "PICTURE";
+
               const pageParas: Paragraph[] = [];
 
-              const isMarkerIllustration =
-                variant === "final" && String(p.markerStage2Type || "").toLowerCase().includes("markerillustration");
+              const isPicturePage = p.pageType === "PICTURE";
+              const isMarkerIllustration = variant === "final" &&
+                String(p.markerStage2Type || "").toLowerCase().includes("markerillustration");
+
+              const shouldUseFullBleed = variant === "final" && isPicturePage;
+
+              // ← Điểm mấu chốt
+              const currentImageBox = shouldUseFullBleed ? imageBoxFullBleed : imageBoxNormal;
 
               // marker raw/url
               const markerRaw =
@@ -1068,7 +1077,8 @@ export default function AuthorBookPreview() {
                   pageParas.push(
                     await buildMainImageWithMarkerPara(
                       mainUrl,
-                      shouldOverlayMarker ? (markerUrl || undefined) : undefined
+                      shouldOverlayMarker ? (markerUrl || undefined) : undefined,
+                      shouldUseFullBleed   // ← truyền thêm tham số
                     )
                   );
                 } catch {
@@ -1142,7 +1152,8 @@ export default function AuthorBookPreview() {
                   if (content) {
                     if (isLikelyHtml(content)) {
                       const safe = sanitizeHtmlBasic(content);
-                      const ps = await htmlToDocxParagraphs(safe, getDisplayUrl, limit, imageBox);
+                      // SỬA Ở ĐÂY: thay imageBox → currentImageBox
+                      const ps = await htmlToDocxParagraphs(safe, getDisplayUrl, limit, currentImageBox);
                       pageParas.push(...ps);
                     } else {
                       const lines = content.split("\n");
@@ -1161,7 +1172,7 @@ export default function AuthorBookPreview() {
 
               if (pageParas.length === 0) continue;
 
-              const shouldCenter = isPicturePage && !p.hasMarker;
+              const shouldCenter = isPicturePage && !p.hasMarker && !shouldUseFullBleed;
               const nodes: Array<Paragraph | Table> = [];
 
               if (shouldCenter) {

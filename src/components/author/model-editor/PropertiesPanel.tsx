@@ -175,7 +175,7 @@ export default function PropertiesPanel({
             onClick={onUnselect}
             className="text-white"
           >
-            Unselect
+            Bỏ model khỏi scene
           </Button>
         </div>
       </div>

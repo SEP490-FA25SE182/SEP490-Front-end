@@ -13,6 +13,7 @@ import {
   useSearchMarkers,
   getMarkerAttachedPagesCount
 } from "@/services/ARService";
+import { getCurrentBookId, getCurrentUserId } from "@/utils/authStorage";
 
 interface Props {
   isOpen: boolean;
@@ -25,12 +26,20 @@ interface Props {
 export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
   const { toast } = useToast();
 
-  const { data: markersResp } = useSearchMarkers({
-    page: 0,
-    size: 9999,
-    sort: ["updatedAt,asc"],
-    // isActived: "ACTIVE",   
-  });
+  const bookId = useMemo(() => getCurrentBookId(), [isOpen]);
+  const userId = useMemo(() => getCurrentUserId(), [isOpen]);
+
+  const { data: markersResp } = useSearchMarkers(
+    bookId
+      ? {
+          bookId,                 // filter theo book
+          userId: userId ?? undefined, 
+          page: 0,
+          size: 9999,
+          sort: ["updatedAt,desc"],
+        }
+      : undefined
+  );
 
   const markers = markersResp?.content ?? [];
   const attachMarkerMutation = useAttachMarkerToPage();

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Edit, Save, UploadCloud } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Edit, Save, UploadCloud } from "lucide-react";
 
 import AuthorSidebar from "@/components/author/AuthorSidebar";
 import { Button } from "@/components/ui/button";
@@ -236,11 +236,14 @@ export default function AuthorProfile() {
   };
 
   useEffect(() => {
-    if (!selectedWalletId) return;
-    setTxPage(0);
-    fetchTransactions(selectedWalletId, 0);
+    if (wallets.length > 0) {
+      const wid = wallets[0].walletId;
+      setSelectedWalletId(wid);
+      setTxPage(0);
+      fetchTransactions(wid, 0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWalletId]);
+  }, [wallets]);
 
 
   const fetchTransactions = async (wid: string, page = 0) => {
@@ -281,18 +284,6 @@ export default function AuthorProfile() {
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-white hover:bg-white/10"
-              >
-                {sidebarOpen ? (
-                  <ChevronLeft className="w-6 h-6" />
-                ) : (
-                  <ChevronRight className="w-6 h-6" />
-                )}
-              </Button>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-semibold text-white">
                   Hồ sơ tác giả
@@ -586,32 +577,27 @@ export default function AuthorProfile() {
                   {/* --- Lịch sử giao dịch (searchWallets by walletId) --- */}
                   <div className="mt-6 border-t border-white/10 pt-4">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="text-white/70">Chọn wallet:</div>
-                        <select
-                          className="bg-transparent text-white border border-white/10 p-1 rounded"
-                          value={selectedWalletId ?? ""}
-                          onChange={(e) =>
-                            setSelectedWalletId(e.target.value || null)
-                          }
-                        >
-                          <option value="">-- Chọn wallet --</option>
-                          {wallets.map((w) => (
-                            <option key={w.walletId} value={w.walletId}>
-                              {/* Hiện đầy đủ thông tin ví trong option, không show ID */}
-                              {formatCurrency(w.balance)} - {w.coin} coin -{" "}
-                              {formatDate(w.createdAt)}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          className="ml-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white"
-                          onClick={() => {
-                            if (selectedWalletId) fetchTransactions(selectedWalletId, txPage);
-                          }}
-                        >
-                          Tải
-                        </button>
+                      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="text-white/60">Số dư</div>
+                          <div className="text-white font-medium">
+                            {formatCurrency(wallets[0]?.balance)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-white/60">Xu</div>
+                          <div className="text-white font-medium">
+                            {Number(wallets[0]?.coin ?? 0).toLocaleString("vi-VN")}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-white/60">Trạng thái</div>
+                          <div className="text-white font-medium">
+                            {wallets[0]?.isActived}
+                          </div>
+                        </div>
                       </div>
                       <div className="text-sm text-white/60">
                         Hiển thị lịch sử theo walletId
@@ -771,6 +757,15 @@ export default function AuthorProfile() {
           )}
         </div>
       </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`absolute z-50 top-4 h-9 w-9 rounded-full bg-[#0b1220]/70 backdrop-blur border border-white/10 text-white hover:bg-white/10 transition-all ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}`}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+      </Button>
     </div>
   );
 }

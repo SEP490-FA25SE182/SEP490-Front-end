@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck, Eye } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Search, Plus, MoreVertical, Edit, Trash2, CircleCheck, Eye } from 'lucide-react';
 import { getBooks, deleteBook as apiDeleteBook, updateBookStatusFull } from "@/services/BookService";
 import AuthorSidebar from '@/components/author/AuthorSidebar';
 import { Button } from "@/components/ui/button";
@@ -305,19 +305,32 @@ export default function AuthorBookList() {
       {/* Sidebar */}
       <AuthorSidebar isOpen={sidebarOpen} />
 
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`
+          absolute z-50 top-4
+          h-9 w-9 rounded-full
+          bg-[#0b1220]/70 backdrop-blur
+          border border-white/10
+          text-white hover:bg-white/10
+          transition-all
+          ${sidebarOpen ? "left-64 -translate-x-1/2" : "left-2 translate-x-0"}
+        `}
+      >
+        {sidebarOpen ? (
+          <PanelLeftClose className="w-5 h-5" />
+        ) : (
+          <PanelLeftOpen className="w-5 h-5" />
+        )}
+      </Button>
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-[#1a2332] shadow-lg border-b border-white/10">
           <div className="flex items-center px-6 py-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {sidebarOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
-            </Button>
             <div className="ml-4 text-white">
               <div className="text-sm">Danh sách sách</div>
               <div className="text-xs text-gray-300">

@@ -62,7 +62,7 @@ export const PaymentService = {
       headers: { "Content-Type": "application/json" },
     });
 
-    console.log("✅ Kết quả tạo thanh toán:", res.data);
+    console.log(" Kết quả tạo thanh toán:", res.data);
     return res.data as PaymentCheckoutResponse;
   },
 
@@ -77,7 +77,7 @@ export const PaymentService = {
       headers: { "Content-Type": "application/json" },
     });
 
-    console.log("✅ Phản hồi webhook:", res.data);
+    console.log(" Phản hồi webhook:", res.data);
     return res.data as PaymentWebhookResponse;
   },
 
@@ -100,7 +100,7 @@ export const PaymentService = {
       },
     });
 
-    console.log("✅ Phản hồi callback cancel:", res.data);
+    console.log(" Phản hồi callback cancel:", res.data);
     return res.data as PayOSRedirectCallbackResponse;
   },
 

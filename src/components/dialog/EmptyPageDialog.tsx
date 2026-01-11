@@ -139,7 +139,7 @@ export default function EmptyPageDialog({ isOpen, onClose, chapterId, onCreated 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Tạo trang ảnh (trang trống)</DialogTitle>
+          <DialogTitle>Tạo trang ảnh</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 mt-2">

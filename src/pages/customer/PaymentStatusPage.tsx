@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import CustomerHeader from "@/components/customer/CustomerHeader";
 import CustomerFooter from "@/components/customer/CustomerFooter";
 import { OrderService } from "@/services/OrderService";
-import { PaymentService } from "@/services/PaymentService"; // ✅ thêm
+import { PaymentService } from "@/services/PaymentService"; //  thêm
 import { useCart } from "@/context/CartContext";
 
 export default function PaymentStatusPage() {
@@ -25,7 +25,7 @@ export default function PaymentStatusPage() {
   const [, setOrder] = useState<any>(null);
   const { clearUI } = useCart();
 
-  // const [orderId] = useState<string | null>(null); // ✅ có thể xoá (không dùng)
+  // const [orderId] = useState<string | null>(null); //  có thể xoá (không dùng)
   const [orderCode, setOrderCode] = useState<number | null>(null);
   const cancelCalledRef = useRef(false);
 
@@ -74,11 +74,11 @@ export default function PaymentStatusPage() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [status, success]); // ✅ thêm success
+  }, [status, success]); //  thêm success
 
-  // ✅ chỉ clear khi thanh toán thành công
+  //  chỉ clear khi thanh toán thành công
   useEffect(() => {
-    if (status !== "success") return; // ✅ thêm điều kiện
+    if (status !== "success") return; //  thêm điều kiện
 
     clearUI();
     localStorage.removeItem("lastOrder");

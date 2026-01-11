@@ -102,8 +102,8 @@ export default function AssetToolPanel({
             {panelType === "model"
               ? "3D Model"
               : panelType === "quiz"
-              ? "Quiz"
-              : "Ảnh Marker"}
+                ? "Quiz"
+                : "Ảnh Marker"}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-4 h-4" />
@@ -114,8 +114,8 @@ export default function AssetToolPanel({
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
             : panelType === "quiz"
-            ? "Chọn quiz để tạo quiz mới."
-            : "Chọn cách thêm ảnh marker vào scene."}
+              ? "Chọn quiz để tạo quiz mới."
+              : ""}
         </div>
 
         {panelType === "model" && (
@@ -208,11 +208,12 @@ export default function AssetToolPanel({
               <div className="text-sm text-gray-400">Đang tải marker...</div>
             ) : displayImageUrl ? (
               <div className="w-full bg-[#020617] rounded border border-white/10 p-2">
-                <div className="w-full aspect-4/3 overflow-hidden rounded bg-black/40 flex items-center justify-center">
+                <div className="w-full aspect-square overflow-hidden rounded bg-black/40 flex items-center justify-center">
                   <img
                     src={displayImageUrl}
                     alt="Marker image"
                     className="w-full h-full object-contain"
+                    style={{ imageRendering: "pixelated" }}
                   />
                 </div>
               </div>

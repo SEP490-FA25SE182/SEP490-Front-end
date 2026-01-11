@@ -284,7 +284,7 @@ export default function BookManagementPage() {
 
         {/* Table */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden">
             {loading ? (
               <div className="flex justify-center items-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" /> Đang tải...
@@ -305,19 +305,31 @@ export default function BookManagementPage() {
                   </TableRow>
                 </TableHeader>
 
-                <TableBody>
-                  {filteredBooks.map((b) => (
-                    <TableRow key={b.bookId}>
-                      <TableCell className="text-gray-900 font-medium">
-                        {b.bookName}
+                <TableBody className="bg-transparent">
+                  {filteredBooks.length === 0 ? (
+                    <TableRow className="border-b border-white/10">
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-white/60 py-8"
+                      >
+                        Không có sách nào
                       </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBooks.map((b) => (
+                      <TableRow
+                        key={b.bookId}
+                        className="border-b border-white/10 hover:bg-white/5 transition-colors"
+                      >
+                        <TableCell className="text-white font-medium">
+                          {b.bookName}
+                        </TableCell>
 
-                      <TableCell className="text-gray-700">
-                        {authorNames[b.authorId ?? ""] ?? "Unknown"}
-                      </TableCell>
+                        <TableCell className="text-white/70">
+                          {authorNames[b.authorId ?? ""] ?? "Unknown"}
+                        </TableCell>
 
-                      <TableCell className="text-gray-700">
-                        <TableCell>
+                        <TableCell className="text-white/70">
                           <span
                             className={`font-semibold ${
                               PROGRESS_COLOR[Number(b.progressStatus)]
@@ -326,10 +338,8 @@ export default function BookManagementPage() {
                             {BOOK_PROGRESS[Number(b.progressStatus)]}
                           </span>
                         </TableCell>
-                      </TableCell>
 
-                      <TableCell className="text-gray-700">
-                        <TableCell>
+                        <TableCell className="text-white/70">
                           <span
                             className={`font-semibold ${
                               PUBLIC_COLOR[Number(b.publicationStatus)]
@@ -338,33 +348,35 @@ export default function BookManagementPage() {
                             {BOOK_PUBLIC[Number(b.publicationStatus)]}
                           </span>
                         </TableCell>
-                      </TableCell>
 
-                      <TableCell className="text-gray-700">
-                        {b.quantity ?? 0}
-                      </TableCell>
+                        <TableCell className="text-white/70">
+                          {b.quantity ?? 0}
+                        </TableCell>
 
-                      <TableCell className="text-gray-700">
-                        {b.price?.toLocaleString("vi-VN")}₫
-                      </TableCell>
+                        <TableCell className="text-white/70">
+                          {b.price?.toLocaleString("vi-VN")}₫
+                        </TableCell>
 
-                      <TableCell className="flex justify-end gap-2">
-                        <Button
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                          onClick={() => handleEdit(b)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleDelete(b.bookId!)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <TableCell className="flex justify-end gap-2">
+                          {/* ✅ nút vàng giữ đúng style bạn chốt */}
+                          <Button
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                            onClick={() => handleEdit(b)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDelete(b.bookId!)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}

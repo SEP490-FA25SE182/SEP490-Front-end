@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Menu,
-  X,
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  Loader2,
-} from "lucide-react";
+import { Menu, X, Search, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
@@ -45,12 +37,16 @@ export default function PaymentMethodManagementPage() {
   const [loading, setLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "ACTIVE" | "INACTIVE">("all");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "ACTIVE" | "INACTIVE"
+  >("all");
 
   // Modal state
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
+    null
+  );
 
   const [form, setForm] = useState({
     methodName: "",
@@ -88,8 +84,7 @@ export default function PaymentMethodManagementPage() {
       m.provider.toLowerCase().includes(q) ||
       (m.decription || "").toLowerCase().includes(q);
 
-    const matchStatus =
-      filterStatus === "all" || m.isActived === filterStatus;
+    const matchStatus = filterStatus === "all" || m.isActived === filterStatus;
 
     return matchSearch && matchStatus;
   });
@@ -180,9 +175,15 @@ export default function PaymentMethodManagementPage() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-white hover:bg-white/10"
             >
-              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </Button>
-            <h1 className="text-lg font-semibold">Quản lý phương thức thanh toán</h1>
+            <h1 className="text-lg font-semibold">
+              Quản lý phương thức thanh toán
+            </h1>
           </div>
         </header>
 
@@ -225,7 +226,7 @@ export default function PaymentMethodManagementPage() {
 
         {/* Table */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden">
             {loading ? (
               <div className="flex justify-center items-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" /> Đang tải...
@@ -255,49 +256,56 @@ export default function PaymentMethodManagementPage() {
                   </TableRow>
                 </TableHeader>
 
-                <TableBody>
+                <TableBody className="bg-transparent">
                   {filteredMethods.length === 0 ? (
-                    <TableRow>
+                    <TableRow className="border-b border-white/10">
                       <TableCell
                         colSpan={6}
-                        className="text-center text-gray-600 py-8"
+                        className="text-center text-white/60 py-8"
                       >
                         Không có phương thức thanh toán nào
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredMethods.map((m) => (
-                      <TableRow key={m.paymentMethodId} className="hover:bg-gray-50">
-                        <TableCell className="text-gray-900 font-medium">
+                      <TableRow
+                        key={m.paymentMethodId}
+                        className="border-b border-white/10 hover:bg-white/5 transition-colors"
+                      >
+                        <TableCell className="text-white font-medium">
                           {m.methodName}
                         </TableCell>
-                        <TableCell className="text-gray-700">
+
+                        <TableCell className="text-white/70">
                           {m.provider}
                         </TableCell>
-                        <TableCell className="text-gray-600 max-w-xs truncate">
+
+                        <TableCell className="text-white/70 max-w-xs truncate">
                           {m.decription}
                         </TableCell>
+
                         <TableCell>
                           <span
                             className={
                               m.isActived === "ACTIVE"
-                                ? "text-green-600 font-semibold"
-                                : "text-gray-500 font-semibold"
+                                ? "text-green-400 font-semibold"
+                                : "text-white/50 font-semibold"
                             }
                           >
                             {m.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-gray-600">
+
+                        <TableCell className="text-white/70">
                           {m.createdAt
                             ? new Date(m.createdAt).toLocaleDateString("vi-VN")
                             : "—"}
                         </TableCell>
+
                         <TableCell className="text-right space-x-2">
                           <Button
                             size="icon"
-                            variant="outline"
-                            className="text-yellow-600 border-yellow-400"
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
                             onClick={() => handleOpenEdit(m)}
                           >
                             <Pencil className="w-4 h-4" />
@@ -380,7 +388,10 @@ export default function PaymentMethodManagementPage() {
               <Select
                 value={form.isActived}
                 onValueChange={(v) =>
-                  setForm((prev) => ({ ...prev, isActived: v as "ACTIVE" | "INACTIVE" }))
+                  setForm((prev) => ({
+                    ...prev,
+                    isActived: v as "ACTIVE" | "INACTIVE",
+                  }))
                 }
               >
                 <SelectTrigger className="w-full mt-1">

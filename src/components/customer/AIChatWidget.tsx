@@ -11,7 +11,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { askGemini, getGeminiHistoryBE, type ChatResponseDTO } from "@/services/Gemini";
+import {
+  askGemini,
+  getGeminiHistoryBE,
+  type ChatResponseDTO,
+} from "@/services/Gemini";
 import { useAuth } from "@/context/AuthContext";
 
 type ChatMessage = {
@@ -20,11 +24,11 @@ type ChatMessage = {
   imageDataUrl?: string;
   imageUrls?: string[];
   fileUrls?: string[];
-  createdAt?: number; // ✅ thêm để sort messages theo thời gian
+  createdAt?: number; //  thêm để sort messages theo thời gian
 };
 
 type Conversation = {
-  id: string;       // sessionId
+  id: string; // sessionId
   title: string;
   createdAt: number; // timestamp của tin nhắn mới nhất trong session
   messages: ChatMessage[];
@@ -69,13 +73,21 @@ export default function AIChatWidgetDock() {
   const [serverError, setServerError] = useState<string | null>(null);
   const serverLoadedRef = useRef(false);
 
+  // ===== Theme (đồng bộ nền tối như web)
+  const panelBg = "bg-linear-to-l from-[#0F3460] via-[#16213E] to-[#1a1a2e]";
+  const glass = "bg-white/8 backdrop-blur-md border-white/10";
+  const glassStrong = "bg-white/10 backdrop-blur-md border-white/15";
+
   const activeConv = useMemo(
     () => conversations.find((c) => c.id === activeId) || null,
     [conversations, activeId]
   );
   const messages = activeConv?.messages ?? [];
 
-  const updateMessagesById = (convId: string, updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+  const updateMessagesById = (
+    convId: string,
+    updater: (prev: ChatMessage[]) => ChatMessage[]
+  ) => {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === convId
@@ -130,7 +142,7 @@ export default function AIChatWidgetDock() {
 
         const bucket = map.get(sid)!;
 
-        // ✅ (1) map thêm ảnh/file từ BE vào message
+        //  (1) map thêm ảnh/file từ BE vào message
         bucket.messages.push({
           sender,
           text,
@@ -148,10 +160,11 @@ export default function AIChatWidgetDock() {
       }
 
       const serverConvs: Conversation[] = Array.from(map.entries()).map(([sid, b]) => {
-        const baseTitle = b.firstUserText || b.firstAnyText || `Phiên ${sid.slice(0, 8)}…`;
+        const baseTitle =
+          b.firstUserText || b.firstAnyText || `Phiên ${sid.slice(0, 8)}…`;
         const title = baseTitle.slice(0, 28) + (baseTitle.length > 28 ? "…" : "");
 
-        // ✅ (2) sort messages theo thời gian trong mỗi session
+        //  (2) sort messages theo thời gian trong mỗi session
         const sortedMsgs = [...b.messages].sort(
           (m1, m2) => (m1.createdAt ?? 0) - (m2.createdAt ?? 0)
         );
@@ -285,6 +298,7 @@ export default function AIChatWidgetDock() {
       sender: "user",
       text: text || undefined,
       imageDataUrl: imageDataUrl || undefined,
+      createdAt: Date.now(),
     };
     updateMessagesById(convId, (prev) => [...prev, userMsg]);
 
@@ -292,13 +306,15 @@ export default function AIChatWidgetDock() {
     setLoading(true);
 
     try {
-      const reply = await askGemini(
-        text || "",
-        imageDataUrl || undefined,
-        { userId: String(userId), sessionId: String(convId) }
-      );
+      const reply = await askGemini(text || "", imageDataUrl || undefined, {
+        userId: String(userId),
+        sessionId: String(convId),
+      });
 
-      updateMessagesById(convId, (prev) => [...prev, { sender: "ai", text: reply }]);
+      updateMessagesById(convId, (prev) => [
+        ...prev,
+        { sender: "ai", text: reply, createdAt: Date.now() },
+      ]);
 
       if (text) {
         const newTitle = text.slice(0, 28) + (text.length > 28 ? "…" : "");
@@ -313,7 +329,7 @@ export default function AIChatWidgetDock() {
     } catch {
       updateMessagesById(convId, (prev) => [
         ...prev,
-        { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé." },
+        { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé.", createdAt: Date.now() },
       ]);
     } finally {
       setLoading(false);
@@ -322,6 +338,7 @@ export default function AIChatWidgetDock() {
 
   return (
     <>
+      {/*  GIỮ NGUYÊN MÀU NÚT MỞ CHAT (theo yêu cầu) */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -336,9 +353,11 @@ export default function AIChatWidgetDock() {
       )}
 
       {open && (
-        <div className="fixed right-0 top-0 bottom-0 z-[9999] w-[420px] max-w-[92vw] border-l bg-white shadow-2xl flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white">
+        <div
+          className={`fixed right-0 top-0 bottom-0 z-[9999] w-[420px] max-w-[92vw] border-l ${panelBg} border-white/10 shadow-2xl flex flex-col text-white`}
+        >
+          {/* Header (giữ nguyên màu header như cũ) */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory((v) => !v)}
@@ -378,15 +397,15 @@ export default function AIChatWidgetDock() {
           <div className="flex-1 flex min-h-0">
             {/* History panel (server only) */}
             {showHistory && (
-              <div className="w-[180px] border-r bg-gray-50 flex flex-col min-h-0">
-                <div className="p-2 border-b space-y-2">
+              <div className={`w-[180px] border-r ${glass} flex flex-col min-h-0`}>
+                <div className="p-2 border-b border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold">Lịch sử</span>
 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => loadServerHistory(true)}
-                        className="rounded-md p-1 hover:bg-gray-100 disabled:opacity-50"
+                        className="rounded-md p-1 hover:bg-white/10 disabled:opacity-50"
                         disabled={!userId || serverLoading}
                         title="Tải lại server history"
                       >
@@ -395,7 +414,7 @@ export default function AIChatWidgetDock() {
 
                       <button
                         onClick={createNewConversation}
-                        className="rounded-md p-1 hover:bg-gray-100"
+                        className="rounded-md p-1 hover:bg-white/10"
                         title="Cuộc chat mới"
                       >
                         <Plus size={18} />
@@ -403,7 +422,7 @@ export default function AIChatWidgetDock() {
                     </div>
                   </div>
 
-                  {serverError && <div className="text-[11px] text-red-600">{serverError}</div>}
+                  {serverError && <div className="text-[11px] text-red-300">{serverError}</div>}
                   {serverLoading && <div className="text-[11px] opacity-70">Đang tải…</div>}
                 </div>
 
@@ -415,22 +434,28 @@ export default function AIChatWidgetDock() {
                         setActiveId(c.id);
                         setShowHistory(false);
                       }}
-                      className={`w-full text-left rounded-lg px-2 py-2 text-xs border hover:bg-white ${
-                        c.id === activeId ? "bg-white border-gray-300" : "bg-transparent border-transparent"
+                      className={`w-full text-left rounded-lg px-2 py-2 text-xs border hover:bg-white/10 ${
+                        c.id === activeId
+                          ? "bg-white/10 border-white/20"
+                          : "bg-transparent border-transparent"
                       }`}
                       title={c.title}
                     >
-                      <div className="font-medium truncate">{c.title}</div>
-                      <div className="opacity-60">{new Date(c.createdAt).toLocaleString()}</div>
+                      <div className="font-medium truncate text-white/90">{c.title}</div>
+                      <div className="opacity-60">
+                        {new Date(c.createdAt).toLocaleString()}
+                      </div>
                     </button>
                   ))}
 
                   {!serverLoading && conversations.length === 0 && (
-                    <div className="text-[11px] opacity-70 p-2">Chưa có lịch sử trên server.</div>
+                    <div className="text-[11px] opacity-70 p-2">
+                      Chưa có lịch sử trên server.
+                    </div>
                   )}
                 </div>
 
-                <div className="p-2 text-[11px] opacity-70 border-t">
+                <div className="p-2 text-[11px] opacity-70 border-t border-white/10">
                   (Lấy từ /api/rookie/chat/history)
                 </div>
               </div>
@@ -442,15 +467,15 @@ export default function AIChatWidgetDock() {
                 {messages.map((m, i) => (
                   <div
                     key={i}
-                    className={`max-w-[88%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                    className={`max-w-[88%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap border ${
                       m.sender === "user"
-                        ? "bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white ml-auto"
-                        : "bg-gray-100 text-gray-800"
+                        ? "bg-linear-to-l from-[#764BA2] to-[#667EEA] text-white ml-auto border-white/10"
+                        : "bg-white/10 text-white/90 border-white/10"
                     }`}
                   >
                     {m.text && <div>{m.text}</div>}
 
-                    {/* ✅ (3) render ảnh: preview FE (imageDataUrl) + ảnh từ BE (imageUrls) */}
+                    {/*  render ảnh: preview FE (imageDataUrl) + ảnh từ BE (imageUrls) */}
                     {(() => {
                       const imgs = [
                         ...(m.imageDataUrl ? [m.imageDataUrl] : []),
@@ -467,7 +492,7 @@ export default function AIChatWidgetDock() {
                               key={idx}
                               src={src}
                               alt="uploaded"
-                              className="max-w-full rounded-md border"
+                              className="max-w-full rounded-md border border-white/10"
                             />
                           ))}
                         </div>
@@ -477,7 +502,7 @@ export default function AIChatWidgetDock() {
                 ))}
 
                 {loading && (
-                  <div className="bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm inline-block">
+                  <div className="bg-white/10 text-white/80 border border-white/10 px-3 py-2 rounded-md text-sm inline-block">
                     AI đang trả lời…
                   </div>
                 )}
@@ -486,12 +511,12 @@ export default function AIChatWidgetDock() {
 
               {imageDataUrl && (
                 <div className="px-3 pb-2">
-                  <div className="relative w-full rounded-lg border bg-gray-50 p-2">
+                  <div className={`relative w-full rounded-lg border ${glassStrong} p-2`}>
                     <img src={imageDataUrl} alt="preview" className="w-full rounded-md" />
                     <button
                       type="button"
                       onClick={() => setImageDataUrl(null)}
-                      className="absolute top-2 right-2 bg-white/90 border rounded-md p-1 hover:bg-white"
+                      className="absolute top-2 right-2 bg-black/40 text-white border border-white/10 rounded-md p-1 hover:bg-black/55"
                       title="Bỏ ảnh"
                     >
                       <Trash2 size={16} />
@@ -500,7 +525,7 @@ export default function AIChatWidgetDock() {
                 </div>
               )}
 
-              <div className="p-3 border-t flex gap-2 items-center">
+              <div className={`p-3 border-t ${glass} flex gap-2 items-center`}>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -513,7 +538,7 @@ export default function AIChatWidgetDock() {
                   type="button"
                   disabled={loading}
                   onClick={handlePickImage}
-                  className="border rounded-lg px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
+                  className="border border-white/15 bg-white/10 text-white rounded-lg px-3 py-2 hover:bg-white/15 disabled:opacity-50"
                   title="Gửi ảnh"
                 >
                   <ImageIcon size={18} />
@@ -521,7 +546,7 @@ export default function AIChatWidgetDock() {
 
                 <input
                   disabled={loading || !userId}
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm disabled:bg-gray-100"
+                  className="flex-1 border border-white/15 bg-white/10 text-white placeholder:text-white/60 rounded-lg px-3 py-2 text-sm disabled:opacity-60 disabled:bg-white/5"
                   placeholder={!userId ? "Đăng nhập để chat..." : "Nhập tin nhắn..."}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -536,7 +561,7 @@ export default function AIChatWidgetDock() {
                 <button
                   disabled={loading || !userId}
                   onClick={sendMessage}
-                  className="text-white rounded-lg px-3 disabled:opacity-50 bg-linear-to-l from-[#764BA2] to-[#667EEA]"
+                  className="text-white rounded-lg px-3 disabled:opacity-50 shadow hover:opacity-95"
                   title="Gửi"
                 >
                   <Send size={18} />

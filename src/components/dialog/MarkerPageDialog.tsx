@@ -11,7 +11,9 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   useAttachMarkerToPage,
   useSearchMarkers,
-  getMarkerAttachedPagesCount
+  getMarkerAttachedPagesCount,
+  useCreateMarkerIllustration,
+  getMarkerById,
 } from "@/services/ARService";
 import { getCurrentBookId, getCurrentUserId } from "@/utils/authStorage";
 
@@ -21,28 +23,37 @@ interface Props {
   pageId?: string | null;
   pageNumber?: number;
   onSaved?: () => void;
+  illustrationImageUrl?: string | null;
 }
 
-export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, onSaved }: Props) {
+export default function MarkerPageDialog({
+  isOpen,
+  onClose,
+  pageId,
+  pageNumber,
+  onSaved,
+}: Props) {
   const { toast } = useToast();
 
-  const bookId = useMemo(() => getCurrentBookId(), [isOpen]);
-  const userId = useMemo(() => getCurrentUserId(), [isOpen]);
+  const bookId = useMemo(() => getCurrentBookId(), []);
+  const userId = useMemo(() => getCurrentUserId(), []);
 
   const { data: markersResp } = useSearchMarkers(
     bookId
       ? {
-          bookId,                 // filter theo book
-          userId: userId ?? undefined, 
-          page: 0,
-          size: 9999,
-          sort: ["updatedAt,desc"],
-        }
+        bookId,
+        userId: userId ?? undefined,
+        page: 0,
+        size: 9999,
+        sort: ["updatedAt,desc"],
+      }
       : undefined
   );
 
   const markers = markersResp?.content ?? [];
   const attachMarkerMutation = useAttachMarkerToPage();
+  const createMarkerIllustrationMutation = useCreateMarkerIllustration();
+
   const [selectedMarkerId, setSelectedMarkerId] = useState<string>("");
 
   useEffect(() => {
@@ -54,10 +65,9 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
 
     const toTime = (d?: string) => (d ? new Date(d).getTime() : 0);
 
-
     return markers
       .filter((m: any) => m.isActived === "ACTIVE")
-      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt)) //  desc
+      .sort((a: any, b: any) => toTime(b.updatedAt) - toTime(a.updatedAt))
       .map((m: any) => ({
         id: (m.markerId ?? m.id) as string,
         code: m.markerCode,
@@ -75,7 +85,9 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
     const bucket = parts.shift();
     const path = parts.join("/");
     if (!bucket || !path) return url;
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(
+      path
+    )}?alt=media`;
   };
 
   const MAX_PAGES_PER_MARKER = 10;
@@ -89,6 +101,7 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
       });
       return;
     }
+
     if (!selectedMarkerId) {
       toast({
         title: "Chưa chọn marker",
@@ -99,9 +112,8 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
     }
 
     try {
-      // check số trang đã gắn marker
+      //  check số trang đã gắn marker
       const attachedCount = await getMarkerAttachedPagesCount(selectedMarkerId);
-
       if (attachedCount >= MAX_PAGES_PER_MARKER) {
         toast({
           title: "Giới hạn marker",
@@ -111,28 +123,76 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
         return;
       }
 
-      // nếu chưa vượt, mới attach
+      //  attach marker vào page
       await attachMarkerMutation.mutateAsync({
         markerId: selectedMarkerId,
         pageId,
       });
 
+      //  fetch marker detail để chắc chắn có imageUrl (đúng ý "markerid tự fetch")
+      const markerDetail = await getMarkerById(selectedMarkerId);
+      const illustrationImageUrl = markerDetail?.imageUrl ? gsToHttp(markerDetail.imageUrl) : "";
+
+      if (!illustrationImageUrl) {
+        toast({
+          title: "Thiếu ảnh marker",
+          description: "Marker này chưa có imageUrl nên không thể tạo marker illustration.",
+          variant: "destructive",
+        });
+        // attach đã xong, nên vẫn cho lưu thành công phần attach
+        onSaved?.();
+        onClose();
+        return;
+      }
+
+      const illusUrl = illustrationImageUrl ? gsToHttp(illustrationImageUrl) : "";
+      if (!illusUrl) {
+        toast({
+          title: "Thiếu ảnh minh hoạ",
+          description: "Trang chưa có Illustration imageUrl nên không thể tạo marker illustration.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      //  tạo marker illustration
+      console.log("[CreateMarkerIllustration] payload", {
+        markerId: selectedMarkerId,
+        illustrationImageUrl,
+        camoStrength: 0.95,
+        quietZoneAlpha: 60,
+        assumedDpi: 300,
+        grainStrength: 0.2,
+      });
+
+      await createMarkerIllustrationMutation.mutateAsync({
+        markerId: selectedMarkerId,
+        illustrationImageUrl: illusUrl,
+        camoStrength: 0.95,
+        quietZoneAlpha: 60,
+        assumedDpi: 300,
+        grainStrength: 0.2,
+      });
+
       toast({
         title: "Lưu thành công",
-        description: "Marker đã được gắn vào trang.",
+        description: "Marker đã được gắn vào trang và tạo marker illustration.",
       });
 
       onSaved?.();
       onClose();
     } catch (err: any) {
-      console.error("Lỗi gắn marker:", err);
+      console.error("Lỗi gắn marker / tạo illustration:", err);
       toast({
         title: "Lỗi",
-        description: err?.response?.data?.message || "Không thể gắn marker.",
+        description: err?.response?.data?.message || "Không thể lưu marker.",
         variant: "destructive",
       });
     }
   };
+
+  const isSaving =
+    attachMarkerMutation.isPending || createMarkerIllustrationMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -162,8 +222,8 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
                 type="button"
                 onClick={() => setSelectedMarkerId(m.id)}
                 className={`rounded border p-1 overflow-hidden focus:outline-none ${selectedMarkerId === m.id
-                    ? "border-purple-500 ring-2 ring-purple-200"
-                    : "border-white/10 hover:border-gray-300"
+                  ? "border-purple-500 ring-2 ring-purple-200"
+                  : "border-white/10 hover:border-gray-300"
                   }`}
               >
                 <div className="w-full aspect-3/4 bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -191,13 +251,8 @@ export default function MarkerPageDialog({ isOpen, onClose, pageId, pageNumber, 
           <Button variant="ghost" onClick={onClose}>
             Huỷ
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={attachMarkerMutation.isPending}
-          >
-            {attachMarkerMutation.isPending
-              ? "Đang lưu..."
-              : "Lưu marker vào trang"}
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Đang lưu..." : "Lưu marker vào trang"}
           </Button>
         </DialogFooter>
       </DialogContent>

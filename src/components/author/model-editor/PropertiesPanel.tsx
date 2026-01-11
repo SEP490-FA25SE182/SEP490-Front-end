@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 export type SceneObject = {
   localId: string;
+  itemId?: string;
   asset3DId?: string;
   assetUrl?: string;
   orderIndex?: number;
@@ -69,7 +70,7 @@ export default function PropertiesPanel({
       init[k] =
         val === undefined || val === null
           ? k.startsWith("scale")
-            ? "0.3"
+            ? "0.2"
             : "0"
           : String(val);
     });
@@ -82,7 +83,7 @@ export default function PropertiesPanel({
 
   const commitValue = (key: string) => {
     const raw = tempValues[key] ?? "";
-    const defaultVal = key.startsWith("scale") ? 0.3 : 0;
+    const defaultVal = key.startsWith("scale") ? 0.2 : 0;
     const parsed = raw.trim() === "" ? defaultVal : Number(raw);
     const final = Number.isFinite(parsed) ? parsed : defaultVal;
     // normalize displayed value
@@ -157,7 +158,7 @@ export default function PropertiesPanel({
                 className="p-2 bg-[#061026] border border-white/10 rounded text-white text-sm"
                 type="number"
                 step="0.01"
-                value={tempValues[key] ?? String(selectedObject[key] ?? 0.3)}
+                value={tempValues[key] ?? String(selectedObject[key] ?? 0.2)}
                 onChange={(e) => handleTempChange(key, e.target.value)}
                 onBlur={() => commitValue(key)}
                 onKeyDown={(e) => {

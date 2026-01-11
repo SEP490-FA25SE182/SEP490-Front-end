@@ -365,7 +365,7 @@ const HeroFullBleed: React.FC<{
     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.55)_100%)]" />
 
     {/*  SnowCanvas phải nằm trực tiếp trong wrapper relative này */}
-      <SnowCanvas className="z-5" buildSnowmanAfterMs={3500} density={1.1} />
+      <SnowCanvas className="z-5" density={1.1} />
 
       {/* Content nằm trên background */}
       <div className="relative z-10">

@@ -144,6 +144,7 @@ const AuthorPageList = () => {
       ? {
         userId: authorId,
         bookId,
+        markerType: "APRILTAG",
         page: 0,
         size: 9999,
         sort: ["createdAt,desc"],
@@ -270,6 +271,7 @@ const AuthorPageList = () => {
 
     return list
       .filter((m: any) => m.isActived !== "INACTIVE") // nếu có flag
+      .filter((m: any) => (m.markerType || "").toUpperCase() === "APRILTAG")
       .sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt)); //  DESC
   }, [markersResp]);
 
@@ -625,8 +627,8 @@ const AuthorPageList = () => {
 
                         <div
                           className={`text-[10px] px-2 py-0.5 rounded-full ${isImage
-                              ? "bg-blue-500/20 text-blue-300"
-                              : "bg-purple-500/20 text-purple-300"
+                            ? "bg-blue-500/20 text-blue-300"
+                            : "bg-purple-500/20 text-purple-300"
                             }`}
                         >
                           {isImage ? "Trang Ảnh" : "Trang Chữ"}
@@ -660,8 +662,8 @@ const AuthorPageList = () => {
                           <PaginationPrevious
                             onClick={handlePrev}
                             className={`text-white hover:bg-white/10 ${currentPage === 1
-                                ? "opacity-50 pointer-events-none"
-                                : ""
+                              ? "opacity-50 pointer-events-none"
+                              : ""
                               }`}
                           />
                         </PaginationItem>
@@ -669,8 +671,8 @@ const AuthorPageList = () => {
                           <PaginationNext
                             onClick={handleNext}
                             className={`text-white hover:bg-white/10 ${currentPage === totalPages
-                                ? "opacity-50 pointer-events-none"
-                                : ""
+                              ? "opacity-50 pointer-events-none"
+                              : ""
                               }`}
                           />
                         </PaginationItem>
@@ -751,16 +753,17 @@ const AuthorPageList = () => {
                     <Download className="h-4 w-4" />
                   </button>
 
-                  <div className="w-full h-28 bg-white/5 flex items-center justify-center overflow-hidden">
+                  <div className="w-full aspect-square bg-white flex items-center justify-center p-2">
                     {m.imageUrl ? (
                       <img
                         src={getDisplayImageUrl(m.imageUrl)}
                         alt={m.markerCode}
-                        className="w-full h-full object-cover"
-                        style={{ imageRendering: "pixelated" }}
+                        className="w-full h-full object-contain"
+                      // nếu bạn muốn nét “pixel art” thì giữ, còn không thì xoá dòng này
+                      // style={{ imageRendering: "pixelated" }}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">
+                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-600">
                         No Image
                       </div>
                     )}

@@ -34,7 +34,6 @@ import { resolveFirebaseUrl } from "@/firebase";
 import { UploadService } from "@/services/FirebaseService";
 import { updateUser } from "@/services/UserService";
 
-
 export default function UserManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -189,7 +188,7 @@ export default function UserManagementPage() {
         setContractHttpUrl(urls);
 
         // chỉ preview những file là ảnh
-        const imagePreviews = urls.filter(url =>
+        const imagePreviews = urls.filter((url) =>
           url.match(/\.(png|jpg|jpeg|webp)$/i)
         );
 
@@ -201,8 +200,6 @@ export default function UserManagementPage() {
       }
     })();
   }, [contract?.documentUrls]);
-
-
 
   const isAuthor = (roleId?: string) => {
     const roleName = (roleNames[roleId || ""] || "").trim().toLowerCase();
@@ -249,8 +246,8 @@ export default function UserManagementPage() {
     setOpenRoyaltyModal(true);
     setSelectedUser(u);
     setContract(null);
-    setContractPreviewUrls([]); // 
-    setContractFiles([]);       // 
+    setContractPreviewUrls([]); //
+    setContractFiles([]); //
 
     try {
       const contracts = await ContractService.search();
@@ -260,8 +257,6 @@ export default function UserManagementPage() {
       setContract(null);
     }
   };
-
-
 
   const handleSaveRoyalty = async () => {
     if (!selectedUser?.userId) return;
@@ -285,15 +280,13 @@ export default function UserManagementPage() {
 
       if (contractFiles.length > 0) {
         const uploadedUrls = await Promise.all(
-          contractFiles.map(file =>
+          contractFiles.map((file) =>
             UploadService.uploadImageToFirebase(file, "contracts")
           )
         );
 
         documentUrls = [...documentUrls, ...uploadedUrls];
       }
-
-
 
       //  3. UPDATE / CREATE CONTRACT (THÊM NHẸ)
       if (documentUrls.length > 0) {
@@ -304,7 +297,6 @@ export default function UserManagementPage() {
             title: contract.title,
             status: "DRAFT",
           });
-
         } else {
           await ContractService.create({
             contractNumber: `CT-${Date.now()}`,
@@ -316,11 +308,9 @@ export default function UserManagementPage() {
       }
 
       //  4. UPDATE UI LOCAL (KHỎI LOAD LẠI)
-      setUsers(prev =>
-        prev.map(u =>
-          u.userId === selectedUser.userId
-            ? { ...u, royalty: royaltyValue }
-            : u
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.userId === selectedUser.userId ? { ...u, royalty: royaltyValue } : u
         )
       );
 
@@ -333,7 +323,6 @@ export default function UserManagementPage() {
       setSavingRoyalty(false);
     }
   };
-
 
   const validateNewUser = () => {
     const newErrors: typeof errors = {};
@@ -499,7 +488,8 @@ export default function UserManagementPage() {
 
         {/* Table */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          {/* ✅ CHỈ ĐỔI BACKGROUND: bg-white -> bg-[#1a1a2e] */}
+          <div className="bg-[#1a1a2e] rounded-lg shadow-xl overflow-hidden">
             {loading ? (
               <div className="flex justify-center items-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" /> Đang tải...
@@ -534,7 +524,10 @@ export default function UserManagementPage() {
 
                 <TableBody>
                   {filteredUsers.map((u) => (
-                    <TableRow key={u.userId} className="hover:bg-gray-50">
+                    <TableRow
+                      key={u.userId}
+                      className="border-b border-white/10 hover:bg-white/5 transition-colors"
+                    >
                       <TableCell>
                         <img
                           src={
@@ -542,35 +535,41 @@ export default function UserManagementPage() {
                             "https://avatar.iran.liara.run/public/boy"
                           }
                           alt={u.fullName}
-                          className="w-10 h-10 rounded-full object-cover"
+                          className="w-10 h-10 rounded-full object-cover border border-white/10"
                           onError={(e) => {
                             e.currentTarget.src =
                               "https://avatar.iran.liara.run/public/boy";
                           }}
                         />
                       </TableCell>
-                      <TableCell className="text-gray-900 font-medium">
+
+                      <TableCell className="text-white font-medium">
                         {u.fullName}
                       </TableCell>
-                      <TableCell className="text-gray-600">{u.email}</TableCell>
+
+                      <TableCell className="text-white/70">{u.email}</TableCell>
+
                       <TableCell>
-                        <span className="text-purple-600 font-semibold">
+                        <span className="text-purple-300 font-semibold">
                           {roleNames[u.roleId] || "—"}
                         </span>
                       </TableCell>
+
                       <TableCell>
                         <span
-                          className={`font-semibold ${u.isActived === "ACTIVE"
-                            ? "text-green-600"
-                            : "text-gray-500"
-                            }`}
+                          className={`font-semibold ${
+                            u.isActived === "ACTIVE"
+                              ? "text-green-400"
+                              : "text-white/50"
+                          }`}
                         >
                           {u.isActived === "ACTIVE" ? "Hoạt động" : "Ngừng"}
                         </span>
                       </TableCell>
+
                       {isCurrentUserAdmin && (
                         <TableCell className="flex justify-end gap-2">
-                          {/*  Nếu user là AUTHOR → hiện nút Royalty */}
+                          {/* Nếu user là AUTHOR → hiện nút Royalty */}
                           {isAuthor(u.roleId) && (
                             <Button
                               className="bg-yellow-500 hover:bg-yellow-600 text-white"
@@ -619,7 +618,6 @@ export default function UserManagementPage() {
                 className="text-black bg-white"
                 disabled={false}
               />
-              {/* CONTRACT */}
               <div className="mb-4">
                 <label className="text-sm text-gray-600 mb-2 block">
                   Hợp đồng
@@ -643,7 +641,6 @@ export default function UserManagementPage() {
                   <p className="text-sm text-gray-400">Chưa có hợp đồng</p>
                 )}
 
-
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -652,19 +649,17 @@ export default function UserManagementPage() {
                   className="hidden"
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-
                     setContractFiles(files);
 
-                    // preview ảnh
                     const previews = files
-                      .filter(f => f.type.startsWith("image/"))
-                      .map(f => URL.createObjectURL(f));
+                      .filter((f) => f.type.startsWith("image/"))
+                      .map((f) => URL.createObjectURL(f));
 
                     setContractPreviewUrls(previews);
                   }}
                 />
-
               </div>
+
               <Button
                 variant="outline"
                 className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -672,7 +667,7 @@ export default function UserManagementPage() {
               >
                 Cập nhật hợp đồng
               </Button>
-              {/* PREVIEW IMAGE */}
+
               {contractPreviewUrls.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-3">
                   {contractPreviewUrls.map((url, idx) => (
@@ -685,7 +680,6 @@ export default function UserManagementPage() {
                   ))}
                 </div>
               )}
-
             </div>
 
             <div className="flex justify-end gap-2">
@@ -714,7 +708,6 @@ export default function UserManagementPage() {
       {openCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-[420px] p-6 relative text-gray-900">
-            {/* Close button */}
             <button
               className="absolute right-4 top-4 text-gray-600 hover:text-black"
               onClick={() => setOpenCreateModal(false)}
@@ -724,7 +717,6 @@ export default function UserManagementPage() {
 
             <h2 className="text-xl font-semibold mb-4">Tạo tài khoản mới</h2>
 
-            {/* Fullname */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Họ tên</label>
               <Input
@@ -733,15 +725,15 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, fullName: e.target.value });
                   setErrors((prev) => ({ ...prev, fullName: undefined }));
                 }}
-                className={`mt-1 ${errors.fullName ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.fullName ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.fullName && (
                 <p className="text-sm text-red-500 mt-1">{errors.fullName}</p>
               )}
             </div>
 
-            {/* Email */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Email</label>
               <Input
@@ -750,15 +742,15 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, email: e.target.value });
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
-                className={`mt-1 ${errors.email ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.email ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.email && (
                 <p className="text-sm text-red-500 mt-1">{errors.email}</p>
               )}
             </div>
 
-            {/* Password */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Mật khẩu</label>
               <Input
@@ -768,15 +760,15 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, password: e.target.value });
                   setErrors((prev) => ({ ...prev, password: undefined }));
                 }}
-                className={`mt-1 ${errors.password ? "border-red-500 focus:border-red-500" : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.password ? "border-red-500 focus:border-red-500" : ""
+                }`}
               />
               {errors.password && (
                 <p className="text-sm text-red-500 mt-1">{errors.password}</p>
               )}
             </div>
 
-            {/* Phone */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Số điện thoại</label>
               <Input
@@ -785,10 +777,11 @@ export default function UserManagementPage() {
                   setNewUser({ ...newUser, phoneNumber: e.target.value });
                   setErrors((prev) => ({ ...prev, phoneNumber: undefined }));
                 }}
-                className={`mt-1 ${errors.phoneNumber
-                  ? "border-red-500 focus:border-red-500"
-                  : ""
-                  }`}
+                className={`mt-1 ${
+                  errors.phoneNumber
+                    ? "border-red-500 focus:border-red-500"
+                    : ""
+                }`}
               />
 
               {errors.phoneNumber && (
@@ -798,7 +791,6 @@ export default function UserManagementPage() {
               )}
             </div>
 
-            {/* Gender */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Giới tính</label>
               <Select
@@ -816,7 +808,6 @@ export default function UserManagementPage() {
               </Select>
             </div>
 
-            {/* Birthdate */}
             <div className="mb-3">
               <label className="text-sm text-gray-600">Ngày sinh</label>
               <Input
@@ -829,7 +820,6 @@ export default function UserManagementPage() {
               />
             </div>
 
-            {/* Role dropdown */}
             <div className="mb-4">
               <label className="text-sm text-gray-600">Vai trò</label>
               <Select
@@ -840,8 +830,9 @@ export default function UserManagementPage() {
                 }}
               >
                 <SelectTrigger
-                  className={`w-full mt-1 ${errors.roleId ? "border-red-500" : ""
-                    }`}
+                  className={`w-full mt-1 ${
+                    errors.roleId ? "border-red-500" : ""
+                  }`}
                 >
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
@@ -858,7 +849,6 @@ export default function UserManagementPage() {
               )}
             </div>
 
-            {/* Buttons */}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"

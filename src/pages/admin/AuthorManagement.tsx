@@ -89,7 +89,6 @@ async function getContractByUserId(userId: string) {
   return contracts.find((c) => c.userId === userId) ?? null;
 }
 
-
 export default function AuthorManagementPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [authors, setAuthors] = useState<AuthorRow[]>([]);
@@ -108,7 +107,6 @@ export default function AuthorManagementPage() {
   const [contractViewOpen, setContractViewOpen] = useState(false);
   const [contractView, setContractView] = useState<any>(null);
   const [contractViewUrls, setContractViewUrls] = useState<string[]>([]);
-
 
   // ===============================
   //  FETCH AUTHORS + STATS
@@ -332,7 +330,6 @@ export default function AuthorManagementPage() {
     }
   }, [contractViewOpen]);
 
-
   // ===============================
   //  FILTERED LIST
   // ===============================
@@ -366,7 +363,6 @@ export default function AuthorManagementPage() {
     }
   };
 
-
   const openContractView = async (authorId: string) => {
     setContractViewOpen(true);
     setContractView(null);
@@ -392,10 +388,7 @@ export default function AuthorManagementPage() {
       setContractView(null);
       setContractViewUrls([]);
     }
-
   };
-
-
 
   // ===============================
   //  SETTLEMENT (TẤT TOÁN)
@@ -460,11 +453,11 @@ export default function AuthorManagementPage() {
         prev.map((a) =>
           a.userId === author.userId
             ? {
-              ...a,
-              totalRevenue: 0,
-              canSettle: false,
-              lastSettlementAt: nowIso,
-            }
+                ...a,
+                totalRevenue: 0,
+                canSettle: false,
+                lastSettlementAt: nowIso,
+              }
             : a
         )
       );
@@ -536,7 +529,7 @@ export default function AuthorManagementPage() {
 
         {/* TABLE */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden">
             {loading ? (
               <div className="flex justify-center items-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" />
@@ -563,12 +556,12 @@ export default function AuthorManagementPage() {
                   </TableRow>
                 </TableHeader>
 
-                <TableBody>
+                <TableBody className="bg-transparent">
                   {filteredAuthors.length === 0 ? (
-                    <TableRow>
+                    <TableRow className="border-b border-white/10">
                       <TableCell
                         colSpan={6}
-                        className="text-center text-gray-600 py-8"
+                        className="text-center text-white/60 py-8"
                       >
                         Không có tác giả nào
                       </TableCell>
@@ -577,20 +570,25 @@ export default function AuthorManagementPage() {
                     filteredAuthors.map((author) => (
                       <TableRow
                         key={author.userId}
-                        className="hover:bg-gray-50 text-gray-800"
+                        className="border-b border-white/10 hover:bg-white/5 transition-colors"
                       >
-                        <TableCell>{author.fullName}</TableCell>
-                        <TableCell>{author.email}</TableCell>
+                        <TableCell className="text-white font-medium">
+                          {author.fullName}
+                        </TableCell>
 
-                        <TableCell className="text-center">
+                        <TableCell className="text-white/70">
+                          {author.email}
+                        </TableCell>
+
+                        <TableCell className="text-center text-white/70">
                           {author.totalBooks}
                         </TableCell>
 
-                        <TableCell className="text-center">
+                        <TableCell className="text-center text-white/70">
                           {author.totalSold}
                         </TableCell>
 
-                        <TableCell className="text-center">
+                        <TableCell className="text-center text-white/70">
                           {formatVND(
                             calcRoyaltyAmount(
                               author.totalRevenue,
@@ -602,11 +600,12 @@ export default function AuthorManagementPage() {
                         <TableCell className="text-right space-x-2">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => openDetailDialog(author)}
                           >
                             Chi tiết
                           </Button>
+
                           <Button
                             size="sm"
                             className="bg-purple-600 text-white"

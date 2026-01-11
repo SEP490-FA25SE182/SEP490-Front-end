@@ -460,7 +460,7 @@ export default function OrderManagementPage() {
 
         {/* TABLE */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden">
             {loading ? (
               <div className="flex justify-center items-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" />
@@ -481,12 +481,12 @@ export default function OrderManagementPage() {
                     </TableRow>
                   </TableHeader>
 
-                  <TableBody>
+                  <TableBody className="bg-transparent">
                     {filteredOrders.length === 0 ? (
-                      <TableRow>
+                      <TableRow className="border-b border-white/10">
                         <TableCell
                           colSpan={5}
-                          className="text-center text-gray-600 py-8"
+                          className="text-center text-white/60 py-8"
                         >
                           Không có đơn hàng nào
                         </TableCell>
@@ -499,19 +499,19 @@ export default function OrderManagementPage() {
                         return (
                           <TableRow
                             key={order.orderId}
-                            className="hover:bg-gray-50 text-gray-800"
+                            className="border-b border-white/10 hover:bg-white/5 transition-colors"
                           >
-                            <TableCell className="font-bold text-sm">
+                            <TableCell className="font-bold text-sm text-white">
                               <span title={order.orderId}>
                                 {shortOrderCode(order.orderId)}
                               </span>
                             </TableCell>
 
-                            <TableCell>
+                            <TableCell className="text-white/70">
                               {order.totalPrice.toLocaleString("vi-VN")}₫
                             </TableCell>
 
-                            <TableCell>
+                            <TableCell className="text-white/70">
                               <Select
                                 disabled={allowed.length === 0}
                                 value={String(statusNum)}
@@ -519,7 +519,7 @@ export default function OrderManagementPage() {
                                   handleUpdateStatus(order, parseInt(v))
                                 }
                               >
-                                <SelectTrigger className="w-[200px] bg-white/10 border-gray-300">
+                                <SelectTrigger className="w-[200px] bg-transparent border-white/25 shadow-none">
                                   <SelectValue>
                                     <span
                                       className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(
@@ -541,31 +541,32 @@ export default function OrderManagementPage() {
                               </Select>
                             </TableCell>
 
-                            <TableCell>
+                            <TableCell className="text-white/70">
                               {order.updatedAt
                                 ? new Date(order.updatedAt).toLocaleString(
-                                  "vi-VN"
-                                )
+                                    "vi-VN"
+                                  )
                                 : "-"}
                             </TableCell>
 
                             <TableCell className="text-right flex gap-2 justify-end">
-                              {Number(order.status) !== ORDER_STATUS.RETURNED && (
+                              {Number(order.status) !==
+                                ORDER_STATUS.RETURNED && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="text-gray-700 hover:bg-gray-100"
+                                  className="text-white/70 hover:bg-white/10"
                                   onClick={() => openDetailDialog(order)}
                                 >
                                   <MoreVertical className="w-4 h-4" />
                                 </Button>
                               )}
 
-                              {/*  Nút hoàn tiền (chỉ hiện khi RETURNED) */}
-                              {Number(order.status) === ORDER_STATUS.RETURNED && (
+                              {Number(order.status) ===
+                                ORDER_STATUS.RETURNED && (
                                 <Button
                                   size="sm"
-                                  className="bg-purple-600 text-white"
+                                  className="bg-purple-600 text-white hover:bg-purple-700"
                                   onClick={() => openRefundDialog(order)}
                                 >
                                   Chi tiết hoàn
@@ -586,11 +587,12 @@ export default function OrderManagementPage() {
                                   <Button
                                     variant="destructive"
                                     size="icon"
-                                    disabled={statusNum === 4 || statusNum === 5}
+                                    disabled={
+                                      statusNum === 4 || statusNum === 5
+                                    }
                                     onClick={() => {
                                       setSelectedDeleteOrderId(order.orderId);
                                       setOpenDeleteConfirm(true);
-                                      // ❌ bỏ reload để không reset state/UI
                                     }}
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -619,7 +621,9 @@ export default function OrderManagementPage() {
                                       className="bg-red-600 hover:bg-red-700 text-white"
                                       onClick={async () => {
                                         if (!selectedDeleteOrderId) return;
-                                        await handleDelete(selectedDeleteOrderId);
+                                        await handleDelete(
+                                          selectedDeleteOrderId
+                                        );
                                         setOpenDeleteConfirm(false);
                                         setSelectedDeleteOrderId(null);
                                       }}

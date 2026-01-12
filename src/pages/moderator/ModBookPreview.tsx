@@ -32,6 +32,7 @@ import {
 } from "@/services/AIService";
 
 import { searchMarkers } from "@/services/ARService";
+import { useScanModeration } from "@/services/ModerationService";
 
 interface EnrichedPage extends Page {
   chapterName?: string;
@@ -40,10 +41,7 @@ interface EnrichedPage extends Page {
   illustration?: Illustration | null;
   hasMarker?: boolean;
 
-  //  marker image để show thumbnail + zoom (ưu tiên imageUrl)
   markerImageUrl?: string | null;
-
-  // optional
   markerPdfUrl?: string | null;
 }
 
@@ -61,22 +59,21 @@ export default function ModBookPreview() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [pages, setPages] = useState<EnrichedPage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [activeAudioPageId, setActiveAudioPageId] = useState<string | null>(
-    null
-  );
+  const [activeAudioPageId, setActiveAudioPageId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // review moderator nhập
   const [reviewText, setReviewText] = useState<string>("");
-
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
-
 
   // modal zoom marker
   const [zoomMarkerUrl, setZoomMarkerUrl] = useState<string | null>(null);
   const [zoomMarkerTitle, setZoomMarkerTitle] = useState<string>("");
+
+  // ===== moderation state =====
+  const scanMutation = useScanModeration();
+  const [scanPage, setScanPage] = useState<EnrichedPage | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -99,6 +96,61 @@ export default function ModBookPreview() {
     return url;
   };
 
+  const prepareContentForScan = (raw?: string | null) => {
+    if (!raw) return "";
+    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  };
+
+  const handleCheckPage = (p: EnrichedPage) => {
+    if (!p?.pageId) return;
+
+    if (p.pageType === "PICTURE") {
+      toast({
+        title: "Bỏ qua",
+        description: "Trang ảnh không có nội dung text để kiểm duyệt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const content = prepareContentForScan(p.content);
+    if (!content) {
+      toast({
+        title: "Không có nội dung",
+        description: "Trang này không có text để kiểm duyệt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setScanPage(p);
+    scanMutation.reset();
+
+    scanMutation.mutate(
+      {
+        content,
+        language: "vi",
+        entityType: "PAGE",
+        entityId: p.pageId,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Đã kiểm duyệt",
+            description: `Đã quét AI cho trang ${p.pageNumber}.`,
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Quét thất bại",
+            description: "Không thể kiểm duyệt trang này. Vui lòng thử lại.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
   useEffect(() => {
     if (!bookId) return;
 
@@ -118,11 +170,7 @@ export default function ModBookPreview() {
         setReviewText(currentBook?.review ?? "");
 
         // 2. Chapters
-        const chaptersRes: any = await getAllChapters({
-          bookId,
-          page: 0,
-          size: 200,
-        });
+        const chaptersRes: any = await getAllChapters({ bookId, page: 0, size: 200 });
         let chapterList: Chapter[] = chaptersRes?.content ?? chaptersRes ?? [];
         chapterList = [...chapterList].sort(
           (a, b) => (a.chapterNumber ?? 0) - (b.chapterNumber ?? 0)
@@ -135,11 +183,7 @@ export default function ModBookPreview() {
         for (const ch of chapterList) {
           if (!ch.chapterId) continue;
 
-          const pagesRes: any = await getAllPages({
-            chapterId: ch.chapterId,
-            page: 0,
-            size: 500,
-          });
+          const pagesRes: any = await getAllPages({ chapterId: ch.chapterId, page: 0, size: 500 });
           const pageList: Page[] = pagesRes?.content ?? pagesRes ?? [];
 
           pageList.forEach((p) => {
@@ -183,11 +227,7 @@ export default function ModBookPreview() {
             const marker = markerRes?.content?.[0];
             if (marker) {
               hasMarker = true;
-
-              //  ưu tiên ảnh để overlay + zoom
               markerImageUrl = marker.imageUrl || null;
-
-              // optional: nếu cần link pdf
               markerPdfUrl = marker.printablePdfUrl || null;
             }
           } catch (err) {
@@ -214,11 +254,7 @@ export default function ModBookPreview() {
           // --- illustration ---
           let illustration: Illustration | null = null;
           try {
-            const piRes = await searchPageIllustrations({
-              pageId,
-              page: 0,
-              size: 1,
-            });
+            const piRes = await searchPageIllustrations({ pageId, page: 0, size: 1 });
             const relIllus = piRes?.content?.[0];
             if (relIllus?.illustrationId) {
               const illusId = relIllus.illustrationId;
@@ -248,6 +284,10 @@ export default function ModBookPreview() {
         setPages(enriched);
         setCurrentIndex(0);
         setActiveAudioPageId(null);
+
+        // reset moderation state on load
+        setScanPage(null);
+        scanMutation.reset();
       } catch (e) {
         console.error("Lỗi khi tải dữ liệu preview sách:", e);
         if (!cancelled) {
@@ -264,7 +304,6 @@ export default function ModBookPreview() {
     };
 
     fetchData();
-
     return () => {
       cancelled = true;
     };
@@ -276,23 +315,20 @@ export default function ModBookPreview() {
   const canNext = currentIndex + 2 < totalPages;
 
   const leftPage = useMemo(() => pages[currentIndex] ?? null, [pages, currentIndex]);
-  const rightPage = useMemo(
-    () => pages[currentIndex + 1] ?? null,
-    [pages, currentIndex]
-  );
+  const rightPage = useMemo(() => pages[currentIndex + 1] ?? null, [pages, currentIndex]);
 
   const jumpToChapter = (chapterId?: string) => {
-  if (!chapterId) return;
+    if (!chapterId) return;
 
-  setSelectedChapterId(chapterId); // chỉ highlight chương được click
+    setSelectedChapterId(chapterId);
 
-  const idx = pages.findIndex((p) => p.chapterId === chapterId);
-  if (idx < 0) return;
+    const idx = pages.findIndex((p) => p.chapterId === chapterId);
+    if (idx < 0) return;
 
-  const evenIdx = idx % 2 === 0 ? idx : idx - 1;
-  setCurrentIndex(Math.max(0, evenIdx));
-  setActiveAudioPageId(null);
-};
+    const evenIdx = idx % 2 === 0 ? idx : idx - 1;
+    setCurrentIndex(Math.max(0, evenIdx));
+    setActiveAudioPageId(null);
+  };
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 2 >= 0 ? prev - 2 : 0));
@@ -309,7 +345,6 @@ export default function ModBookPreview() {
     setActiveAudioPageId((prev) => (prev === pageId ? null : pageId));
   };
 
-  // handler duyệt / từ chối: lưu cả review + publicationStatus
   const handleModerate = async (newStatus: number) => {
     if (!book) return;
 
@@ -342,6 +377,9 @@ export default function ModBookPreview() {
       });
     }
   };
+
+  const scan = scanMutation.data;
+  const scanError = scanMutation.isError ? (scanMutation.error as any) : null;
 
   return (
     <ModeratorLayout
@@ -405,28 +443,26 @@ export default function ModBookPreview() {
                   {chapters.map((ch) => {
                     const isActiveChapter = selectedChapterId === ch.chapterId;
                     return (
-                        <button
+                      <button
                         key={ch.chapterId}
                         type="button"
                         onClick={() => jumpToChapter(ch.chapterId)}
-                        className={`w-full text-left text-xs rounded px-2 py-2 flex items-center gap-2 transition
-                            ${
-                            isActiveChapter
-                                ? "bg-purple-600/20 border border-purple-400/30 text-white"
-                                : "text-gray-300 hover:bg-white/5 border border-transparent"
-                            }`}
+                        className={`w-full text-left text-xs rounded px-2 py-2 flex items-center gap-2 transition ${
+                          isActiveChapter
+                            ? "bg-purple-600/20 border border-purple-400/30 text-white"
+                            : "text-gray-300 hover:bg-white/5 border border-transparent"
+                        }`}
                         title={`Nhảy tới chương ${ch.chapterNumber}`}
-                        >
+                      >
                         <span className="truncate">
-                            Chương {ch.chapterNumber}: {ch.chapterName}
+                          Chương {ch.chapterNumber}: {ch.chapterName}
                         </span>
-                        </button>
+                      </button>
                     );
-                    })}
+                  })}
+
                   {chapters.length === 0 && (
-                    <div className="text-xs text-gray-500">
-                      Chưa có chương nào.
-                    </div>
+                    <div className="text-xs text-gray-500">Chưa có chương nào.</div>
                   )}
                 </div>
               </div>
@@ -437,15 +473,103 @@ export default function ModBookPreview() {
                   Đang xem:{" "}
                   {totalPages > 0
                     ? `${currentIndex + 1}${
-                        currentIndex + 2 <= totalPages
-                          ? " - " + (currentIndex + 2)
-                          : ""
+                        currentIndex + 2 <= totalPages ? " - " + (currentIndex + 2) : ""
                       }`
                     : "-"}
                 </div>
               </div>
 
-              {/* Ô review + nút duyệt / từ chối */}
+              {/* ===== AI moderation panel ===== */}
+              <div className="border-t border-white/10 pt-3 mt-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-400">
+                    AI kiểm duyệt{scanPage ? ` - Trang ${scanPage.pageNumber}` : ""}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2"
+                    disabled={!scanPage || scanMutation.isPending}
+                    onClick={() => scanPage && handleCheckPage(scanPage)}
+                  >
+                    {scanMutation.isPending ? "Đang kiểm..." : "Quét"}
+                  </Button>
+                </div>
+
+                {!scanPage && (
+                  <div className="text-xs text-gray-500">
+                    Nhấn “Kiểm tra” trên trang TEXT để quét.
+                  </div>
+                )}
+
+                {scanError && (
+                  <div className="text-xs text-red-300">
+                    Quét thất bại: {scanError?.message ?? "Unknown error"}
+                  </div>
+                )}
+
+                {scan && scanPage && (
+                  <div className="text-xs text-gray-200 space-y-2">
+                    <div className="flex flex-wrap gap-3">
+                      <span>
+                        Từ cấm:{" "}
+                        <span className="text-white font-semibold">
+                          {scan.forbiddenCount}
+                        </span>
+                      </span>
+                      <span>
+                        Similarity:{" "}
+                        <span className="text-white font-semibold">
+                          {(scan.maxSimilarity * 100).toFixed(1)}%
+                        </span>
+                      </span>
+                      {scan.plagiarismFlag && (
+                        <span className="text-red-300 font-semibold">Nghi vấn</span>
+                      )}
+                    </div>
+
+                    <div>
+                      AI:{" "}
+                      <span className="text-white font-semibold">{scan.aiRiskLevel}</span>{" "}
+                      / <span className="text-white font-semibold">{scan.aiAction}</span>
+                    </div>
+
+                    {scan.aiReasons?.length > 0 && (
+                      <ul className="list-disc pl-4 space-y-1 text-gray-300">
+                        {scan.aiReasons.slice(0, 3).map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {scan.forbiddenMatches?.length > 0 && (
+                      <div className="text-gray-300">
+                        Từ cấm đầu tiên:{" "}
+                        <span className="text-white font-semibold">
+                          {scan.forbiddenMatches[0].word}
+                        </span>
+                      </div>
+                    )}
+
+                    {scan.plagiarismHits?.length > 0 && (
+                      <div className="text-gray-300">
+                        Trùng cao nhất với PAGE{" "}
+                        <span className="text-white font-semibold">
+                          {scan.plagiarismHits[0].sourceId}
+                        </span>
+                        {scan.plagiarismHits[0].snippet ? (
+                          <>
+                            {" "}
+                            — “{scan.plagiarismHits[0].snippet}”
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Review + buttons */}
               <div className="border-t border-white/10 pt-3 mt-1 space-y-2">
                 <div className="text-xs text-gray-400">Nhận xét về sách</div>
                 <Textarea
@@ -534,6 +658,12 @@ export default function ModBookPreview() {
                         setZoomMarkerTitle(title || "Marker");
                         setZoomMarkerUrl(url);
                       }}
+                      onCheckModeration={handleCheckPage}
+                      isChecking={
+                        scanMutation.isPending &&
+                        !!scanPage?.pageId &&
+                        scanPage.pageId === leftPage?.pageId
+                      }
                     />
                     <PageCard
                       page={rightPage}
@@ -546,6 +676,12 @@ export default function ModBookPreview() {
                         setZoomMarkerTitle(title || "Marker");
                         setZoomMarkerUrl(url);
                       }}
+                      onCheckModeration={handleCheckPage}
+                      isChecking={
+                        scanMutation.isPending &&
+                        !!scanPage?.pageId &&
+                        scanPage.pageId === rightPage?.pageId
+                      }
                     />
                   </div>
                 )}
@@ -554,16 +690,13 @@ export default function ModBookPreview() {
           </div>
         )}
 
-        {/*  MODAL ZOOM MARKER */}
+        {/* MODAL ZOOM MARKER */}
         {zoomMarkerUrl && (
           <div
             className="fixed inset-0 z-999 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setZoomMarkerUrl(null)}
           >
-            <div
-              className="relative max-w-4xl w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setZoomMarkerUrl(null)}
                 className="absolute -top-3 -right-3 bg-white text-black rounded-full w-9 h-9 shadow flex items-center justify-center"
@@ -596,9 +729,10 @@ type PageCardProps = {
   activeAudioPageId: string | null;
   onToggleAudio: (pageId?: string) => void;
   getDisplayUrl: (url?: string | null) => string;
-
-  //  click marker thumbnail -> zoom
   onMarkerZoom: (markerRawUrl: string, title?: string) => void;
+
+  onCheckModeration: (page: EnrichedPage) => void;
+  isChecking: boolean;
 };
 
 function PageCard({
@@ -608,6 +742,8 @@ function PageCard({
   onToggleAudio,
   getDisplayUrl,
   onMarkerZoom,
+  onCheckModeration,
+  isChecking,
 }: PageCardProps) {
   if (!page) {
     return (
@@ -661,11 +797,11 @@ function PageCard({
   return (
     <div
       className={`
-        flex-1 relative 
-        bg-linear-to-br from-[#020617] to-[#020617] 
-        border border-white/10 rounded-xl 
-        shadow-xl overflow-hidden 
-        px-4 py-4 
+        flex-1 relative
+        bg-linear-to-br from-[#020617] to-[#020617]
+        border border-white/10 rounded-xl
+        shadow-xl overflow-hidden
+        px-4 py-4
         flex flex-col
         ${
           side === "left"
@@ -676,7 +812,7 @@ function PageCard({
     >
       {/* Icons */}
       <div className="absolute top-2 right-2 flex gap-1">
-        {!isPicturePage && (illustration || contentImageSrc) && (
+        {!isPicturePage && illustration && (
           <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600/90 text-white shadow">
             <ImageIcon className="w-4 h-4" />
           </div>
@@ -689,7 +825,7 @@ function PageCard({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="text-xs text-purple-300 font-medium truncate">
             Chương {page.chapterNumber}: {page.chapterName}
@@ -704,14 +840,33 @@ function PageCard({
                   ? "bg-emerald-500 text-white"
                   : "bg-emerald-600/90 text-white hover:bg-emerald-500"
               }`}
+              title="Phát audio"
             >
               <Volume2 className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        <div className="text-xs text-gray-400 whitespace-nowrap">
-          Trang {page.pageNumber}
+        <div className="flex items-center gap-2 shrink-0">
+          {!isPicturePage && (
+            <button
+              type="button"
+              onClick={() => onCheckModeration(page)}
+              disabled={isChecking}
+              className={`h-7 px-2 rounded-md text-xs border border-white/10 ${
+                isChecking
+                  ? "bg-white/10 text-gray-300 cursor-not-allowed"
+                  : "bg-white/5 text-white hover:bg-white/10"
+              }`}
+              title="Kiểm tra AI (từ cấm / đạo văn)"
+            >
+              {isChecking ? "Đang kiểm..." : "Kiểm tra"}
+            </button>
+          )}
+
+          <div className="text-xs text-gray-400 whitespace-nowrap">
+            Trang {page.pageNumber}
+          </div>
         </div>
       </div>
 
@@ -726,7 +881,7 @@ function PageCard({
             className="w-full h-full object-contain"
           />
 
-          {/*  Marker overlay (CHỈ trang ảnh) */}
+          {/* Marker overlay (CHỈ trang ảnh) */}
           {isPicturePage && hasMarker && markerThumbSrc && (
             <button
               type="button"

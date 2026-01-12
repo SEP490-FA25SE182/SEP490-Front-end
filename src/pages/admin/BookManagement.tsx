@@ -368,170 +368,80 @@ export default function BookManagementPage() {
                     </TableRow>
                   </TableHeader>
 
-                  <TableBody className="bg-transparent">
-                    {books.length === 0 ? (
-                      <TableRow className="border-b border-white/10">
-                        <TableCell
-                          colSpan={7}
-                          className="text-center text-white/60 py-8"
-                        >
-                          Không có sách nào
+                <TableBody className="bg-transparent">
+                  {filteredBooks.length === 0 ? (
+                    <TableRow className="border-b border-white/10">
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-white/60 py-8"
+                      >
+                        Không có sách nào
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBooks.map((b) => (
+                      <TableRow
+                        key={b.bookId}
+                        className="border-b border-white/10 hover:bg-white/5 transition-colors"
+                      >
+                        <TableCell className="text-white font-medium">
+                          {b.bookName}
+                        </TableCell>
+
+                        <TableCell className="text-white/70">
+                          {authorNames[b.authorId ?? ""] ?? "Unknown"}
+                        </TableCell>
+
+                        <TableCell className="text-white/70">
+                          <span
+                            className={`font-semibold ${
+                              PROGRESS_COLOR[Number(b.progressStatus)]
+                            }`}
+                          >
+                            {BOOK_PROGRESS[Number(b.progressStatus)]}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-white/70">
+                          <span
+                            className={`font-semibold ${
+                              PUBLIC_COLOR[Number(b.publicationStatus)]
+                            }`}
+                          >
+                            {BOOK_PUBLIC[Number(b.publicationStatus)]}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="text-white/70">
+                          {b.quantity ?? 0}
+                        </TableCell>
+
+                        <TableCell className="text-white/70">
+                          {b.price?.toLocaleString("vi-VN")}₫
+                        </TableCell>
+
+                        <TableCell className="flex justify-end gap-2">
+                          {/* ✅ nút vàng giữ đúng style bạn chốt */}
+                          <Button
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                            onClick={() => handleEdit(b)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDelete(b.bookId!)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      books.map((b) => (
-                        <TableRow
-                          key={b.bookId}
-                          className="border-b border-white/10 hover:bg-white/5 transition-colors"
-                        >
-                          <TableCell className="text-white font-medium">
-                            {b.bookName}
-                          </TableCell>
-
-                          <TableCell className="text-white/70">
-                            {authorNames[b.authorId ?? ""] ?? "Unknown"}
-                          </TableCell>
-
-                          <TableCell className="text-white/70">
-                            <span
-                              className={`font-semibold ${
-                                PROGRESS_COLOR[Number(b.progressStatus)]
-                              }`}
-                            >
-                              {BOOK_PROGRESS[Number(b.progressStatus)]}
-                            </span>
-                          </TableCell>
-
-                          <TableCell className="text-white/70">
-                            <span
-                              className={`font-semibold ${
-                                PUBLIC_COLOR[Number(b.publicationStatus)]
-                              }`}
-                            >
-                              {BOOK_PUBLIC[Number(b.publicationStatus)]}
-                            </span>
-                          </TableCell>
-
-                          <TableCell className="text-white/70">
-                            {b.quantity ?? 0}
-                          </TableCell>
-
-                          <TableCell className="text-white/70">
-                            {b.price?.toLocaleString("vi-VN")}₫
-                          </TableCell>
-
-                          <TableCell className="flex justify-end gap-2">
-                            {/*  nút vàng giữ đúng style bạn chốt */}
-                            <Button
-                              className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                              onClick={() => handleEdit(b)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              onClick={() => handleDelete(b.bookId!)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-
-                {/*  Pagination bar (server-side) */}
-                {totalItems > 0 && (
-                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 bg-[#1a2332]/40">
-                    <div className="text-sm text-white/60">
-                      Hiển thị{" "}
-                      <b className="text-white">{start}</b>
-                      {" - "}
-                      <b className="text-white">{end}</b>{" "}
-                      / <b className="text-white">{totalItems}</b>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {/* Page size */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-white/60">Mỗi trang</span>
-                        <Select
-                          value={String(pageSize)}
-                          onValueChange={(v) => setPageSize(Number(v))}
-                        >
-                          <SelectTrigger className="w-[90px] border-white/20 bg-transparent text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="5">5</SelectItem>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="20">20</SelectItem>
-                            <SelectItem value="50">50</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Controls */}
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-white hover:bg-white/10"
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
-
-                        {pageItems.map((it, idx) =>
-                          it === "..." ? (
-                            <span
-                              key={`dots-${idx}`}
-                              className="px-2 text-white/60 select-none"
-                            >
-                              ...
-                            </span>
-                          ) : (
-                            <Button
-                              key={it}
-                              variant="ghost"
-                              size="icon"
-                              className={
-                                it === page
-                                  ? "bg-white/15 text-white hover:bg-white/20"
-                                  : "text-white hover:bg-white/10"
-                              }
-                              onClick={() => setPage(it)}
-                            >
-                              {it}
-                            </Button>
-                          )
-                        )}
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-white hover:bg-white/10"
-                          disabled={page >= totalPages}
-                          onClick={() =>
-                            setPage((p) => Math.min(totalPages, p + 1))
-                          }
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      <div className="text-sm text-white/60">
-                        Trang <b className="text-white">{page}</b> /{" "}
-                        <b className="text-white">{totalPages}</b>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             )}
           </div>
         </div>

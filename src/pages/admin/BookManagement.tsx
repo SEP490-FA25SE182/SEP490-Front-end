@@ -1,5 +1,14 @@
-import { useEffect, useState } from "react";
-import { Menu, X, Search, Trash2, Pencil, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Menu,
+  X,
+  Search,
+  Trash2,
+  Pencil,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,12 +41,28 @@ import { getUserById } from "@/services/UserService"; //  LẤY TÊN TÁC GIẢ
 import axios from "axios";
 import { API_RK } from "@/config";
 
-// ===============================
-// TEMP: API get all books
-// ===============================
-const getAllBooks = async (): Promise<Book[]> => {
-  const res = await axios.get(`${API_RK}/users/books`);
-  return res.data?.content ?? res.data ?? [];
+/* =========================
+   SERVER-SIDE PAGINATION
+========================= */
+type PageResponse<T> = {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number; // 0-based
+  size: number;
+  first: boolean;
+  last: boolean;
+};
+
+const getBooksPage = async (params: {
+  page: number; // 0-based
+  size: number;
+  sort?: string; // ex: "updatedAt-DESC" (đúng với BE split("-"))
+  q?: string;
+  publicationStatus?: number;
+}): Promise<PageResponse<Book>> => {
+  const res = await axios.get(`${API_RK}/users/books`, { params });
+  return res.data;
 };
 
 const PROGRESS_COLOR: Record<number, string> = {
@@ -76,7 +101,13 @@ export default function BookManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  // Tên tác giả đã load
+  //  Pagination (server-side)
+  const [page, setPage] = useState(1); // UI 1-based
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Tên tác giả đã load (cache)
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
 
   // Modal state
@@ -98,28 +129,55 @@ export default function BookManagementPage() {
     selectedBook?.progressStatus === 1 &&
     selectedBook?.publicationStatus === 1;
 
-  // Load books + author names
+  //  Reset về trang 1 khi search/filter/pageSize đổi
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filterStatus, pageSize]);
+
+  // Load books + author names (SERVER-SIDE)
   const loadBooks = async () => {
     setLoading(true);
     try {
-      const res = await getAllBooks();
-      setBooks(res);
+      const q = searchQuery.trim();
+      const res = await getBooksPage({
+        page: page - 1, //  convert UI -> API
+        size: pageSize,
+        sort: "updatedAt-DESC",
+        q: q.length ? q : undefined,
+        publicationStatus:
+          filterStatus === "all" ? undefined : Number(filterStatus),
+      });
 
-      //  Fetch author names
-      const map: Record<string, string> = {};
-
-      for (const b of res) {
-        if (b.authorId) {
-          try {
-            const user = await getUserById(b.authorId);
-            map[b.authorId] = user.fullName ?? "Unknown";
-          } catch {
-            map[b.authorId] = "Unknown";
-          }
-        }
+      // nếu delete xong bị rơi vào trang trống -> lùi 1 trang
+      if (res.content.length === 0 && page > 1) {
+        setPage((p) => Math.max(1, p - 1));
+        return;
       }
 
-      setAuthorNames(map);
+      setBooks(res.content);
+      setTotalPages(Math.max(1, res.totalPages));
+      setTotalItems(res.totalElements);
+
+      // Fetch missing author names (cache theo authorId)
+      const ids = Array.from(
+        new Set(res.content.map((b) => b.authorId).filter(Boolean))
+      ) as string[];
+
+      if (ids.length) {
+        const missing = ids.filter((id) => !authorNames[id]);
+        if (missing.length) {
+          const newMap: Record<string, string> = {};
+          for (const id of missing) {
+            try {
+              const user = await getUserById(id);
+              newMap[id] = user.fullName ?? "Unknown";
+            } catch {
+              newMap[id] = "Unknown";
+            }
+          }
+          setAuthorNames((prev) => ({ ...prev, ...newMap }));
+        }
+      }
     } catch {
       toast.error("Không thể tải danh sách sách");
     } finally {
@@ -127,29 +185,33 @@ export default function BookManagementPage() {
     }
   };
 
+  //  Trigger load theo server-side pagination + filters
   useEffect(() => {
     loadBooks();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, searchQuery, filterStatus]);
 
-  // Filter
-  const filteredBooks = books
-    .filter((b) => {
-      const matchSearch =
-        b.bookName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        authorNames[b.authorId ?? ""]
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase());
+  // UI helper: list trang có dấu ...
+  const pageItems = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const items: Array<number | "..."> = [];
+    const left = Math.max(2, page - 1);
+    const right = Math.min(totalPages - 1, page + 1);
 
-      const matchStatus =
-        filterStatus === "all" || String(b.publicationStatus) === filterStatus;
+    items.push(1);
+    if (left > 2) items.push("...");
+    for (let p = left; p <= right; p++) items.push(p);
+    if (right < totalPages - 1) items.push("...");
+    items.push(totalPages);
 
-      return matchSearch && matchStatus;
-    })
-    .sort((a, b) => {
-      const timeA = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
-      const timeB = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
-      return timeB - timeA; //  mới nhất lên đầu
-    });
+    return items;
+  }, [page, totalPages]);
+
+  // range hiển thị
+  const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
 
   const handleProgressChange = (value: string) => {
     setProgressStatus(value);
@@ -290,95 +352,186 @@ export default function BookManagementPage() {
                 <Loader2 className="w-6 h-6 mr-2 animate-spin" /> Đang tải...
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
-                    <TableHead className="text-white">Tên sách</TableHead>
-                    <TableHead className="text-white">Tác giả</TableHead>
-                    <TableHead className="text-white">Tiến độ</TableHead>
-                    <TableHead className="text-white">Xuất bản</TableHead>
-                    <TableHead className="text-white">Số lượng</TableHead>
-                    <TableHead className="text-white">Đơn giá</TableHead>
-                    <TableHead className="text-white text-right">
-                      Hành động
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody className="bg-transparent">
-                  {filteredBooks.length === 0 ? (
-                    <TableRow className="border-b border-white/10">
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-white/60 py-8"
-                      >
-                        Không có sách nào
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#1a2332] hover:bg-[#1a2332]">
+                      <TableHead className="text-white">Tên sách</TableHead>
+                      <TableHead className="text-white">Tác giả</TableHead>
+                      <TableHead className="text-white">Tiến độ</TableHead>
+                      <TableHead className="text-white">Xuất bản</TableHead>
+                      <TableHead className="text-white">Số lượng</TableHead>
+                      <TableHead className="text-white">Đơn giá</TableHead>
+                      <TableHead className="text-white text-right">
+                        Hành động
+                      </TableHead>
                     </TableRow>
-                  ) : (
-                    filteredBooks.map((b) => (
-                      <TableRow
-                        key={b.bookId}
-                        className="border-b border-white/10 hover:bg-white/5 transition-colors"
-                      >
-                        <TableCell className="text-white font-medium">
-                          {b.bookName}
-                        </TableCell>
+                  </TableHeader>
 
-                        <TableCell className="text-white/70">
-                          {authorNames[b.authorId ?? ""] ?? "Unknown"}
-                        </TableCell>
-
-                        <TableCell className="text-white/70">
-                          <span
-                            className={`font-semibold ${
-                              PROGRESS_COLOR[Number(b.progressStatus)]
-                            }`}
-                          >
-                            {BOOK_PROGRESS[Number(b.progressStatus)]}
-                          </span>
-                        </TableCell>
-
-                        <TableCell className="text-white/70">
-                          <span
-                            className={`font-semibold ${
-                              PUBLIC_COLOR[Number(b.publicationStatus)]
-                            }`}
-                          >
-                            {BOOK_PUBLIC[Number(b.publicationStatus)]}
-                          </span>
-                        </TableCell>
-
-                        <TableCell className="text-white/70">
-                          {b.quantity ?? 0}
-                        </TableCell>
-
-                        <TableCell className="text-white/70">
-                          {b.price?.toLocaleString("vi-VN")}₫
-                        </TableCell>
-
-                        <TableCell className="flex justify-end gap-2">
-                          {/* ✅ nút vàng giữ đúng style bạn chốt */}
-                          <Button
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                            onClick={() => handleEdit(b)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDelete(b.bookId!)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                  <TableBody className="bg-transparent">
+                    {books.length === 0 ? (
+                      <TableRow className="border-b border-white/10">
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-white/60 py-8"
+                        >
+                          Không có sách nào
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      books.map((b) => (
+                        <TableRow
+                          key={b.bookId}
+                          className="border-b border-white/10 hover:bg-white/5 transition-colors"
+                        >
+                          <TableCell className="text-white font-medium">
+                            {b.bookName}
+                          </TableCell>
+
+                          <TableCell className="text-white/70">
+                            {authorNames[b.authorId ?? ""] ?? "Unknown"}
+                          </TableCell>
+
+                          <TableCell className="text-white/70">
+                            <span
+                              className={`font-semibold ${
+                                PROGRESS_COLOR[Number(b.progressStatus)]
+                              }`}
+                            >
+                              {BOOK_PROGRESS[Number(b.progressStatus)]}
+                            </span>
+                          </TableCell>
+
+                          <TableCell className="text-white/70">
+                            <span
+                              className={`font-semibold ${
+                                PUBLIC_COLOR[Number(b.publicationStatus)]
+                              }`}
+                            >
+                              {BOOK_PUBLIC[Number(b.publicationStatus)]}
+                            </span>
+                          </TableCell>
+
+                          <TableCell className="text-white/70">
+                            {b.quantity ?? 0}
+                          </TableCell>
+
+                          <TableCell className="text-white/70">
+                            {b.price?.toLocaleString("vi-VN")}₫
+                          </TableCell>
+
+                          <TableCell className="flex justify-end gap-2">
+                            {/*  nút vàng giữ đúng style bạn chốt */}
+                            <Button
+                              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                              onClick={() => handleEdit(b)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => handleDelete(b.bookId!)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/*  Pagination bar (server-side) */}
+                {totalItems > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 bg-[#1a2332]/40">
+                    <div className="text-sm text-white/60">
+                      Hiển thị{" "}
+                      <b className="text-white">{start}</b>
+                      {" - "}
+                      <b className="text-white">{end}</b>{" "}
+                      / <b className="text-white">{totalItems}</b>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Page size */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-white/60">Mỗi trang</span>
+                        <Select
+                          value={String(pageSize)}
+                          onValueChange={(v) => setPageSize(Number(v))}
+                        >
+                          <SelectTrigger className="w-[90px] border-white/20 bg-transparent text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Controls */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-white hover:bg-white/10"
+                          disabled={page <= 1}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+
+                        {pageItems.map((it, idx) =>
+                          it === "..." ? (
+                            <span
+                              key={`dots-${idx}`}
+                              className="px-2 text-white/60 select-none"
+                            >
+                              ...
+                            </span>
+                          ) : (
+                            <Button
+                              key={it}
+                              variant="ghost"
+                              size="icon"
+                              className={
+                                it === page
+                                  ? "bg-white/15 text-white hover:bg-white/20"
+                                  : "text-white hover:bg-white/10"
+                              }
+                              onClick={() => setPage(it)}
+                            >
+                              {it}
+                            </Button>
+                          )
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-white hover:bg-white/10"
+                          disabled={page >= totalPages}
+                          onClick={() =>
+                            setPage((p) => Math.min(totalPages, p + 1))
+                          }
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="text-sm text-white/60">
+                        Trang <b className="text-white">{page}</b> /{" "}
+                        <b className="text-white">{totalPages}</b>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -398,8 +551,6 @@ export default function BookManagementPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-800">
               {modalMode === "add" ? "Thêm Sách" : "Cập nhật Sách"}
             </h2>
-
-            {/* FIELDSET */}
 
             {/* Tên sách */}
             <div className="mb-4">

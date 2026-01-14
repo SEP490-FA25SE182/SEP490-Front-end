@@ -90,6 +90,21 @@ export default function AssetToolPanel({
   } = useGetAudios(authorId ? { userId: authorId } : undefined);
   const audios: any[] = audiosResp ?? [];
 
+  const sortedAudios = useMemo(() => {
+    return (audios ?? [])
+      .slice()
+      .sort((a: any, b: any) => {
+        const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+        const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+        if (tb !== ta) return tb - ta;
+
+        // tie-breaker để list ổn định
+        const na = String(a.title ?? a.fileName ?? a.audioId ?? a.id ?? "");
+        const nb = String(b.title ?? b.fileName ?? b.audioId ?? b.id ?? "");
+        return na.localeCompare(nb);
+      });
+  }, [audios]);
+
   const sortedAssets = useMemo(() => {
     return (assets ?? [])
       .slice()
@@ -113,10 +128,10 @@ export default function AssetToolPanel({
             {panelType === "model"
               ? "3D Model"
               : panelType === "quiz"
-              ? "Quiz"
-              : panelType === "audio"
-              ? "Audio"
-              : "Ảnh Marker"}
+                ? "Quiz"
+                : panelType === "audio"
+                  ? "Audio"
+                  : "Ảnh Marker"}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-4 h-4" />
@@ -127,10 +142,10 @@ export default function AssetToolPanel({
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
             : panelType === "quiz"
-            ? "Chọn quiz để tạo quiz mới."
-            : panelType === "audio"
-            ? "Chọn audio để gắn vào scene."
-            : ""}
+              ? "Chọn quiz để tạo quiz mới."
+              : panelType === "audio"
+                ? "Chọn audio để gắn vào scene."
+                : ""}
         </div>
 
         {panelType === "model" && (
@@ -242,7 +257,7 @@ export default function AssetToolPanel({
               ) : audios.length === 0 ? (
                 <div className="text-sm text-gray-500">Không có audio.</div>
               ) : (
-                audios.map((a: any) => {
+                sortedAudios.map((a: any) => {
                   const audioUrl = a.audioUrl ?? a.url ?? a.fileUrl ?? "";
                   return (
                     <div

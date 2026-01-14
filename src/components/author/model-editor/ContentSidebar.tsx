@@ -1,11 +1,11 @@
 // src/components/author/model-editor/ContentSidebar.tsx
-import { Image, Box, Plus, Gamepad2 } from "lucide-react";
+import { Image, Box, Plus, Gamepad2, Music } from "lucide-react";
 
 type ContentSidebarProps = {
-  activeTab: "marker" | "model" | "quiz";
-  onChangeTab: (tab: "marker" | "model" | "quiz") => void;
-  leftToolPanel: "image" | "model" | "quiz" | null;
-  onChangeLeftToolPanel: (panel: "image" | "model" | "quiz" | null) => void;
+  activeTab: "marker" | "model" | "quiz" | "audio";
+  onChangeTab: (tab: "marker" | "model" | "quiz" | "audio") => void;
+  leftToolPanel: "image" | "model" | "quiz" | "audio" | null;
+  onChangeLeftToolPanel: (panel: "image" | "model" | "quiz" | "audio" | null) => void;
   loadingMarker: boolean;
   markerDetail?: any;
 };
@@ -38,9 +38,7 @@ export default function ContentSidebar({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onChangeLeftToolPanel(
-                leftToolPanel === "image" ? null : "image"
-              );
+              onChangeLeftToolPanel(leftToolPanel === "image" ? null : "image");
             }}
             className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
             title="Add Image"
@@ -66,9 +64,7 @@ export default function ContentSidebar({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onChangeLeftToolPanel(
-                leftToolPanel === "model" ? null : "model"
-              );
+              onChangeLeftToolPanel(leftToolPanel === "model" ? null : "model");
             }}
             className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
             title="Add 3D Model"
@@ -86,7 +82,6 @@ export default function ContentSidebar({
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/6 rounded flex items-center justify-center text-white">
-              {/* Tạm dùng icon Box cho quiz, nếu muốn có thể đổi thành icon khác */}
               <Gamepad2 className="w-5 h-5" />
             </div>
             <div className="text-sm text-white">Quiz</div>
@@ -95,12 +90,36 @@ export default function ContentSidebar({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onChangeLeftToolPanel(
-                leftToolPanel === "quiz" ? null : "quiz"
-              );
+              onChangeLeftToolPanel(leftToolPanel === "quiz" ? null : "quiz");
             }}
             className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
             title="Thêm Quiz"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Audio card */}
+        <div
+          className={`bg-white/5 hover:bg-white/10 rounded-lg p-2 flex items-center justify-between border border-white/10 cursor-pointer ${
+            activeTab === "audio" ? "ring-2 ring-purple-600/40" : ""
+          }`}
+          onClick={() => onChangeTab("audio")}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/6 rounded flex items-center justify-center text-white">
+              <Music className="w-5 h-5" />
+            </div>
+            <div className="text-sm text-white">Audio</div>
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onChangeLeftToolPanel(leftToolPanel === "audio" ? null : "audio");
+            }}
+            className="w-8 h-8 rounded-md bg-purple-600 hover:bg-purple-700 flex items-center justify-center text-white"
+            title="Thêm Audio"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -116,9 +135,7 @@ export default function ContentSidebar({
             <div className="font-medium text-white truncate">
               {markerDetail.markerCode}
             </div>
-            <div className="text-xs text-gray-400">
-              {markerDetail.markerType}
-            </div>
+            <div className="text-xs text-gray-400">{markerDetail.markerType}</div>
           </>
         ) : (
           <div className="text-gray-400">Không có marker</div>

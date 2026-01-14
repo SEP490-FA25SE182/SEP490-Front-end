@@ -37,11 +37,11 @@ declare global {
 
 export default function AuthorModelView() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"marker" | "model" | "quiz">(
+  const [activeTab, setActiveTab] = useState<"marker" | "model" | "quiz" | "audio">(
     "marker"
   );
   const [leftToolPanel, setLeftToolPanel] =
-    useState<null | "image" | "model" | "quiz">(null);
+    useState<null | "image" | "model" | "quiz" | "audio">(null);
   const [assetDialogOpenLocal, setAssetDialogOpenLocal] = useState(false);
 
   const [sceneObjects, setSceneObjects] = useState<SceneObject[]>([]);
@@ -201,6 +201,7 @@ export default function AuthorModelView() {
             scaleX: data.scale?.x ?? 1,
             scaleY: data.scale?.y ?? 1,
             scaleZ: data.scale?.z ?? 1,
+            behaviorJson: data.behaviorJson ?? null,
           };
           if (idx >= 0) {
             const copy = [...prev];
@@ -234,6 +235,7 @@ export default function AuthorModelView() {
           scaleX: d.scale?.x ?? 1,
           scaleY: d.scale?.y ?? 1,
           scaleZ: d.scale?.z ?? 1,
+          behaviorJson: d.behaviorJson ?? null,
         }));
         setSceneObjects(mapped);
       } catch (err) {
@@ -339,7 +341,7 @@ export default function AuthorModelView() {
           scaleX: it.scaleX ?? 1,
           scaleY: it.scaleY ?? 1,
           scaleZ: it.scaleZ ?? 1,
-          behaviorJson: it.behaviorJson ?? "",
+          behaviorJson: it.behaviorJson ?? null,
         };
       })
       //  thiếu url thì bỏ (tránh Unity fallback ra cube)
@@ -355,7 +357,17 @@ export default function AuthorModelView() {
     };
 
     try {
-      sendMessage("SceneManager", "LoadSceneFromJson", JSON.stringify(importDto));
+      sendMessage(
+        "SceneManager",
+        "LoadSceneFromJson",
+        JSON.stringify({
+          ...importDto,
+          items: items.map(it => ({
+            ...it,
+            behaviorJson: it.behaviorJson ?? null,
+          })),
+        })
+      );
     } catch (e) { }
   }, [markerId, isLoaded, latestScene, sendMessage]);
 
@@ -492,7 +504,7 @@ export default function AuthorModelView() {
               scaleX: it.scaleX ?? 1,
               scaleY: it.scaleY ?? 1,
               scaleZ: it.scaleZ ?? 1,
-              behaviorJson: it.behaviorJson ?? "",
+              behaviorJson: it.behaviorJson ?? null,
             } as any,
           })
         )
@@ -516,7 +528,7 @@ export default function AuthorModelView() {
               scaleX: it.scaleX ?? 1,
               scaleY: it.scaleY ?? 1,
               scaleZ: it.scaleZ ?? 1,
-              behaviorJson: it.behaviorJson ?? "",
+              behaviorJson: it.behaviorJson ?? null,
             };
           })
           .filter(Boolean);
@@ -611,7 +623,7 @@ export default function AuthorModelView() {
             scaleX: it.scaleX ?? 1,
             scaleY: it.scaleY ?? 1,
             scaleZ: it.scaleZ ?? 1,
-            behaviorJson: it.behaviorJson ?? "",
+            behaviorJson: it.behaviorJson ?? null,
           };
         })
         .filter(Boolean);
@@ -811,6 +823,65 @@ export default function AuthorModelView() {
     }
   };
 
+  // Handler khi chọn audio từ AssetToolPanel
+  const handleAddAudio = (audio: any, audioUrl: string) => {
+    const behaviorJson = {
+      audio: {
+        url: audioUrl,
+        autoplay: true,
+        loop: false,
+        volume: 0.8,
+        spatial: true,
+        minDistance: 0.5,
+        maxDistance: 5.0,
+      },
+    };
+
+    try {
+      if (selectedLocalId) {
+        // Gắn behavior cho object đã chọn
+        sendMessage(
+          "SceneManager",
+          "AttachBehaviorToObject",
+          JSON.stringify({
+            localId: selectedLocalId,
+            behaviorJson: JSON.stringify(behaviorJson),
+          })
+        );
+
+        const behaviorJsonStr = JSON.stringify(behaviorJson);
+
+        setSceneObjects(prev =>
+          prev.map(o =>
+            o.localId === selectedLocalId
+              ? { ...o, behaviorJson: behaviorJsonStr }
+              : o
+          )
+        );
+
+        toast({ title: "Gắn audio cho object đã chọn", description: audio.title ?? "" });
+        return;
+      }
+
+      // Nếu chưa chọn object: tạo object mới với behavior (Unity cần hỗ trợ message này)
+      sendMessage(
+        "SceneManager",
+        "AddObjectWithBehavior",
+        JSON.stringify({
+          asset3DId: null,
+          assetUrl: null,
+          behaviorJson,
+        })
+      );
+
+      // Tối thiểu cập nhật UI state: Unity sẽ gửi OnSelect/OnSync và map vào state chính
+      toast({ title: "Đã thêm audio vào scene", description: audio.title ?? "" });
+    } catch (e) {
+      console.error("handleAddAudio error", e);
+      toast({ title: "Lỗi khi thêm audio", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#1a1a2e]">
       <AuthorSidebar isOpen={sidebarOpen} />
@@ -889,6 +960,7 @@ export default function AuthorModelView() {
               assets={assets}
               assetsLoading={assetsLoading}
               onAddExistingModel={handleAddExistingModel}
+              onAddAudio={handleAddAudio}
               onUploadClick={() => {
                 if (leftToolPanel === "model") {
                   fileInputRef.current?.click();
@@ -924,6 +996,21 @@ export default function AuthorModelView() {
                 prev.filter((x) => x.localId !== selectedObject.localId)
               );
               setSelectedLocalId(null);
+            }}
+
+            onRemoveAudio={(localId) => {
+              try {
+                sendMessage(
+                  "SceneManager",
+                  "RemoveBehaviorFromObject",
+                  JSON.stringify({
+                    localId,
+                    behaviorType: "audio",
+                  })
+                );
+              } catch (e) {
+                console.error("Remove audio error", e);
+              }
             }}
           />
         </div>

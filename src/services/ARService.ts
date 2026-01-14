@@ -531,6 +531,15 @@ export const useGetLatestARSceneByMarkerId = (markerId?: string) => {
 };
 
 /* ====================== AR SCENE ITEMS (ar-scene-items) ====================== */
+export interface AudioBehavior {
+  url: string;                    // URL của file audio
+  autoplay?: boolean;             // default: false
+  loop?: boolean;                 // default: false
+  volume?: number;                // 0.0 ~ 1.0, default: 1.0
+  spatial?: boolean;              // có dùng spatial audio không
+  minDistance?: number;           // khoảng cách bắt đầu giảm âm lượng (spatial mode)
+  maxDistance?: number;           // khoảng cách âm thanh gần như mất hẳn (spatial mode)
+}
 
 export interface ARSceneItem {
   id?: string;

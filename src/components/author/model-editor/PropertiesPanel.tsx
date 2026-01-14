@@ -17,6 +17,7 @@ export type SceneObject = {
   scaleX?: number;
   scaleY?: number;
   scaleZ?: number;
+  behaviorJson?: string | null;
 };
 
 type PropertiesPanelProps = {
@@ -26,12 +27,14 @@ type PropertiesPanelProps = {
     transform: Partial<SceneObject>
   ) => void;
   onUnselect: () => void;
+  onRemoveAudio?: (localId: string) => void;
 };
 
 export default function PropertiesPanel({
   selectedObject,
   onChangeTransform,
   onUnselect,
+  onRemoveAudio,
 }: PropertiesPanelProps) {
   if (!selectedObject) {
     return (
@@ -48,6 +51,20 @@ export default function PropertiesPanel({
 
   // temp string values to allow free typing (partial numbers) before committing
   const [tempValues, setTempValues] = useState<Record<string, string>>({});
+
+  const audioBehavior = (() => {
+    if (!selectedObject?.behaviorJson) return null;
+    try {
+      const parsed =
+        typeof selectedObject.behaviorJson === "string"
+          ? JSON.parse(selectedObject.behaviorJson)
+          : selectedObject.behaviorJson;
+      return parsed?.audio ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
 
   useEffect(() => {
     if (!selectedObject) {
@@ -169,6 +186,36 @@ export default function PropertiesPanel({
             ))}
           </div>
         </div>
+
+        {audioBehavior && (
+          <div className="border-t border-white/6 pt-3">
+            <div className="text-xs text-gray-300 mb-1">Audio</div>
+
+            <div className="flex items-center gap-2">
+              <audio
+                src={audioBehavior.url}
+                controls
+                className="flex-1"
+              />
+
+              <div className="shrink-0">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    onRemoveAudio?.(selectedObject.localId);
+
+                    onChangeTransform(selectedObject.localId, {
+                      behaviorJson: null,
+                    } as any);
+                  }}
+                >
+                  Gỡ audio
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button

@@ -6,9 +6,10 @@ import QuizViewDialog from "@/components/dialog/QuizViewDialog";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
+import { useGetAudios } from "@/services/AIService";
 
 type AssetToolPanelProps = {
-  panelType: "image" | "model" | "quiz";
+  panelType: "image" | "model" | "quiz" | "audio";
   onClose: () => void;
   currentChapterId?: string;
 
@@ -16,6 +17,9 @@ type AssetToolPanelProps = {
   assets: any[];
   assetsLoading: boolean;
   onAddExistingModel: (asset: any, assetUrl: string) => void;
+
+  // audio callback
+  onAddAudio?: (audio: any, audioUrl: string) => void;
 
   // marker image
   markerImageUrl?: string;
@@ -36,6 +40,7 @@ export default function AssetToolPanel({
   assets,
   assetsLoading,
   onAddExistingModel,
+  onAddAudio,
   onUploadClick,
   onOpenCreateAIDialog,
   markerImageUrl,
@@ -79,6 +84,12 @@ export default function AssetToolPanel({
     if (uid) setAuthorId(uid);
   }, []);
 
+  const {
+    data: audiosResp,
+    isLoading: audiosLoading,
+  } = useGetAudios(authorId ? { userId: authorId } : undefined);
+  const audios: any[] = audiosResp ?? [];
+
   const sortedAssets = useMemo(() => {
     return (assets ?? [])
       .slice()
@@ -102,8 +113,10 @@ export default function AssetToolPanel({
             {panelType === "model"
               ? "3D Model"
               : panelType === "quiz"
-                ? "Quiz"
-                : "Ảnh Marker"}
+              ? "Quiz"
+              : panelType === "audio"
+              ? "Audio"
+              : "Ảnh Marker"}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-4 h-4" />
@@ -114,8 +127,10 @@ export default function AssetToolPanel({
           {panelType === "model"
             ? "Chọn cách thêm mô hình 3D vào scene."
             : panelType === "quiz"
-              ? "Chọn quiz để tạo quiz mới."
-              : ""}
+            ? "Chọn quiz để tạo quiz mới."
+            : panelType === "audio"
+            ? "Chọn audio để gắn vào scene."
+            : ""}
         </div>
 
         {panelType === "model" && (
@@ -155,9 +170,7 @@ export default function AssetToolPanel({
                               File không phải .glb
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-400 p-2">
-                              No preview
-                            </div>
+                            <div className="text-xs text-gray-400 p-2">No preview</div>
                           )}
                         </div>
 
@@ -191,12 +204,8 @@ export default function AssetToolPanel({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="text-xs mt-2 text-gray-200 font-medium truncate">
-                  Trò chơi mở cửa
-                </div>
-                <div className="text-[11px] text-gray-400 mt-1">
-                  Một quiz để tăng trải nghiệm người dùng.
-                </div>
+                <div className="text-xs mt-2 text-gray-200 font-medium truncate">Trò chơi mở cửa</div>
+                <div className="text-[11px] text-gray-400 mt-1">Một quiz để tăng trải nghiệm người dùng.</div>
               </button>
             </div>
           </div>
@@ -218,10 +227,58 @@ export default function AssetToolPanel({
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-gray-500">
-                Chưa có ảnh marker cho marker này.
-              </div>
+              <div className="text-sm text-gray-500">Chưa có ảnh marker cho marker này.</div>
             )}
+          </div>
+        )}
+
+        {panelType === "audio" && (
+          <div className="mt-4">
+            <div className="text-sm text-gray-300 mb-2">Audio của bạn</div>
+
+            <div className="flex flex-col gap-2">
+              {audiosLoading ? (
+                <div className="text-sm text-gray-400">Đang tải audio...</div>
+              ) : audios.length === 0 ? (
+                <div className="text-sm text-gray-500">Không có audio.</div>
+              ) : (
+                audios.map((a: any) => {
+                  const audioUrl = a.audioUrl ?? a.url ?? a.fileUrl ?? "";
+                  return (
+                    <div
+                      key={a.audioId ?? a.id}
+                      className="rounded border p-2 overflow-hidden bg-[#081323] hover:border-purple-500 flex items-center gap-2"
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="text-xs text-gray-200 font-medium truncate">
+                          {a.title ?? a.fileName ?? a.audioId ?? a.id}
+                        </div>
+                        <div className="text-[11px] text-gray-400 mt-1">Duration: {a.durationMs ? `${Math.round(a.durationMs / 1000)}s` : "—"}</div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2">
+                        {audioUrl ? (
+                          <audio src={audioUrl} controls className="w-28" />
+                        ) : null}
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!audioUrl) {
+                              toast({ title: "Audio không có url", variant: "destructive" });
+                              return;
+                            }
+                            onAddAudio?.(a, audioUrl);
+                            toast({ title: "Đã chọn audio", description: a.title ?? "" });
+                          }}
+                        >
+                          Chọn
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -230,10 +287,7 @@ export default function AssetToolPanel({
       <div className="mt-4 flex gap-3 shrink-0">
         {panelType === "model" && (
           <>
-            <Button
-              className="flex-1 bg-white text-black hover:bg-gray-200"
-              onClick={onUploadClick}
-            >
+            <Button className="flex-1 bg-white text-black hover:bg-gray-200" onClick={onUploadClick}>
               Upload Model
             </Button>
 

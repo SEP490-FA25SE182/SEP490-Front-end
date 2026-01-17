@@ -6,7 +6,7 @@ import QuizViewDialog from "@/components/dialog/QuizViewDialog";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentUserId } from "@/utils/authStorage";
-import { useGetAudios } from "@/services/AIService";
+import { useSearchAudios } from "@/services/AIService";
 
 type AssetToolPanelProps = {
   panelType: "image" | "model" | "quiz" | "audio";
@@ -84,10 +84,10 @@ export default function AssetToolPanel({
     if (uid) setAuthorId(uid);
   }, []);
 
-  const {
+    const {
     data: audiosResp,
     isLoading: audiosLoading,
-  } = useGetAudios(authorId ? { userId: authorId } : undefined);
+  } = useSearchAudios(authorId ? { userId: authorId, size: 9999 } : { size: 9999 });
   const audios: any[] = audiosResp ?? [];
 
   const sortedAudios = useMemo(() => {

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { useGetPageById, useUpdatePage } from "@/services/BookManageService";
+//import { useQueryClient } from "@tanstack/react-query";
+import { useGetPageById } from "@/services/BookManageService";
 import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import AuthorSidebar from "@/components/author/AuthorSidebar";
@@ -67,30 +67,30 @@ const AuthorPageDetail = () => {
     authorId ? { userId: authorId } : undefined
   );
 
-  const queryClient = useQueryClient();
-  const updatePageMut = useUpdatePage();
-  const [isFormattingA5, setIsFormattingA5] = useState(false);
+  // const queryClient = useQueryClient();
+  // const updatePageMut = useUpdatePage();
+  // const [isFormattingA5, setIsFormattingA5] = useState(false);
 
-  const handleFormatA5 = async () => {
-    if (!page?.pageId) return;
+  // const handleFormatA5 = async () => {
+  //   if (!page?.pageId) return;
 
-    try {
-      setIsFormattingA5(true);
+  //   try {
+  //     setIsFormattingA5(true);
 
-      await updatePageMut.mutateAsync({
-        id: page.pageId,
-        data: {
-          pageType: "TEXTA5",
-          pageNumber: page.pageNumber,
-          chapterId: page.chapterId,
-        },
-      });
+  //     await updatePageMut.mutateAsync({
+  //       id: page.pageId,
+  //       data: {
+  //         pageType: "TEXTA5",
+  //         pageNumber: page.pageNumber,
+  //         chapterId: page.chapterId,
+  //       },
+  //     });
 
-      await queryClient.invalidateQueries({ queryKey: ["page", page.pageId] });
-    } finally {
-      setIsFormattingA5(false);
-    }
-  };
+  //     await queryClient.invalidateQueries({ queryKey: ["page", page.pageId] });
+  //   } finally {
+  //     setIsFormattingA5(false);
+  //   }
+  // };
 
   const pageIllustrations: PageIllustration[] = useMemo(() => {
     if (!pageIllustrationsResp) return [];
@@ -326,7 +326,7 @@ const AuthorPageDetail = () => {
               </Button>
 
               {/* Dàn trang A5: chỉ hiện khi là trang chữ và CHƯA phải TEXTA5 */}
-              {!isImage && !isTextA5 && (
+              {/* {!isImage && !isTextA5 && (
                 <Button
                   onClick={handleFormatA5}
                   disabled={isFormattingA5 || updatePageMut.isPending}
@@ -336,7 +336,7 @@ const AuthorPageDetail = () => {
                     ? "Đang dàn trang..."
                     : "Dàn trang"}
                 </Button>
-              )}
+              )} */}
             </div>
           </div>
         </header>

@@ -64,6 +64,7 @@ export default function AIChatWidgetDock() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // ===== SERVER state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -134,7 +135,9 @@ export default function AIChatWidgetDock() {
         const sid = item.sessionId || "unknown";
         const sender = toSender(item.role);
         const text = item.content || "";
-        const ts = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+        const ts = item.createdAt
+          ? new Date(item.createdAt).getTime()
+          : Date.now();
 
         if (!map.has(sid)) {
           map.set(sid, { messages: [], lastAt: ts });
@@ -151,7 +154,8 @@ export default function AIChatWidgetDock() {
           createdAt: ts,
         });
 
-        if (!bucket.firstAnyText && text.trim()) bucket.firstAnyText = text.trim();
+        if (!bucket.firstAnyText && text.trim())
+          bucket.firstAnyText = text.trim();
         if (sender === "user" && !bucket.firstUserText && text.trim()) {
           bucket.firstUserText = text.trim();
         }
@@ -159,23 +163,26 @@ export default function AIChatWidgetDock() {
         bucket.lastAt = Math.max(bucket.lastAt, ts);
       }
 
-      const serverConvs: Conversation[] = Array.from(map.entries()).map(([sid, b]) => {
-        const baseTitle =
-          b.firstUserText || b.firstAnyText || `Phiên ${sid.slice(0, 8)}…`;
-        const title = baseTitle.slice(0, 28) + (baseTitle.length > 28 ? "…" : "");
+      const serverConvs: Conversation[] = Array.from(map.entries()).map(
+        ([sid, b]) => {
+          const baseTitle =
+            b.firstUserText || b.firstAnyText || `Phiên ${sid.slice(0, 8)}…`;
+          const title =
+            baseTitle.slice(0, 28) + (baseTitle.length > 28 ? "…" : "");
 
-        //  (2) sort messages theo thời gian trong mỗi session
-        const sortedMsgs = [...b.messages].sort(
-          (m1, m2) => (m1.createdAt ?? 0) - (m2.createdAt ?? 0)
-        );
+          //  (2) sort messages theo thời gian trong mỗi session
+          const sortedMsgs = [...b.messages].sort(
+            (m1, m2) => (m1.createdAt ?? 0) - (m2.createdAt ?? 0)
+          );
 
-        return {
-          id: sid,
-          title,
-          createdAt: b.lastAt,
-          messages: sortedMsgs,
-        };
-      });
+          return {
+            id: sid,
+            title,
+            createdAt: b.lastAt,
+            messages: sortedMsgs,
+          };
+        }
+      );
 
       serverConvs.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -187,7 +194,8 @@ export default function AIChatWidgetDock() {
         const merged = serverConvs.map((sc) => {
           const existing = prevById.get(sc.id);
           // nếu FE có ảnh preview (giàu dữ liệu hơn) thì ưu tiên giữ FE
-          if (existing && existing.messages.some((m) => m.imageDataUrl)) return existing;
+          if (existing && existing.messages.some((m) => m.imageDataUrl))
+            return existing;
           return sc;
         });
 
@@ -205,6 +213,16 @@ export default function AIChatWidgetDock() {
       setServerLoading(false);
     }
   };
+
+  // Tự động chỉnh độ cao khi input thay đổi
+  useEffect(() => {
+    if (inputRef.current) {
+      // Reset chiều cao về 'auto' để tính toán chính xác độ co lại (khi xóa text)
+      inputRef.current.style.height = "auto";
+      // Set chiều cao mới dựa trên scrollHeight
+      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+    }
+  }, [input]);
 
   // Khi user đổi -> reset cache
   useEffect(() => {
@@ -320,7 +338,9 @@ export default function AIChatWidgetDock() {
         const newTitle = text.slice(0, 28) + (text.length > 28 ? "…" : "");
         setConversations((prev) =>
           prev.map((c) =>
-            c.id === convId && c.title === "Cuộc chat mới" ? { ...c, title: newTitle } : c
+            c.id === convId && c.title === "Cuộc chat mới"
+              ? { ...c, title: newTitle }
+              : c
           )
         );
       }
@@ -329,7 +349,11 @@ export default function AIChatWidgetDock() {
     } catch {
       updateMessagesById(convId, (prev) => [
         ...prev,
-        { sender: "ai", text: "⚠ Có lỗi xảy ra, thử lại sau nhé.", createdAt: Date.now() },
+        {
+          sender: "ai",
+          text: "⚠ Có lỗi xảy ra, thử lại sau nhé.",
+          createdAt: Date.now(),
+        },
       ]);
     } finally {
       setLoading(false);
@@ -370,7 +394,9 @@ export default function AIChatWidgetDock() {
               <div className="flex flex-col leading-tight">
                 <span className="font-semibold">Trợ lý AI</span>
                 <span className="text-xs opacity-90">
-                  {userId ? `userId: ${String(userId).slice(0, 8)}…` : "chưa đăng nhập"}
+                  {userId
+                    ? `userId: ${String(userId).slice(0, 8)}…`
+                    : "chưa đăng nhập"}
                 </span>
               </div>
             </div>
@@ -397,7 +423,9 @@ export default function AIChatWidgetDock() {
           <div className="flex-1 flex min-h-0">
             {/* History panel (server only) */}
             {showHistory && (
-              <div className={`w-[180px] border-r ${glass} flex flex-col min-h-0`}>
+              <div
+                className={`w-[180px] border-r ${glass} flex flex-col min-h-0`}
+              >
                 <div className="p-2 border-b border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold">Lịch sử</span>
@@ -422,8 +450,14 @@ export default function AIChatWidgetDock() {
                     </div>
                   </div>
 
-                  {serverError && <div className="text-[11px] text-red-300">{serverError}</div>}
-                  {serverLoading && <div className="text-[11px] opacity-70">Đang tải…</div>}
+                  {serverError && (
+                    <div className="text-[11px] text-red-300">
+                      {serverError}
+                    </div>
+                  )}
+                  {serverLoading && (
+                    <div className="text-[11px] opacity-70">Đang tải…</div>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -441,7 +475,9 @@ export default function AIChatWidgetDock() {
                       }`}
                       title={c.title}
                     >
-                      <div className="font-medium truncate text-white/90">{c.title}</div>
+                      <div className="font-medium truncate text-white/90">
+                        {c.title}
+                      </div>
                       <div className="opacity-60">
                         {new Date(c.createdAt).toLocaleString()}
                       </div>
@@ -511,8 +547,14 @@ export default function AIChatWidgetDock() {
 
               {imageDataUrl && (
                 <div className="px-3 pb-2">
-                  <div className={`relative w-full rounded-lg border ${glassStrong} p-2`}>
-                    <img src={imageDataUrl} alt="preview" className="w-full rounded-md" />
+                  <div
+                    className={`relative w-full rounded-lg border ${glassStrong} p-2`}
+                  >
+                    <img
+                      src={imageDataUrl}
+                      alt="preview"
+                      className="w-full rounded-md"
+                    />
                     <button
                       type="button"
                       onClick={() => setImageDataUrl(null)}
@@ -525,7 +567,8 @@ export default function AIChatWidgetDock() {
                 </div>
               )}
 
-              <div className={`p-3 border-t ${glass} flex gap-2 items-center`}>
+              {/* Sửa items-center thành items-end để nút bấm nằm dưới đáy khi chat dài */}
+              <div className={`p-3 border-t ${glass} flex gap-2 items-end`}>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -538,30 +581,38 @@ export default function AIChatWidgetDock() {
                   type="button"
                   disabled={loading}
                   onClick={handlePickImage}
-                  className="border border-white/15 bg-white/10 text-white rounded-lg px-3 py-2 hover:bg-white/15 disabled:opacity-50"
+                  className="border border-white/15 bg-white/10 text-white rounded-lg px-3 py-2 hover:bg-white/15 disabled:opacity-50 h-[38px]" // Thêm h-[38px] để cố định chiều cao nút
                   title="Gửi ảnh"
                 >
                   <ImageIcon size={18} />
                 </button>
 
-                <input
+                {/* --- BẮT ĐẦU SỬA: Thay input bằng textarea --- */}
+                <textarea
+                  ref={inputRef}
                   disabled={loading || !userId}
-                  className="flex-1 border border-white/15 bg-white/10 text-white placeholder:text-white/60 rounded-lg px-3 py-2 text-sm disabled:opacity-60 disabled:bg-white/5"
-                  placeholder={!userId ? "Đăng nhập để chat..." : "Nhập tin nhắn..."}
+                  rows={1}
+                  className="flex-1 border border-white/15 bg-white/10 text-white placeholder:text-white/60 rounded-lg px-3 py-2 text-sm disabled:opacity-60 disabled:bg-white/5 resize-none overflow-y-auto max-h-32 min-h-[38px]"
+                  placeholder={
+                    !userId ? "Đăng nhập để chat..." : "Nhập tin nhắn..."
+                  }
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
+                    // Enter để gửi, Shift + Enter để xuống dòng
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       sendMessage();
+                      // Sau khi gửi xong, chiều cao sẽ tự reset nhờ useEffect ở trên
                     }
                   }}
                 />
+                {/* --- KẾT THÚC SỬA --- */}
 
                 <button
                   disabled={loading || !userId}
                   onClick={sendMessage}
-                  className="text-white rounded-lg px-3 disabled:opacity-50 shadow hover:opacity-95"
+                  className="text-white rounded-lg px-3 h-[38px] flex items-center justify-center disabled:opacity-50 shadow hover:opacity-95" // Thêm h-[38px] và flex center
                   title="Gửi"
                 >
                   <Send size={18} />

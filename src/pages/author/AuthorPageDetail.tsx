@@ -334,7 +334,7 @@ const AuthorPageDetail = () => {
                 >
                   {isFormattingA5 || updatePageMut.isPending
                     ? "Đang dàn trang..."
-                    : "Dàn trang A5"}
+                    : "Dàn trang"}
                 </Button>
               )}
             </div>

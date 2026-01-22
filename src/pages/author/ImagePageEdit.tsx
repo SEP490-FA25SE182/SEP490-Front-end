@@ -484,12 +484,6 @@ export default function ImagePageEdit() {
                     Marker cho trang (tuỳ chọn)
                   </h3>
                 </div>
-
-                <p className="text-xs text-gray-500 mb-3">
-                  Khuyến nghị: dùng ảnh marker giống với ảnh trên trang để AR
-                  nhận diện tốt hơn.
-                </p>
-
                 <div className="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {markerList.length === 0 && (

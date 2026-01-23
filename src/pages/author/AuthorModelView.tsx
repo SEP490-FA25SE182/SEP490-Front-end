@@ -161,6 +161,7 @@ export default function AuthorModelView() {
       markerId,
       name: sceneMeta.name || "Untitled Scene",
       description: sceneMeta.description || "",
+      status: _status, // ADDED: gửi status qua Unity payload để đảm bảo đúng trạng thái
     };
 
     try {
@@ -672,7 +673,8 @@ export default function AuthorModelView() {
     const onSceneExport = (payload: any) => {
       try {
         const data = typeof payload === "string" ? JSON.parse(payload) : payload;
-        const status = sceneDialogMode || "DRAFT";
+        // CHANGED: ưu tiên status từ payload (Unity), fallback sang sceneDialogMode
+        const status = data?.status ?? sceneDialogMode ?? "DRAFT";
 
         //  CHANGED: nếu đã có scene => update, chưa có => create
         if (currentSceneId) {
@@ -732,6 +734,7 @@ export default function AuthorModelView() {
       markerId,
       name: payload.name || "Untitled Scene",
       description: payload.description || "",
+      status, // ADDED: gửi status để Unity trả lại cùng payload khi export
     };
 
     try {

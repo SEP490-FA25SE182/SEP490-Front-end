@@ -485,7 +485,7 @@ export default function ImagePageEdit() {
                   </h3>
                 </div>
                 <div className="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                     {markerList.length === 0 && (
                       <div className="text-sm text-gray-500 col-span-full">
                         Chưa có marker nào.

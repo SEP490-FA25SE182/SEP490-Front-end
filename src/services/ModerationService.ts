@@ -17,10 +17,16 @@ export interface ForbiddenWordMatchDTO {
 }
 
 export interface PlagiarismHitDTO {
-  sourceType: string;
+  sourceType: "PAGE" | "CHAPTER" | "BOOK" | string;
   sourceId: string;
   similarity: number;
   snippet?: string | null;
+}
+
+export interface OnlinePlagiarismSourceDTO {
+  url: string;
+  title?: string | null;
+  similarity: number;
 }
 
 export interface ModerationScanResponseDTO {
@@ -33,20 +39,26 @@ export interface ModerationScanResponseDTO {
   plagiarismFlag: boolean;
   plagiarismHits: PlagiarismHitDTO[];
 
+  onlineSources?: OnlinePlagiarismSourceDTO[];
+
   aiRiskLevel: string;
   aiAction: string;
   aiReasons: string[];
 }
 
+
 export const scanModeration = async (
   data: ModerationScanRequestDTO
 ): Promise<ModerationScanResponseDTO> => {
-  const res = await axios.post(`${API_AI}/moderation/scan`, data);
+  const res = await axios.post(
+    `${API_AI}/moderation/scan`,
+    data
+  );
   return res.data;
 };
 
 export const useScanModeration = () =>
   useMutation({
-    mutationFn: (data: ModerationScanRequestDTO) => scanModeration(data),
+    mutationFn: (data: ModerationScanRequestDTO) =>
+      scanModeration(data),
   });
-

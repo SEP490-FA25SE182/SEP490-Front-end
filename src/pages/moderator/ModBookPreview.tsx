@@ -485,15 +485,6 @@ export default function ModBookPreview() {
                   <div className="text-xs text-gray-400">
                     AI kiểm duyệt{scanPage ? ` - Trang ${scanPage.pageNumber}` : ""}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 px-2"
-                    disabled={!scanPage || scanMutation.isPending}
-                    onClick={() => scanPage && handleCheckPage(scanPage)}
-                  >
-                    {scanMutation.isPending ? "Đang kiểm..." : "Quét"}
-                  </Button>
                 </div>
 
                 {!scanPage && (

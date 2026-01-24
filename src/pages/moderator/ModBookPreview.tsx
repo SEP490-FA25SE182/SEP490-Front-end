@@ -33,6 +33,7 @@ import {
 
 import { searchMarkers } from "@/services/ARService";
 import { useScanModeration } from "@/services/ModerationService";
+import { mapRiskLevelVi, mapActionVi } from "@/utils/moderationVi";
 
 interface EnrichedPage extends Page {
   chapterName?: string;
@@ -379,6 +380,7 @@ export default function ModBookPreview() {
   };
 
   const scan = scanMutation.data;
+  const onlineSources = scan?.onlineSources ?? [];
   const scanError = scanMutation.isError ? (scanMutation.error as any) : null;
 
   return (
@@ -447,11 +449,10 @@ export default function ModBookPreview() {
                         key={ch.chapterId}
                         type="button"
                         onClick={() => jumpToChapter(ch.chapterId)}
-                        className={`w-full text-left text-xs rounded px-2 py-2 flex items-center gap-2 transition ${
-                          isActiveChapter
-                            ? "bg-purple-600/20 border border-purple-400/30 text-white"
-                            : "text-gray-300 hover:bg-white/5 border border-transparent"
-                        }`}
+                        className={`w-full text-left text-xs rounded px-2 py-2 flex items-center gap-2 transition ${isActiveChapter
+                          ? "bg-purple-600/20 border border-purple-400/30 text-white"
+                          : "text-gray-300 hover:bg-white/5 border border-transparent"
+                          }`}
                         title={`Nhảy tới chương ${ch.chapterNumber}`}
                       >
                         <span className="truncate">
@@ -472,9 +473,8 @@ export default function ModBookPreview() {
                 <div>
                   Đang xem:{" "}
                   {totalPages > 0
-                    ? `${currentIndex + 1}${
-                        currentIndex + 2 <= totalPages ? " - " + (currentIndex + 2) : ""
-                      }`
+                    ? `${currentIndex + 1}${currentIndex + 2 <= totalPages ? " - " + (currentIndex + 2) : ""
+                    }`
                     : "-"}
                 </div>
               </div>
@@ -509,31 +509,43 @@ export default function ModBookPreview() {
                 )}
 
                 {scan && scanPage && (
-                  <div className="text-xs text-gray-200 space-y-2">
-                    <div className="flex flex-wrap gap-3">
+                  <div className="text-xs text-gray-200 space-y-3">
+                    {/* ===== TỔNG QUAN ===== */}
+                    <div className="flex flex-wrap gap-4">
                       <span>
-                        Từ cấm:{" "}
+                        🚫 Từ cấm phát hiện:{" "}
                         <span className="text-white font-semibold">
                           {scan.forbiddenCount}
                         </span>
                       </span>
+
                       <span>
-                        Similarity:{" "}
+                        📄 Mức độ trùng nội dung:{" "}
                         <span className="text-white font-semibold">
                           {(scan.maxSimilarity * 100).toFixed(1)}%
                         </span>
                       </span>
+
                       {scan.plagiarismFlag && (
-                        <span className="text-red-300 font-semibold">Nghi vấn</span>
+                        <span className="text-red-300 font-semibold">
+                          ⚠️ Có dấu hiệu đạo văn
+                        </span>
                       )}
                     </div>
 
+                    {/* ===== KẾT LUẬN AI ===== */}
                     <div>
-                      AI:{" "}
-                      <span className="text-white font-semibold">{scan.aiRiskLevel}</span>{" "}
-                      / <span className="text-white font-semibold">{scan.aiAction}</span>
+                      🧠 Đánh giá AI:{" "}
+                      <span className="text-white font-semibold">
+                        {mapRiskLevelVi(scan.aiRiskLevel)}
+                      </span>{" "}
+                      –{" "}
+                      <span className="text-white font-semibold">
+                        {mapActionVi(scan.aiAction)}
+                      </span>
                     </div>
 
+                    {/* ===== LÝ DO AI ===== */}
                     {scan.aiReasons?.length > 0 && (
                       <ul className="list-disc pl-4 space-y-1 text-gray-300">
                         {scan.aiReasons.slice(0, 3).map((r, i) => (
@@ -542,31 +554,53 @@ export default function ModBookPreview() {
                       </ul>
                     )}
 
-                    {scan.forbiddenMatches?.length > 0 && (
+                    {/* ===== ĐẠO VĂN NỘI BỘ ===== */}
+                    {scan.plagiarismHits?.length > 0 && (
                       <div className="text-gray-300">
-                        Từ cấm đầu tiên:{" "}
-                        <span className="text-white font-semibold">
-                          {scan.forbiddenMatches[0].word}
-                        </span>
+                        <div className="font-semibold text-white mb-1">
+                          📚 Trùng với nội dung trong hệ thống:
+                        </div>
+                        <div>
+                          Trang{" "}
+                          <span className="text-white font-semibold">
+                            {scan.plagiarismHits[0].sourceId}
+                          </span>{" "}
+                          ({(scan.plagiarismHits[0].similarity * 100).toFixed(1)}%)
+                        </div>
+                        {scan.plagiarismHits[0].snippet && (
+                          <div className="italic text-gray-400 mt-1">
+                            “{scan.plagiarismHits[0].snippet}”
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {scan.plagiarismHits?.length > 0 && (
+                    {/* ===== ĐẠO VĂN ONLINE ===== */}
+                    {onlineSources?.length > 0 && (
                       <div className="text-gray-300">
-                        Trùng cao nhất với PAGE{" "}
-                        <span className="text-white font-semibold">
-                          {scan.plagiarismHits[0].sourceId}
-                        </span>
-                        {scan.plagiarismHits[0].snippet ? (
-                          <>
-                            {" "}
-                            — “{scan.plagiarismHits[0].snippet}”
-                          </>
-                        ) : null}
+                        <div className="font-semibold text-white mb-1">
+                          🌐 Nguồn trùng khớp trên Internet:
+                        </div>
+                        <ul className="list-disc pl-4 space-y-1">
+                          {onlineSources.slice(0, 3).map((s, i) => (
+                            <li key={i}>
+                              <a
+                                href={s.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-300 underline"
+                              >
+                                {s.title || s.url}
+                              </a>{" "}
+                              ({(s.similarity * 100).toFixed(1)}%)
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
                 )}
+
               </div>
 
               {/* Review + buttons */}
@@ -619,9 +653,8 @@ export default function ModBookPreview() {
                     size="icon"
                     disabled={!canPrev}
                     onClick={handlePrev}
-                    className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                      !canPrev ? "opacity-40 cursor-not-allowed" : ""
-                    }`}
+                    className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canPrev ? "opacity-40 cursor-not-allowed" : ""
+                      }`}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </Button>
@@ -630,9 +663,8 @@ export default function ModBookPreview() {
                     size="icon"
                     disabled={!canNext}
                     onClick={handleNext}
-                    className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${
-                      !canNext ? "opacity-40 cursor-not-allowed" : ""
-                    }`}
+                    className={`border-white/20 text-white bg-transparent hover:bg-white/10 ${!canNext ? "opacity-40 cursor-not-allowed" : ""
+                      }`}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </Button>
@@ -748,9 +780,8 @@ function PageCard({
   if (!page) {
     return (
       <div
-        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${
-          side === "left" ? "origin-right" : "origin-left"
-        }`}
+        className={`flex-1 bg-linear-to-br from-[#020617] to-[#020617] border border-dashed border-white/10 rounded-xl shadow-inner flex items-center justify-center text-xs text-gray-500 ${side === "left" ? "origin-right" : "origin-left"
+          }`}
       >
         Trang trống
       </div>
@@ -803,10 +834,9 @@ function PageCard({
         shadow-xl overflow-hidden
         px-4 py-4
         flex flex-col
-        ${
-          side === "left"
-            ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
-            : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
+        ${side === "left"
+          ? "origin-right shadow-[15px_0_35px_rgba(0,0,0,0.6)]"
+          : "origin-left shadow-[-15px_0_35px_rgba(0,0,0,0.6)]"
         }
       `}
     >
@@ -835,11 +865,10 @@ function PageCard({
             <button
               type="button"
               onClick={() => onToggleAudio(page.pageId)}
-              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${
-                isPlaying
-                  ? "bg-emerald-500 text-white"
-                  : "bg-emerald-600/90 text-white hover:bg-emerald-500"
-              }`}
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow shrink-0 ${isPlaying
+                ? "bg-emerald-500 text-white"
+                : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+                }`}
               title="Phát audio"
             >
               <Volume2 className="w-4 h-4" />
@@ -853,11 +882,10 @@ function PageCard({
               type="button"
               onClick={() => onCheckModeration(page)}
               disabled={isChecking}
-              className={`h-7 px-2 rounded-md text-xs border border-white/10 ${
-                isChecking
-                  ? "bg-white/10 text-gray-300 cursor-not-allowed"
-                  : "bg-white/5 text-white hover:bg-white/10"
-              }`}
+              className={`h-7 px-2 rounded-md text-xs border border-white/10 ${isChecking
+                ? "bg-white/10 text-gray-300 cursor-not-allowed"
+                : "bg-white/5 text-white hover:bg-white/10"
+                }`}
               title="Kiểm tra AI (từ cấm / đạo văn)"
             >
               {isChecking ? "Đang kiểm..." : "Kiểm tra"}
